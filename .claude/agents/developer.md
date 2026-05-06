@@ -46,18 +46,19 @@ Key constraints:
 
 ## Skills to Use
 
-Invoke these by task type:
-- `/fabric-ingest` — any source → Bronze/Lakehouse ingestion
-- `/fabric-transform` — Silver cleaning, MERGE, schema enforcement
-- `/fabric-model` — Gold facts, dimensions, KPIs, semantic models
-- `/fabric-notebook-loop` — local dev → deploy → run → debug cycle
-- `/fabric-ops` — orchestration, VACUUM, platform setup
+Read the relevant `SKILL.md` before starting the task:
+- `skills/core/fabric-ingest/SKILL.md` — any source → Bronze/Lakehouse ingestion
+- `skills/core/fabric-transform/SKILL.md` — Silver cleaning, MERGE, schema enforcement
+- `skills/core/fabric-model/SKILL.md` — Gold facts, dimensions, KPIs, semantic models
+- `skills/core/fabric-notebook-loop/SKILL.md` — local dev → deploy → run → debug cycle
+- `skills/core/fabric-ops/SKILL.md` — orchestration, VACUUM, platform setup
 
 ## Memory Updates (required before handoff)
 
 After completing any significant work, update these files:
 
 - **New Fabric item created** → add row to `.codex-fabric/memory/platform.md`
+- **New source system registered** → add row to `.codex-fabric/memory/platform.md` and write placeholder-only `SRC_<SYSTEM>_TYPE` / `SRC_<SYSTEM>_PATH` entries to `.env` (or `.env.example` for reusable template changes); never fill in real values
 - **Pipeline built or changed** → update status in `.codex-fabric/memory/project.md`; create or update `memory/runbooks/<pipeline-name>.md` using `templates/runbook.md`
 - **Non-obvious design choice** → append to `.codex-fabric/memory/decisions.md`
 

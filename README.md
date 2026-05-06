@@ -12,12 +12,37 @@ cd fabric-skills-settings
 ./setup.sh                        # check tools, create folders, generate .env
 ./setup.sh --install-tools        # also install uv, Fabric CLI, nbmon
 ./setup.sh --install-skills       # also install recommended external skill packs
+python3 bin/validate-source-contract.py --allow-placeholders templates/source-contract.yaml
+python3 bin/validate-agent-guidance.py
 ```
 
-Then open Claude Code and type:
+Then open Claude Code or Codex and type:
 > "I need to build a pipeline from [source] to [target]"
 
 The `orchestrator` agent will scope the work and route it to the right specialist.
+
+
+## Day One Checklist
+
+1. [ ] Clone this repo and run `./setup.sh --install-tools`.
+2. [ ] Create or open a sandbox Fabric workspace in <https://app.fabric.microsoft.com>.
+3. [ ] Create three lakehouses in that workspace: `bronze_lh`, `silver_lh`, and `gold_lh`.
+4. [ ] Copy the workspace and lakehouse IDs into `.env`.
+5. [ ] Run `fab auth login` and rerun `./setup.sh` to confirm the auth check passes.
+6. [ ] If you do not have source files yet, ask the orchestrator: "I need to build a test pipeline with mock orders data."
+7. [ ] If you do have source files, place them under `data/sandbox/` and register placeholder `SRC_<SYSTEM>_*` entries.
+
+
+
+## Validation and Discovery Helpers
+
+| Helper | Purpose | Safe boundary |
+|---|---|---|
+| `python3 bin/validate-source-contract.py <contract.yaml>` | Validates source contract shape, primary keys, sensitive fields, outputs, and validation rules. | Local only; does not read `.env`, source data, or Fabric. |
+| `python3 bin/validate-agent-guidance.py` | Checks runtime docs and sub-agent guidance for drift against bundled core skills and canonical docs. | Local only; no Fabric or network calls. |
+| `bin/fabric-inventory-readonly` | Lets a human list Fabric workspaces/items with `fab api get`. | Read-only; never writes `.env`, memory, or Fabric resources. |
+
+See `docs/fabric-sandbox-smoke-test.md`, `docs/fabric-mcp-readonly-discovery.md`, and `docs/agent-guidance-map.md` for the completed in-scope follow-up sprints.
 
 ## Agent Team
 
@@ -60,9 +85,10 @@ External skills land in `skills/external/` and are immediately available to agen
 
 ```
 fabric-skills-settings/
-├── CLAUDE.md / AGENTS.md        # Agent instructions (cross-runtime, identical content)
+├── CLAUDE.md / AGENTS.md        # Runtime-specific agent instructions kept aligned
 ├── CONTEXT.md                   # Shared Fabric vocabulary
 ├── setup.sh                     # Bootstrap script (run once)
+├── docs/                        # Smoke tests, MCP discovery, guidance map, examples
 │
 ├── .claude/agents/
 │   ├── orchestrator.md          # Scope + route
@@ -82,17 +108,24 @@ fabric-skills-settings/
 ├── templates/
 │   ├── source-contract.yaml
 │   ├── pipeline-brief.md
+│   ├── mock-data-generator.py
 │   └── runbook.md
 │
 ├── bin/
 │   ├── install-skills.sh        # Extension manager
-│   ├── build-notebooks.py       # .py → .Notebook converter
-│   └── fab-sandbox              # Fabric CLI sandbox wrapper
+│   ├── validate-source-contract.py # Source contract validator
+│   ├── validate-agent-guidance.py # Agent guidance drift check
+│   ├── fabric-inventory-readonly # Human-run read-only Fabric inventory
+│   ├── build_fabric_notebooks.py # .py → .Notebook converter
+│   ├── fab-sandbox              # Fabric CLI sandbox wrapper
+│   └── nbmon-sandbox            # Lightweight job monitor
 │
-├── .codex-fabric/               # Agent memory (not committed)
+├── .codex-fabric/               # Persistent agent memory (committed)
+│   ├── MEMORY.md
 │   └── memory/
-│       ├── adr/                 # Architecture decisions
-│       ├── platform-inventory/  # Fabric items catalog
+│       ├── project.md           # Active pipelines and known issues
+│       ├── platform.md          # Fabric items and source systems
+│       ├── decisions.md         # Architecture decisions
 │       ├── runbooks/            # Pipeline runbooks
 │       └── security/            # Access reviews, Key Vault refs
 │

@@ -30,6 +30,26 @@ description: Operate and maintain a Fabric data platform — orchestrate pipelin
 **Weekly**: Run VACUUM, check for schema drift, review slow jobs, check quarantine rate trends  
 **Monthly**: Capacity review, access review, Key Vault secret rotation check, stale item audit
 
+## Daily Checks
+
+```bash
+# Check recent notebook runs in the sandbox workspace.
+fab job list --workspace-id "$WORKSPACE_ID" --type Notebook
+
+# For a single suspicious run, prefer nbmon for diagnostics.
+nbmon status "$RUN_ID"
+```
+
+Run this in the Fabric SQL endpoint for the relevant Lakehouse/Warehouse:
+
+```sql
+SELECT _batch_id, _quarantine_reason, COUNT(*) AS cnt
+FROM bronze_quarantine
+WHERE CAST(_ingest_timestamp AS DATE) = CURRENT_DATE
+GROUP BY _batch_id, _quarantine_reason
+ORDER BY cnt DESC;
+```
+
 ## VACUUM Pattern
 
 ```python
@@ -70,13 +90,15 @@ fab auth login
 
 ## Platform Inventory Update
 
-After creating a new Fabric item, add it to `.codex-fabric/memory/platform-inventory/`:
-```yaml
-- name: bronze_orders_lh
-  type: Lakehouse
-  workspace: dev-workspace
-  owner: data-team
-  created: 2025-01-15
-  dependencies: [source_erp_api]
-  runbook: runbooks/orders-pipeline.md
+After creating a new Fabric item, add it to `.codex-fabric/memory/platform.md`:
+```markdown
+## Lakehouses
+| Name | Workspace | Layer | Created | Notes |
+|---|---|---|---|---|
+| bronze_lh | fabric-sandbox | Bronze | 2026-05-06 | Raw + masked ingest tables |
+
+## Source Systems
+| Name | Type | Env Var Prefix | Cadence | Sensitive Fields |
+|---|---|---|---|---|
+| ORDERS | file | SRC_ORDERS | ad hoc sandbox | customer_name, email |
 ```

@@ -44,8 +44,6 @@ dirs=(
     "data/landing"
     "logs"
     "skills/external"
-    ".codex-fabric/memory/adr"
-    ".codex-fabric/memory/platform-inventory"
     ".codex-fabric/memory/runbooks"
     ".codex-fabric/memory/security"
 )
@@ -105,15 +103,31 @@ else
     TOOLS_OK=false
 fi
 
+FAB_AVAILABLE=false
 if check_tool "Fabric CLI (fab)" "fab" "run: ./setup.sh --install-tools"; then
-    :
+    FAB_AVAILABLE=true
 elif [[ "$INSTALL_TOOLS" == "true" ]]; then
     log_info "Installing Fabric CLI..."
     uv tool install ms-fabric-cli
     log_ok "Fabric CLI installed"
+    FAB_AVAILABLE=true
 else
     log_warn "Fabric CLI: run './setup.sh --install-tools' to install"
     TOOLS_OK=false
+fi
+
+if [[ "$FAB_AVAILABLE" == "true" ]]; then
+    if command -v timeout &>/dev/null; then
+        FAB_AUTH_CHECK=(timeout 15s fab api get /v1/me)
+    else
+        FAB_AUTH_CHECK=(fab api get /v1/me)
+    fi
+
+    if "${FAB_AUTH_CHECK[@]}" &>/dev/null; then
+        log_ok "Fabric auth: authenticated"
+    else
+        log_warn "Fabric auth: not authenticated — run 'fab auth login' after setup"
+    fi
 fi
 
 if check_tool "nbmon" "nbmon" "run: uv tool install nbmon"; then
@@ -172,8 +186,17 @@ fi
 
 echo ""
 log_info "Next steps:"
-log_info "  1. Fill in .env with your environment values"
-log_info "  2. Run 'fab auth login' to authenticate with Fabric"
-log_info "  3. Open Claude Code / Codex and start with the orchestrator agent"
-log_info "  4. Optional: './setup.sh --install-skills' for extra skill packs"
+log_info "  1. Create or open a sandbox Fabric workspace: https://app.fabric.microsoft.com → Workspaces → New workspace"
+log_info "  2. Copy the workspace ID from Workspace settings and paste it into FABRIC_WORKSPACE_ID in .env"
+log_info "  3. Create three lakehouses in that workspace: bronze_lh, silver_lh, gold_lh"
+log_info "  4. Copy each Lakehouse ID from its Settings page into BRONZE/SILVER/GOLD_LAKEHOUSE_ID in .env"
+log_info "  5. Run 'fab auth login' if the auth check above is not authenticated"
+log_info "  6. Register sources with SRC_<SYSTEM>_TYPE=file and SRC_<SYSTEM>_PATH=./data/sandbox/<file>.csv"
+log_info "  7. Open Claude Code / Codex and start with the orchestrator agent"
+log_info "  8. Optional: 'python3 bin/validate-source-contract.py --allow-placeholders templates/source-contract.yaml'"
+log_info "  9. Optional: 'python3 bin/validate-agent-guidance.py' after guidance changes"
+log_info " 10. Optional: read docs/fabric-sandbox-smoke-test.md for a human-run sandbox smoke test"
+log_info " 11. Optional: read docs/fabric-mcp-readonly-discovery.md for MCP/read-only inventory discovery"
+log_info " 12. Optional: './setup.sh --install-skills' for extra skill packs"
+log_info "Docs: Microsoft Fabric lakehouse quickstart: https://learn.microsoft.com/en-us/fabric/data-engineering/tutorial-lakehouse-get-started"
 echo ""
