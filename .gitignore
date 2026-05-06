@@ -1,0 +1,49 @@
+# Environment
+.env
+
+# Local Claude Code overrides (machine-specific)
+.claude/settings.local.json
+
+# Data (never commit)
+data/
+logs/
+
+# External skills (installed separately)
+skills/external/*/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Compiled notebooks
+fabric_notebooks/
+
+# Delta artifacts
+_delta_log/
+*.checkpoint.parquet
+*.parquet
+
+# Memory — commit the structure and content, not the registry
+skills/external/.registry.json
+
+# File formats (potentially large or sensitive)
+*.csv
+*.xlsx
+*.xls
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp

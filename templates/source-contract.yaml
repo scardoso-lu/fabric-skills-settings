@@ -1,0 +1,37 @@
+# Source Contract — fill one per data source
+# Defines what goes in and what the pipeline must produce.
+# Agents work with local sandbox files. Production connectivity is handled
+# via Fabric Linked Services and Key Vault — not configured here.
+
+source:
+  name: ""                     # human-readable name, e.g., "Orders"
+  system: ""                   # short uppercase identifier matching SRC_<SYSTEM> in .env
+  sandbox_path: ""             # local file: data/sandbox/<filename>.csv | .parquet | .json
+  cadence: ""                  # daily | weekly | on-demand | streaming
+
+input:
+  schema:                      # columns and their source types (as they appear in the file)
+    - name: ""
+      type: ""                 # string | integer | decimal | date | boolean
+  grain: ""                    # what does one row represent? e.g., "one order line item"
+  primary_keys: []             # columns that uniquely identify a record
+  volume: ""                   # approximate rows per load (e.g., 1000 rows in mock)
+
+sensitive_fields:              # fields requiring masking before any write to Delta
+  - name: ""
+    category: ""               # pii | pci | restricted
+    action: ""                 # mask | redact | drop | pseudonymize
+
+output:
+  bronze_table: ""             # target Bronze Delta table name
+  silver_table: ""             # target Silver Delta table name
+  partition_column: ""         # usually _ingest_date
+
+validation_rules:
+  - field: ""
+    rule: ""                   # e.g., "amount >= 0", "order_id IS NOT NULL"
+
+access:
+  owners: []                   # team or person responsible for this source
+  consumers: []                # who reads Silver/Gold output
+  sensitivity: ""              # public | internal | confidential | restricted

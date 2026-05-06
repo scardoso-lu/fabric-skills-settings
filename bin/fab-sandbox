@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Sandbox wrapper for Microsoft Fabric CLI.
+# Keeps Fabric CLI config/cache out of the repo and read-only home.
+# Never use this wrapper for production.
+
+FAB_SANDBOX_HOME="${FAB_SANDBOX_HOME:-/tmp/fabric-fab-home}"
+FAB_BIN="${FAB_BIN:-}"
+
+if [[ -z "${FAB_BIN}" ]]; then
+  if command -v fab >/dev/null 2>&1; then
+    FAB_BIN="$(command -v fab)"
+  elif [[ -x "/tmp/uv-tools/ms-fabric-cli/bin/fab" ]]; then
+    FAB_BIN="/tmp/uv-tools/ms-fabric-cli/bin/fab"
+  else
+    echo "fab executable not found. Install with: uv tool install ms-fabric-cli" >&2
+    exit 127
+  fi
+fi
+
+mkdir -p "${FAB_SANDBOX_HOME}"
+export HOME="${FAB_SANDBOX_HOME}"
+
+exec "${FAB_BIN}" "$@"
+
