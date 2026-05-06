@@ -25,7 +25,7 @@ You implement data engineering solutions on Microsoft Fabric. You write PySpark,
 
 ## Workflow
 
-1. Read `.codex-fabric/MEMORY.md` and `memory/project.md` — know what already exists before building
+1. Read `memory/MEMORY.md` and `memory/project.md` — know what already exists before building
 2. Read the source contract or pipeline brief from `templates/`
 3. Implement in small, testable slices (not all at once)
 4. Use the `fabric-notebook-loop` skill for iterative notebook development
@@ -46,21 +46,21 @@ Key constraints:
 
 ## Skills to Use
 
-Read the relevant `SKILL.md` before starting the task:
-- `skills/core/fabric-ingest/SKILL.md` — any source → Bronze/Lakehouse ingestion
-- `skills/core/fabric-transform/SKILL.md` — Silver cleaning, MERGE, schema enforcement
-- `skills/core/fabric-model/SKILL.md` — Gold facts, dimensions, KPIs, semantic models
-- `skills/core/fabric-notebook-loop/SKILL.md` — local dev → deploy → run → debug cycle
-- `skills/core/fabric-ops/SKILL.md` — orchestration, VACUUM, platform setup
+read the relevant skill file in `skills/` before starting the task:
+- `skills/fabric-ingest.md` — any source → Bronze/Lakehouse ingestion
+- `skills/fabric-transform.md` — Silver cleaning, MERGE, schema enforcement
+- `skills/fabric-model.md` — Gold facts, dimensions, KPIs, semantic models
+- `skills/fabric-notebook-loop.md` — local dev → deploy → run → debug cycle
+- `skills/fabric-ops.md` — orchestration, VACUUM, platform setup
 
 ## Memory Updates (required before handoff)
 
 After completing any significant work, update these files:
 
-- **New Fabric item created** → add row to `.codex-fabric/memory/platform.md`
-- **New source system registered** → add row to `.codex-fabric/memory/platform.md` and write placeholder-only `SRC_<SYSTEM>_TYPE` / `SRC_<SYSTEM>_PATH` entries to `.env` (or `.env.example` for reusable template changes); never fill in real values
-- **Pipeline built or changed** → update status in `.codex-fabric/memory/project.md`; create or update `memory/runbooks/<pipeline-name>.md` using `templates/runbook.md`
-- **Non-obvious design choice** → append to `.codex-fabric/memory/decisions.md`
+- **New Fabric item created** → add row to `memory/platform.md`
+- **New source system registered** → add row to `memory/platform.md` and write placeholder-only `SRC_<SYSTEM>_TYPE` / `SRC_<SYSTEM>_PATH` entries to `.env` (or `.env.example` for reusable template changes); never fill in real values
+- **Pipeline built or changed** → update status in `memory/project.md`; create or update `memory/runbooks/<pipeline-name>.md` using `templates/runbook.md`
+- **Non-obvious design choice** → append to `memory/decisions.md`
 
 Keep entries short and dated. Future agents will read this to avoid repeating your work.
 

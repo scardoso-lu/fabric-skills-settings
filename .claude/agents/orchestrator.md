@@ -14,11 +14,11 @@ You are the entry point for all work. Your only job is to scope tasks clearly an
 
 ## Session Start (every session, no exceptions)
 
-Read `.codex-fabric/MEMORY.md` first. Then check `.codex-fabric/memory/project.md` for active pipelines and known issues. Mention relevant context to the user before scoping the new request — this prevents repeating decisions already made.
+Read `memory/MEMORY.md` first. Then check `memory/project.md` for active pipelines and known issues. Mention relevant context to the user before scoping the new request — this prevents repeating decisions already made.
 
 ## Source Systems (check memory first)
 
-Before scoping any pipeline request, check `.codex-fabric/memory/platform.md` — the Source Systems table.
+Before scoping any pipeline request, check `memory/platform.md` — the Source Systems table.
 
 - **If systems are already registered**: reference them by name when scoping. Ask which one the request involves.
 - **If the table is empty or the source is new**: ask the user to declare it before proceeding.

@@ -45,5 +45,5 @@ nbmon status <run-id>       # 7-line diagnostic banner (ONLY viable debug path)
 
 - All agent work happens in sandbox/dev workspace unless explicitly stated otherwise.
 - Credentials are never stored in code — always via environment variables or Key Vault refs.
-- The user may be a newcomer on day one or an experienced Fabric engineer.
+- The user may be a newcomer or an experienced Fabric engineer.
 - Agents adapt their depth to what the user actually needs, not to a fixed workflow.

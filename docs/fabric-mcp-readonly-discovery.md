@@ -9,7 +9,7 @@ Allowed read-only discovery:
 - List workspaces visible to the authenticated human.
 - List Fabric items in a confirmed sandbox workspace.
 - Inspect item metadata needed to fill `.env` placeholders manually.
-- Compare discovered item names with `.codex-fabric/memory/platform.md`.
+- Compare discovered item names with `memory/platform.md`.
 - Fetch notebook or pipeline IDs **after the human has confirmed the item exists**.
 
 Not allowed in this workflow:
@@ -25,7 +25,7 @@ Not allowed in this workflow:
 **Agents cannot create Fabric items** (notebooks, pipelines, lakehouses, warehouses, etc.).
 The human must create items in the Fabric portal or via `fab` CLI before an agent fetches their IDs.
 
-Agents **can** update configuration derived from existing items they have access to — for example, writing the discovered item ID into `.env.example` or into `.codex-fabric/memory/platform.md` after the human confirms the item name.
+Agents **can** update configuration derived from existing items they have access to — for example, writing the discovered item ID into `.env.example` or into `memory/platform.md` after the human confirms the item name.
 
 ## Fetching Fabric IDs — human/agent sequence
 
@@ -39,7 +39,7 @@ Use this pattern any time you need a notebook ID, pipeline ID, or lakehouse ID:
    ```
 4. Agent finds the item by the name the human provided and surfaces the ID.
 5. **Human copies the ID** into `.env` locally (`NOTEBOOK_ITEM_ID=...`).
-6. Agent may update `.codex-fabric/memory/platform.md` with the item name and a placeholder reference (never the real ID).
+6. Agent may update `memory/platform.md` with the item name and a placeholder reference (never the real ID).
 
 > Agent must wait for the human to confirm the item exists before attempting to fetch its ID.
 > Do not guess IDs or fabricate them from display names.
@@ -47,7 +47,7 @@ Use this pattern any time you need a notebook ID, pipeline ID, or lakehouse ID:
 ## Human/agent sequence (general discovery)
 
 1. Human configures the MCP client locally.
-2. Agent reads `.codex-fabric/MEMORY.md`, `.codex-fabric/memory/project.md`, and `.codex-fabric/memory/platform.md`.
+2. Agent reads `memory/MEMORY.md`, `memory/project.md`, and `memory/platform.md`.
 3. Agent requests read-only discovery only: list workspaces and list items.
 4. Human confirms which discovered workspace is the sandbox workspace.
 5. Human copies approved IDs into `.env` locally if needed.
@@ -57,7 +57,7 @@ Use this pattern any time you need a notebook ID, pipeline ID, or lakehouse ID:
 
 - "Use Fabric MCP read-only tools to list sandbox workspaces; do not create or update anything."
 - "Use Fabric MCP read-only tools to list lakehouses in the confirmed sandbox workspace."
-- "Compare discovered sandbox item names with `.codex-fabric/memory/platform.md` and tell me what memory rows are missing."
+- "Compare discovered sandbox item names with `memory/platform.md` and tell me what memory rows are missing."
 - "The notebook 'orders_bronze' is ready in my sandbox workspace. Fetch its item ID so I can add it to .env."
 
 ## Fallback without MCP

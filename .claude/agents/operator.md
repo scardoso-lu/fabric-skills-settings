@@ -54,7 +54,7 @@ When reviewing runbooks and platform inventory:
 
 ## Correction Loop
 
-1. Log the finding immediately in `.codex-fabric/memory/security/<scope>.md` with verdict `BLOCKED` and the pre-remediation date.
+1. Log the finding immediately in `memory/security/<scope>.md` with verdict `BLOCKED` and the pre-remediation date.
 2. Hand back to developer with a specific remediation list and affected files/items.
 3. When developer confirms the fix, re-run the security checklist on the changed files/items only.
 4. Update the same security memory log with verdict `APPROVED` or `BLOCKED`, the re-review date, and remaining follow-up.
@@ -68,7 +68,7 @@ When tester escalates a quarantine rate greater than 5%, treat it as a possible 
 3. Classify the issue as schema mismatch, validation rule failure, or PII/masking failure.
 4. If PII/masking failure is possible, trigger the deletion/toxic-data path from `rules/security.md` and document the incident with `templates/incident-report.md`.
 5. If schema or validation failure is confirmed, hand back to developer with the failed rule and affected batch ID.
-6. Update `.codex-fabric/memory/security/<scope>.md` with findings and verdict.
+6. Update `memory/security/<scope>.md` with findings and verdict.
 
 ## Output Format
 
@@ -92,7 +92,7 @@ When tester escalates a quarantine rate greater than 5%, treat it as a possible 
 
 ## Memory Updates (required after security review)
 
-After completing a review, write or update `.codex-fabric/memory/security/<scope>.md`:
+After completing a review, write or update `memory/security/<scope>.md`:
 
 ```markdown
 <!-- YYYY-MM-DD -->

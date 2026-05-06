@@ -1,179 +1,205 @@
 # Fabric Codex
 
-Newcomer-ready operating system for Microsoft Fabric data engineering teams.
+Agent-powered operating system for Microsoft Fabric data engineering.
 
-Run `setup.sh` on day one. Start with the `orchestrator` agent. Build enterprise-grade Fabric pipelines from the first day.
+## How it works
+
+```mermaid
+flowchart TD
+    H(["👤 Human"])
+
+    subgraph Harness["fabric-skills-settings  —  this repo"]
+        O["🎯 orchestrator\nscope · route · never implements"]
+        D["🛠 developer\nPySpark · SQL · notebooks · pipelines"]
+        T["🔍 tester\nDQ · row counts · schema · anomalies"]
+        P["🔒 operator\nKey Vault · PII · access control"]
+        M[("💾 memory/\nplatform · project · decisions")]
+    end
+
+    TARGET["📁 Target Repo\n$TARGET_REPO_PATH"]
+    FABRIC["☁️ Fabric Workspace\nsandbox only"]
+
+    H -->|"I need to build a pipeline from X to Y"| O
+    O -->|"build / fix / implement"| D
+    O -->|"test / validate / DQ"| T
+    O -->|"secrets / PII / access control"| P
+
+    D -->|"handoff"| T
+    T -->|"PASS"| O
+    T -->|"quarantine > 5%"| P
+    T -->|"RI failures"| D
+    P -->|"BLOCKED — remediation list"| D
+    P -->|"APPROVED"| O
+
+    D -->|"write files"| TARGET
+    D -->|"deploy & run"| FABRIC
+    D -.->|"update"| M
+    T -.->|"log result"| M
+    P -.->|"audit entry"| M
+    M -.->|"read at session start"| O
+```
+
+---
+
+## Fabric item lifecycle
+
+```mermaid
+sequenceDiagram
+    actor Human
+    participant Portal as Fabric Portal
+    participant Agent as Agent (developer)
+    participant MCP as Fabric MCP 🔍 read-only
+    participant Sandbox as Sandbox Workspace
+
+    Human->>Portal: Create item (notebook / pipeline / lakehouse)
+    Human->>Agent: "The notebook [name] is ready in [workspace]"
+    Agent->>MCP: List items in workspace
+    MCP-->>Agent: Item metadata + ID
+    Agent->>Agent: Store name & ID in memory/platform.md
+    Agent->>Agent: Edit code locally  src/notebooks/*.py
+    Agent->>Sandbox: fab import  (deploy)
+    Agent->>Sandbox: fab job run  (execute)
+    Sandbox-->>Agent: Run ID
+    Agent->>Sandbox: nbmon status <run-id>
+    Sandbox-->>Agent: Logs · result · errors
+    Agent->>Agent: Fix → redeploy → repeat until PASS
+    Agent-->>Human: Handoff to tester
+```
+
+---
+
+## Medallion pipeline flow
+
+```mermaid
+flowchart LR
+    SRC["📄 Source\nCSV · API · DB"]
+
+    subgraph Build["Developer builds"]
+        B["🥉 Bronze\nraw · immutable\nfabric-ingest"]
+        S["🥈 Silver\ncleaned · typed · merged\nfabric-transform"]
+        G["🥇 Gold\naggregated · business-ready\nfabric-model"]
+    end
+
+    subgraph Validate["Tester validates independently"]
+        DQ{"DQ checks\nfabric-validate"}
+    end
+
+    PASS(["✅ PASS\nnotify orchestrator"])
+    ESC_D(["🔁 Escalate → developer\nRI failures · schema drift"])
+    ESC_O(["🚨 Escalate → operator\nquarantine > 5% · PII leak"])
+
+    SRC --> B --> S --> G --> DQ
+    DQ -->|all checks pass| PASS
+    DQ -->|RI / schema| ESC_D
+    DQ -->|quarantine / PII| ESC_O
+```
+
+---
 
 ## Quick Start
 
 ```bash
 git clone <this-repo>
 cd fabric-skills-settings
-./setup.sh                        # check tools, create folders, generate .env
-./setup.sh --install-tools        # also install uv, Fabric CLI, nbmon
-./setup.sh --install-skills       # also install recommended external skill packs
-python3 bin/validate-source-contract.py --allow-placeholders templates/source-contract.yaml
-python3 bin/validate-agent-guidance.py
+./setup.sh --install-tools        # install uv, Fabric CLI, nbmon
+fab auth login                     # authenticate once
+./setup.sh --checklist             # verify everything is ready
 ```
 
 Then open Claude Code or Codex and type:
 > "I need to build a pipeline from [source] to [target]"
 
-The `orchestrator` agent will scope the work and route it to the right specialist.
+---
 
-
-## Day One Checklist
+## Installation
 
 1. [ ] Clone this repo and run `./setup.sh --install-tools`.
-2. [ ] Create or open a sandbox Fabric workspace in <https://app.fabric.microsoft.com>.
-3. [ ] Create three lakehouses in that workspace: `bronze_lh`, `silver_lh`, and `gold_lh`.
-4. [ ] Copy the workspace and lakehouse IDs into `.env`.
-5. [ ] Run `fab auth login` and rerun `./setup.sh` to confirm the auth check passes.
-6. [ ] If you do not have source files yet, ask the orchestrator: "I need to build a test pipeline with mock orders data."
-7. [ ] If you do have source files, place them under `data/sandbox/` and register placeholder `SRC_<SYSTEM>_*` entries.
+2. [ ] Create a sandbox Fabric workspace at <https://app.fabric.microsoft.com>.
+3. [ ] Create three lakehouses: `bronze_lh`, `silver_lh`, `gold_lh`.
+4. [ ] Copy workspace and lakehouse IDs into `.env`.
+5. [ ] Set `TARGET_REPO_PATH=/path/to/your/project` in `.env`.
+6. [ ] Run `fab auth login`, then `./setup.sh --checklist` to confirm everything is green.
 
+---
 
-
-## Validation and Discovery Helpers
-
-| Helper | Purpose | Safe boundary |
-|---|---|---|
-| `python3 bin/validate-source-contract.py <contract.yaml>` | Validates source contract shape, primary keys, sensitive fields, outputs, and validation rules. | Local only; does not read `.env`, source data, or Fabric. |
-| `python3 bin/validate-agent-guidance.py` | Checks runtime docs and sub-agent guidance for drift against bundled core skills and canonical docs. | Local only; no Fabric or network calls. |
-| `bin/fabric-inventory-readonly` | Lets a human list Fabric workspaces/items with `fab api get`. | Read-only; never writes `.env`, memory, or Fabric resources. |
-
-See `docs/fabric-sandbox-smoke-test.md`, `docs/fabric-mcp-readonly-discovery.md`, and `docs/agent-guidance-map.md` for the completed in-scope follow-up sprints.
-
-## Agent Team
+## Agents
 
 | Agent | Role |
 |---|---|
-| **orchestrator** | Confirms scope, routes tasks — never implements |
+| **orchestrator** | Scopes tasks, routes to specialists — never implements |
 | **developer** | PySpark, SQL, notebooks, pipeline assets, sandbox execution |
-| **tester** | Independent validation and repeatable DQ checks |
-| **operator** | Key Vault, access control, sensitive data, security review |
+| **tester** | Independent validation, DQ checks, anomaly detection |
+| **operator** | Key Vault, access control, PII review, security handoff |
 
-**Standard flow**: orchestrator → developer → tester  
+**Standard flow**: orchestrator → developer → tester
 **Add operator** for any task touching secrets, PII, or access control.
+
+---
 
 ## Skills
 
-### Core (bundled)
-
 | Skill | Purpose |
 |---|---|
-| `fabric-ingest` | Any source → Lakehouse/Warehouse ingestion |
+| `fabric-ingest` | Any source → Lakehouse / Warehouse ingestion |
 | `fabric-transform` | Cleaning, typing, deduplication, MERGE |
 | `fabric-model` | Dimensions, facts, KPIs, semantic models |
 | `fabric-validate` | DQ checks, schema drift, row counts, anomalies |
-| `fabric-notebook-loop` | Local .py → deploy → run → nbmon → fix cycle |
+| `fabric-notebook-loop` | Local `.py` → deploy → run → nbmon → fix cycle |
 | `fabric-ops` | Orchestration, VACUUM, platform inventory |
 
-### External (installable extensions)
-
+Install optional external packs:
 ```bash
 ./bin/install-skills.sh add microsoft/skills-for-fabric
-./bin/install-skills.sh add PatrickGallucci/fabric-skills
 ./bin/install-skills.sh list
-./bin/install-skills.sh update
-./bin/install-skills.sh remove <pack-name>
 ```
 
-External skills land in `skills/external/` and are immediately available to agents.
+---
 
 ## Project Structure
 
 ```
 fabric-skills-settings/
-├── CLAUDE.md / AGENTS.md        # Runtime-specific agent instructions kept aligned
-├── CONTEXT.md                   # Shared Fabric vocabulary
-├── setup.sh                     # Bootstrap script (run once)
-├── docs/                        # Smoke tests, MCP discovery, guidance map, examples
+├── CLAUDE.md              # Claude Code entry point
+├── AGENTS.md              # Codex CLI entry point
+├── setup.sh               # Bootstrap script
+├── .env.example           # Config template
 │
-├── .claude/agents/
-│   ├── orchestrator.md          # Scope + route
-│   ├── developer.md             # Implement
-│   ├── tester.md                # Validate
-│   └── operator.md              # Security + access
-│
-├── rules/
-│   ├── security.md              # Secrets, Key Vault, audit
-│   ├── data-engineering.md      # Idempotency, lineage, DQ
-│   └── fabric-platform.md       # Fabric API, Spark, async patterns
-│
-├── skills/
-│   ├── core/                    # 6 bundled skill packs
-│   └── external/                # Installed extensions (gitignored)
-│
-├── templates/
-│   ├── source-contract.yaml
-│   ├── pipeline-brief.md
-│   ├── mock-data-generator.py
-│   └── runbook.md
-│
-├── bin/
-│   ├── install-skills.sh        # Extension manager
-│   ├── validate-source-contract.py # Source contract validator
-│   ├── validate-agent-guidance.py # Agent guidance drift check
-│   ├── fabric-inventory-readonly # Human-run read-only Fabric inventory
-│   ├── build_fabric_notebooks.py # .py → .Notebook converter
-│   ├── fab-sandbox              # Fabric CLI sandbox wrapper
-│   └── nbmon-sandbox            # Lightweight job monitor
-│
-├── .codex-fabric/               # Persistent agent memory (committed)
-│   ├── MEMORY.md
-│   └── memory/
-│       ├── project.md           # Active pipelines and known issues
-│       ├── platform.md          # Fabric items and source systems
-│       ├── decisions.md         # Architecture decisions
-│       ├── runbooks/            # Pipeline runbooks
-│       └── security/            # Access reviews, Key Vault refs
-│
-└── .env.example                 # Environment variable template
+├── .claude/agents/        # orchestrator · developer · tester · operator
+├── rules/                 # security · data-engineering · fabric-platform
+├── skills/                # fabric-ingest · transform · model · validate · loop · ops
+├── templates/             # source-contract · runbook · pipeline-brief · mock-data …
+├── docs/                  # context · smoke-test · MCP discovery · guidance map
+├── config/                # thresholds.yaml
+├── bin/                   # setup helpers · validators · fab-sandbox · nbmon-sandbox
+└── memory/                # local per-clone — gitignored
+    ├── MEMORY.md          # index — read every session
+    ├── platform.md        # Fabric items · target repo · source systems
+    ├── project.md         # active pipelines · known issues
+    ├── decisions.md       # architecture decisions
+    ├── runbooks/
+    └── security/
 ```
 
-## Team Setup and Shared Memory
-
-The `.codex-fabric/memory/` directory is **committed to git** and shared across all team members. It is the persistent project state agents read at session start.
-
-### Working on a team
-
-- Treat memory files as shared project state — changes go through the normal PR review process.
-- Each entry should be **dated** (e.g., `2026-05-06: ...`) so parallel additions appear as separate lines rather than conflicts.
-- If two people edit the same memory file concurrently, resolve conflicts by **keeping both entries** — memory is append-oriented, not last-writer-wins.
-- To reduce merge conflicts on high-frequency files like `project.md`, add this to `.codex-fabric/memory/.gitattributes`:
-  ```
-  *.md merge=union
-  ```
-  This tells Git to union-merge additions rather than conflict on them.
-
-### Forking vs. using as a template
-
-- **Single project**: clone the repo, adapt memory to your pipelines, and commit your team's state.
-- **Multiple projects**: fork once per project so each project has its own memory. Do not share a single clone across unrelated pipelines.
-- Memory files under `.codex-fabric/` are templates — replace the placeholder content with your actual pipelines, Fabric items, and decisions before your first real session.
+---
 
 ## Rules (always enforced)
 
-- **security.md** — no hardcoded secrets, sanitization barrier, audit envelope, sandbox boundary
-- **data-engineering.md** — idempotency, lineage, quality gates, schema evolution, error handling
-- **fabric-platform.md** — 202+poll async pattern, auth, Spark/SQL gotchas, Gold optimization
+- **security.md** — no hardcoded secrets, Key Vault refs, audit envelope, sandbox boundary
+- **data-engineering.md** — idempotency, lineage, quality gates, schema evolution
+- **fabric-platform.md** — async API pattern, Spark/SQL, nbmon debugging
+
+---
 
 ## Requirements
 
-| Tool | Purpose | Install |
-|---|---|---|
-| Python 3.10+ | Runtime | python.org |
-| uv | Package management | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
-| Fabric CLI (fab) | Deploy and run Fabric items | `uv tool install ms-fabric-cli` |
-| nbmon | Spark job debugging | `uv tool install nbmon` |
-| Git | Clone and version control | git-scm.com |
+| Tool | Install |
+|---|---|
+| Python 3.10+ | python.org |
+| uv | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| Fabric CLI | `uv tool install ms-fabric-cli` |
+| nbmon | `uv tool install nbmon` |
 
-## What This Is Not
-
-- Not a Fabric workspace — it's a configuration wrapper you use alongside a Fabric workspace
-- Not a specific project — it's a template you adapt to your pipelines
-- Not prescriptive about architecture — Medallion is the default, but streaming, ODS, wide tables, and data vault patterns are all supported
+---
 
 ## License
 

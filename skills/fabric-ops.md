@@ -90,7 +90,7 @@ fab auth login
 
 ## Platform Inventory Update
 
-After creating a new Fabric item, add it to `.codex-fabric/memory/platform.md`:
+After creating a new Fabric item, add it to `memory/platform.md`:
 ```markdown
 ## Lakehouses
 | Name | Workspace | Layer | Created | Notes |

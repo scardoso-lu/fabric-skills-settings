@@ -53,5 +53,5 @@ ORDER BY cnt DESC;
    - **PII/masking failure**: raw sensitive field found, masked field leaked to logs, or sanitization barrier bypassed.
 4. If PII or masking is involved, trigger the deletion/toxic-data path from `rules/security.md` and keep raw values out of the report.
 5. If schema or validation is involved, hand back to developer with the exact failed rule and affected batch ID.
-6. Record the final verdict and remediation in `.codex-fabric/memory/security/<scope>.md`.
+6. Record the final verdict and remediation in `memory/security/<scope>.md`.
 

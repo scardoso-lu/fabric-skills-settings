@@ -31,7 +31,12 @@ _delta_log/
 *.checkpoint.parquet
 *.parquet
 
-# Memory — commit the structure and content, not the registry
+# Memory — content is local to each clone; only MEMORY.md index is shared
+# Each clone generates its own memory files via setup.sh
+memory/*.md
+!memory/MEMORY.md
+memory/runbooks/*.md
+memory/security/*.md
 skills/external/.registry.json
 
 # File formats (potentially large or sensitive)
@@ -47,3 +52,4 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+settings.local.json

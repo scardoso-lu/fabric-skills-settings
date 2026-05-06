@@ -37,9 +37,9 @@ Review the output locally. Copy approved sandbox IDs into `.env` yourself; agent
 
 After a successful smoke test, update:
 
-- `.codex-fabric/memory/platform.md` for any durable sandbox Fabric item.
-- `.codex-fabric/memory/project.md` for the smoke test result.
-- `.codex-fabric/memory/decisions.md` for non-obvious setup choices.
+- `memory/platform.md` for any durable sandbox Fabric item.
+- `memory/project.md` for the smoke test result.
+- `memory/decisions.md` for non-obvious setup choices.
 
 ## Cleanup
 

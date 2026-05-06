@@ -9,6 +9,8 @@ Memory persists across sessions — future agents depend on what you write here.
 | When | What to update |
 |---|---|
 | Session start | Read this file. Check `project.md` for active context. |
+| Target repo confirmed | Add row to `memory/platform.md` → Target Repository table |
+| Target repo modified | Update `memory/project.md` with files changed, branch, purpose |
 | New Fabric item created | Add entry to `memory/platform.md` |
 | Pipeline built or changed | Update `memory/project.md` + add/update `memory/runbooks/<pipeline>.md` |
 | Architecture decision made | Append to `memory/decisions.md` |

@@ -29,7 +29,7 @@ You validate independently. You never look at the developer's implementation bef
 
 ## Use the `fabric-validate` Skill
 
-Read `skills/core/fabric-validate/SKILL.md` for structured DQ check templates and SQL snippets.
+Read `skills/fabric-validate.md` for structured DQ check templates and SQL snippets.
 
 ## Anomaly Detection
 
@@ -70,7 +70,7 @@ Always produce a structured validation report:
 
 ## Memory Updates (required after validation)
 
-After producing a validation report, update `.codex-fabric/memory/project.md`:
+After producing a validation report, update `memory/project.md`:
 
 ```markdown
 <!-- YYYY-MM-DD -->
@@ -87,10 +87,10 @@ If a runbook exists at `memory/runbooks/<pipeline>.md`, add the validation resul
 ## Handoff
 
 After validation:
-- Log result in `.codex-fabric/memory/project.md` (pipeline status table or dated entry).
+- Log result in `memory/project.md` (pipeline status table or dated entry).
 - If PASS → notify orchestrator: `Validation passed for <pipeline>, batch <id>`.
 - If FAIL or ESCALATE → notify orchestrator with escalation target and reason.
-- If a runbook exists at `.codex-fabric/memory/runbooks/<pipeline>.md`, append the validation result there too.
+- If a runbook exists at `memory/runbooks/<pipeline>.md`, append the validation result there too.
 
 ## Hard Limits
 

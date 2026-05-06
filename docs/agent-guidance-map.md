@@ -11,10 +11,10 @@ This file is the single navigation map for agent runtime guidance. It does not r
 | Security boundaries | `rules/security.md` | Credential, token, PII, sandbox, audit, and MCP hygiene rules. |
 | Data engineering rules | `rules/data-engineering.md` | Idempotency, lineage, DQ gates, schema evolution, and MERGE expectations. |
 | Fabric platform rules | `rules/fabric-platform.md` | Fabric auth, async operations, notebook debugging, Spark/SQL patterns. |
-| Task skills | `skills/core/*/SKILL.md` | Read the relevant skill before implementation or validation. |
-| Persistent state | `.codex-fabric/MEMORY.md`, `.codex-fabric/memory/*.md` | Read at session start; update after significant work. |
+| Task skills | `skills/*.md` | Read the relevant skill before implementation or validation. |
+| Persistent state | `memory/MEMORY.md`, `memory/*.md` | Read at session start; update after significant work. |
 | Human templates | `templates/` | Use instead of inventing new formats. |
-| Roadmap scope | `roadmap/ROADMAP.md` | Completed and in-scope future improvements only. |
+| Roadmap scope | *(removed — see git history)* | Completed and in-scope future improvements only. |
 
 ## Drift check
 
