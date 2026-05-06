@@ -1,6 +1,6 @@
 ---
 name: fabric-notebook-loop
-description: Develop Fabric notebooks using a local closed-loop cycle — author in .py locally, build to .Notebook format, deploy via fab import, execute, capture the run ID, monitor with nbmon, diagnose errors, fix, and redeploy. Use for iterative notebook development without portal interaction. Typically converges in 1–3 iterations.
+description: Develop Fabric notebooks using a local closed-loop cycle — author in .py locally, build to .Notebook format, deploy via fab import, execute, capture the run ID, monitor with nbmon, diagnose errors, fix, and redeploy. Use for iterative notebook development without portal interaction. Typically converges in 1–3 iterations. Cold-start time varies by capacity tier (≈3 min on F64, up to 8–12 min on F2/F4).
 ---
 
 # fabric-notebook-loop
@@ -12,7 +12,7 @@ description: Develop Fabric notebooks using a local closed-loop cycle — author
 - Capture the run ID from `fab job run` before monitoring
 - Monitor runs with `nbmon status` — never use `fab job run-status` for error diagnosis
 - Never pipe full driver logs into agent context — use nbmon's 7-line summary
-- Use HighConcurrency pool for initial cold start (~3 min); subsequent runs within 20 min are fast
+- Use HighConcurrency pool for initial cold start (≈3 min on F64; F2/F4 can reach 8–12 min); subsequent runs within 20 min are fast on any capacity tier
 
 ## PREFER
 

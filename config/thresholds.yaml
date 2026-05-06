@@ -1,0 +1,42 @@
+# config/thresholds.yaml — Data quality and validation thresholds for Fabric Codex agents.
+#
+# Agents must read this file (not prose rule files) for all threshold values.
+# Adjust per-project without editing SKILL.md or AGENTS.md rule files.
+#
+# Usage in PySpark:
+#   import yaml
+#   with open("config/thresholds.yaml") as f:
+#       thresholds = yaml.safe_load(f)
+#   quarantine_limit = thresholds["dq"]["quarantine_rate_pct"]
+#
+# Usage in SQL notebooks: query the comment block below as documentation;
+# substitute values manually or via a parameter cell that reads this file.
+
+dq:
+  # Quarantine rate above this percentage triggers ESCALATE TO OPERATOR
+  quarantine_rate_pct: 5.0
+
+  # Row count drop vs. previous run above this percentage triggers FAIL
+  row_count_drop_pct: 20.0
+
+  # Null rate spike on a key field above this percentage triggers FAIL
+  null_rate_spike_pct: 10.0
+
+  # Referential integrity failures above this percentage trigger FAIL
+  ri_failure_pct: 5.0
+
+  # Row count drop vs. source above this percentage triggers a warning (not FAIL)
+  source_row_count_drop_pct: 5.0
+
+anomaly:
+  # Revenue or amount values below this threshold are flagged as impossible
+  min_amount: 0
+
+  # Maximum number of duplicate business keys allowed before FAIL
+  max_duplicates: 0
+
+  # Maximum number of null primary keys allowed before FAIL
+  max_null_pks: 0
+
+  # Maximum number of records with missing audit envelope fields before FAIL
+  max_missing_envelope: 0

@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # install-skills.sh — Extension manager for fabric-codex skills
 # Usage:
-#   ./bin/install-skills.sh add <owner/repo>       Install a skill pack from GitHub
-#   ./bin/install-skills.sh remove <pack-name>     Remove an installed skill pack
-#   ./bin/install-skills.sh list                   List installed skill packs
-#   ./bin/install-skills.sh update                 Update all installed skill packs
-#   ./bin/install-skills.sh update <pack-name>     Update a specific skill pack
+#   ./bin/install-skills.sh add <owner/repo>            Install a skill pack from GitHub
+#   ./bin/install-skills.sh add <owner/repo> --verify   Show recent commits before installing
+#   ./bin/install-skills.sh remove <pack-name>          Remove an installed skill pack
+#   ./bin/install-skills.sh list                        List installed skill packs
+#   ./bin/install-skills.sh update                      Update all installed skill packs
+#   ./bin/install-skills.sh update <pack-name>          Update a specific skill pack
+#
+# ⚠ SECURITY WARNING: External skill packs execute as agent context.
+#   Only install from repositories you have reviewed and trust.
 
 set -euo pipefail
 
@@ -84,9 +88,15 @@ print(match[0]['repo'] if match else '')
 cmd_add() {
     local repo="${1:-}"
     if [[ -z "$repo" ]]; then
-        log_err "Usage: install-skills.sh add <owner/repo>"
+        log_err "Usage: install-skills.sh add <owner/repo> [--verify]"
         exit 1
     fi
+
+    # Check for --verify flag anywhere in remaining args
+    local verify=false
+    for arg in "${@:2}"; do
+        [[ "$arg" == "--verify" ]] && verify=true
+    done
 
     local pack_name="${repo//\//-}"
     local target_dir="${SKILLS_DIR}/${pack_name}"
@@ -96,12 +106,37 @@ cmd_add() {
         exit 0
     fi
 
-    log_info "Installing skill pack from github.com/${repo} ..."
-    if ! git clone --depth=1 "https://github.com/${repo}.git" "$target_dir"; then
+    echo ""
+    echo "⚠  WARNING: External skill packs execute as agent context."
+    echo "   Only install from repositories you have reviewed and trust."
+    echo "   Source: https://github.com/${repo}"
+    echo ""
+
+    local tmp_dir="${SKILLS_DIR}/.tmp-${pack_name}"
+    rm -rf "$tmp_dir"
+
+    log_info "Cloning github.com/${repo} ..."
+    if ! git clone --depth=1 "https://github.com/${repo}.git" "$tmp_dir"; then
         log_err "Clone failed. Check the repo URL and your internet connection."
+        rm -rf "$tmp_dir"
         exit 1
     fi
 
+    if [[ "$verify" == "true" ]]; then
+        echo ""
+        echo "── Recent commits (last 5) ─────────────────────────────────"
+        git -C "$tmp_dir" log --oneline -5
+        echo "────────────────────────────────────────────────────────────"
+        echo ""
+        read -r -p "Proceed with installation? [y/N] " answer
+        if [[ "${answer,,}" != "y" ]]; then
+            log_info "Installation cancelled."
+            rm -rf "$tmp_dir"
+            exit 0
+        fi
+    fi
+
+    mv "$tmp_dir" "$target_dir"
     # Remove git history to keep it lean
     rm -rf "${target_dir}/.git"
 

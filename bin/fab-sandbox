@@ -4,7 +4,11 @@ set -euo pipefail
 # Sandbox wrapper for Microsoft Fabric CLI.
 # Keeps Fabric CLI config/cache out of the repo and read-only home.
 # Never use this wrapper for production.
+#
+# Tested against: ms-fabric-cli >= 0.1.0
+# Run './setup.sh' to see the installed version.
 
+FAB_MIN_VERSION="${FAB_MIN_VERSION:-0.1.0}"
 FAB_SANDBOX_HOME="${FAB_SANDBOX_HOME:-/tmp/fabric-fab-home}"
 FAB_BIN="${FAB_BIN:-}"
 
@@ -16,6 +20,25 @@ if [[ -z "${FAB_BIN}" ]]; then
   else
     echo "fab executable not found. Install with: uv tool install ms-fabric-cli" >&2
     exit 127
+  fi
+fi
+
+# Assert minimum version
+_fab_version="$("${FAB_BIN}" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)"
+if [[ -n "${_fab_version}" ]]; then
+  _ok=$(python3 -c "
+from packaging.version import Version
+import sys
+try:
+    ok = Version('${_fab_version}') >= Version('${FAB_MIN_VERSION}')
+    print('yes' if ok else 'no')
+except Exception:
+    print('yes')  # packaging not available — skip check
+" 2>/dev/null || echo "yes")
+  if [[ "${_ok}" == "no" ]]; then
+    echo "fab version ${_fab_version} is below minimum required ${FAB_MIN_VERSION}." >&2
+    echo "Upgrade with: uv tool install --upgrade ms-fabric-cli" >&2
+    exit 1
   fi
 fi
 

@@ -29,6 +29,7 @@ This repository is a configuration wrapper, not a Fabric workspace. It gives age
 | Rules | `rules/security.md`, `rules/data-engineering.md`, `rules/fabric-platform.md` | These apply to all roles. Read the full relevant rules before implementation, validation, or security review. |
 | Skills | `skills/core/*/SKILL.md`, `skills/external/` | Read the relevant `SKILL.md` before starting related work. External packs are optional and installed with `bin/install-skills.sh`. |
 | Templates | `templates/` | Use source contracts, briefs, mock data, runbooks, release, DQ, incident, and security templates instead of inventing formats. |
+| Thresholds | `config/thresholds.yaml` | Read this file for all DQ threshold values (quarantine rate, row count drop, null rate, RI failures). Never hardcode thresholds. |
 | Tooling | `setup.sh`, `bin/build_fabric_notebooks.py`, `bin/fab-sandbox`, `bin/nbmon-sandbox`, `bin/install-skills.sh` | Prefer sandbox wrappers and the local `.py` → `.Notebook` build flow. |
 
 ---
@@ -55,6 +56,8 @@ Roadmap items were accepted where they reinforced the project purpose: a newcome
 8. [ ] Start with the orchestrator: "I need to build a pipeline from [source] to [target]."
 
 Agents must never ask for, receive, echo, or commit real credentials while helping with these steps.
+
+**Fabric item creation**: agents cannot create Fabric items (notebooks, pipelines, lakehouses). The human must create items in the portal first, then tell the agent the item name. The agent uses the Fabric MCP read-only tools to look up the item ID. The human copies the ID into `.env`. See `docs/fabric-mcp-readonly-discovery.md` for the full sequence.
 
 ---
 
@@ -105,15 +108,18 @@ Core skills ship bundled. Read the relevant `SKILL.md` before starting a task.
 | `skills/core/fabric-notebook-loop/SKILL.md` | Local `.py` → deploy → run → capture run ID → nbmon → fix cycle |
 | `skills/core/fabric-ops/SKILL.md` | VACUUM, DAG orchestration, platform inventory, daily checks |
 
-External skill packs are optional. Read `roadmap/external-skills.md` before installing them from GitHub:
+External skill packs are optional. Read `roadmap/external-skills.md` before installing them from GitHub.
+Use `--verify` to review recent commits before accepting a pack:
 
 ```bash
-./bin/install-skills.sh add microsoft/skills-for-fabric
-./bin/install-skills.sh add PatrickGallucci/fabric-skills
+./bin/install-skills.sh add microsoft/skills-for-fabric --verify
+./bin/install-skills.sh add PatrickGallucci/fabric-skills --verify
 ./bin/install-skills.sh list
 ./bin/install-skills.sh update
 ./bin/install-skills.sh remove <pack-name>
 ```
+
+⚠ External skill packs execute as agent context — only install from repos you have reviewed.
 
 ---
 

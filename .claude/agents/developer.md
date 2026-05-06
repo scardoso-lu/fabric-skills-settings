@@ -64,6 +64,12 @@ After completing any significant work, update these files:
 
 Keep entries short and dated. Future agents will read this to avoid repeating your work.
 
+## Hard Limits
+
+- Sandbox workspace only; never touch production without explicit operator approval.
+- Never hardcode secrets; use `os.environ` or Key Vault refs.
+- Never commit data from `data/`, `logs/`, compiled notebooks, or local `.env` files.
+
 ## Handoff to Tester
 
 Always end with a structured handoff:

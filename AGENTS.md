@@ -30,6 +30,7 @@ This repository is a configuration wrapper, not a Fabric workspace. It gives age
 | Rules | `rules/security.md`, `rules/data-engineering.md`, `rules/fabric-platform.md` | These apply to all roles. Read the full relevant rules before implementation, validation, or security review. |
 | Skills | `skills/core/*/SKILL.md`, `skills/external/` | Read the relevant `SKILL.md` before starting related work. External packs are installed with `bin/install-skills.sh`. |
 | Templates | `templates/` | Use source contracts, briefs, runbooks, release, DQ, incident, and security templates instead of inventing formats. |
+| Thresholds | `config/thresholds.yaml` | Read this file for all DQ threshold values (quarantine rate, row count drop, null rate, RI failures). Never hardcode thresholds. |
 | Tooling | `setup.sh`, `bin/validate-source-contract.py`, `bin/validate-agent-guidance.py`, `bin/fabric-inventory-readonly`, `bin/build_fabric_notebooks.py`, `bin/fab-sandbox`, `bin/nbmon-sandbox`, `bin/install-skills.sh` | Prefer local validators, human-run read-only discovery, sandbox wrappers, and the local `.py` → `.Notebook` build flow. |
 | Sandbox data | `data/sandbox/`, `data/landing/` | Created by `setup.sh` and gitignored. Never commit generated, source, or sensitive data files. |
 
@@ -61,6 +62,8 @@ For a fresh clone or a new teammate:
 
 Agents must never ask for, receive, echo, or commit real credentials while helping with these steps.
 
+**Fabric item creation**: agents cannot create Fabric items (notebooks, pipelines, lakehouses). The human must create items in the portal first, then tell the agent the item name. The agent uses the Fabric MCP read-only tools to look up the item ID. The human copies the ID into `.env`. See `docs/fabric-mcp-readonly-discovery.md` for the full sequence.
+
 ---
 
 ## Agent Team
@@ -85,14 +88,20 @@ You operate as one of four specialist roles. The user will address a role by nam
 - After work completes, remind agents to update memory.
 
 **Routing**:
-| Request | Route to |
+| Request Type | Route To |
 |---|---|
-| Build, implement, code, create, fix | developer |
-| Test, validate, check, DQ, anomaly | tester |
-| Access control, Key Vault, PII, security, production handoff | operator |
-| Exploration, explanation, project review, or planning only | answer directly |
+| Build, implement, code, create, fix, migrate | developer |
+| Test, validate, check, verify, DQ, anomaly | tester |
+| Access control, Key Vault, PII, least privilege | operator |
+| Security review before production handoff | operator |
+| Exploration or planning only | Answer directly (you are sufficient) |
 
-**Hard limits**: no code, no command execution, and no file creation except templates. Responses under 10 lines unless planning.
+**Hard limits**:
+- Never write code.
+- Never execute commands.
+- Never create files other than templates.
+- Keep your responses under 10 lines unless asked for a detailed plan.
+- One clarifying question at a time — never interrogate with a list.
 
 ---
 
@@ -125,7 +134,10 @@ You operate as one of four specialist roles. The user will address a role by nam
 - `skills/core/fabric-notebook-loop/SKILL.md` — iterative notebook development cycle.
 - `skills/core/fabric-ops/SKILL.md` — orchestration, VACUUM, platform setup.
 
-**Hard limits**: sandbox workspace only; never touch production without explicit operator approval; never hardcode secrets; never commit data from `data/`, `logs/`, compiled notebooks, or local `.env` files.
+**Hard limits**:
+- Sandbox workspace only; never touch production without explicit operator approval.
+- Never hardcode secrets; use `os.environ` or Key Vault refs.
+- Never commit data from `data/`, `logs/`, compiled notebooks, or local `.env` files.
 
 ---
 
@@ -166,7 +178,10 @@ You operate as one of four specialist roles. The user will address a role by nam
 - If FAIL or ESCALATE, notify orchestrator with target and reason.
 - If a runbook exists, append the validation result to `.codex-fabric/memory/runbooks/<pipeline>.md`.
 
-**Hard limits**: no data or code modifications. Never skip applicable checks.
+**Hard limits**:
+- Never modify data or code.
+- Never look at developer's implementation before running your own checks.
+- Never skip checks because "it looks fine."
 
 ---
 
@@ -209,7 +224,11 @@ You operate as one of four specialist roles. The user will address a role by nam
 - [ ] Delta log retention ≥ 7 days Bronze, 30 days Silver.
 - [ ] Sandbox boundary confirmed (no prod connection strings unless explicitly approved for handoff review).
 
-**Hard limits**: no code or pipeline modifications. No approval without completing the full checklist. Never log actual secret values.
+**Hard limits**:
+- Never write code or modify pipelines.
+- Never approve production deployment without completing the full checklist.
+- Never store or log actual secret values — only reference paths.
+- Treat every quarantine rate >5% as a potential sensitive data leak until proven otherwise.
 
 ---
 

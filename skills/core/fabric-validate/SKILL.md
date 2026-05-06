@@ -9,7 +9,8 @@ description: Validate pipeline output with repeatable data quality checks — ro
 
 - Run all checks independently — never rely on developer's implementation for validation logic
 - Produce a structured report with PASS/FAIL per check
-- Quarantine rate >5% must trigger escalation — never approve silently
+- Read `config/thresholds.yaml` for all threshold values — never hardcode them
+- Quarantine rate above `dq.quarantine_rate_pct` must trigger escalation — never approve silently
 - Check both current run AND comparison to previous run (row count delta, metric drift)
 
 ## Standard Check Suite
@@ -100,10 +101,12 @@ def run_dq_checks(df, table_name: str, pk_col: str) -> dict:
 
 ## Anomaly Thresholds
 
-| Metric | Threshold | Action |
-|---|---|---|
-| Row count drop vs. previous run | >20% | FAIL — escalate to developer |
-| Quarantine rate | >5% | ESCALATE TO OPERATOR |
-| Null rate spike on key field | >10% | FAIL — escalate to developer |
-| RI failures (fact → dim) | >5% | FAIL — escalate to developer |
-| Missing audit envelope | Any | FAIL — escalate to developer |
+Thresholds are defined in `config/thresholds.yaml`. Default values are shown below — always read the file at runtime.
+
+| Metric | Config key | Default | Action |
+|---|---|---|---|
+| Row count drop vs. previous run | `dq.row_count_drop_pct` | >20% | FAIL — escalate to developer |
+| Quarantine rate | `dq.quarantine_rate_pct` | >5% | ESCALATE TO OPERATOR |
+| Null rate spike on key field | `dq.null_rate_spike_pct` | >10% | FAIL — escalate to developer |
+| RI failures (fact → dim) | `dq.ri_failure_pct` | >5% | FAIL — escalate to developer |
+| Missing audit envelope | `anomaly.max_missing_envelope` | Any (>0) | FAIL — escalate to developer |

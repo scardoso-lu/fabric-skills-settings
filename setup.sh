@@ -106,6 +106,11 @@ fi
 FAB_AVAILABLE=false
 if check_tool "Fabric CLI (fab)" "fab" "run: ./setup.sh --install-tools"; then
     FAB_AVAILABLE=true
+    # Document the installed version for bin/fab-sandbox minimum-version enforcement
+    _fab_ver="$(fab --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)"
+    if [[ -n "$_fab_ver" ]]; then
+        log_info "Tested fab version: ${_fab_ver} (minimum enforced by bin/fab-sandbox: FAB_MIN_VERSION)"
+    fi
 elif [[ "$INSTALL_TOOLS" == "true" ]]; then
     log_info "Installing Fabric CLI..."
     uv tool install ms-fabric-cli

@@ -3,6 +3,7 @@ set -euo pipefail
 
 # Lightweight sandbox notebook/job monitor using Fabric CLI.
 # It intentionally avoids direct production APIs and only wraps fab commands.
+# Minimum fab version is enforced by bin/fab-sandbox (FAB_MIN_VERSION).
 
 if [[ $# -lt 2 ]]; then
   cat >&2 <<'USAGE'

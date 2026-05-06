@@ -7,10 +7,15 @@ Fabric metadata before using it in a real workspace.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import uuid
 from pathlib import Path
+
+# Namespace UUID for deterministic logical IDs. Fixed — do not change once
+# notebooks are deployed, or Fabric will treat re-imports as new items.
+_LOGICAL_ID_NAMESPACE = uuid.UUID("b1f4e6d2-8c3a-4f7e-9b2d-1a5c0e8f3d6a")
 
 
 NOTEBOOK_SOURCE_DIR = Path("src/notebooks")
@@ -36,11 +41,16 @@ def render_notebook(source_path: Path) -> str:
     return "\n\n".join(cells) + "\n"
 
 
+def _deterministic_logical_id(display_name: str) -> str:
+    """Derive a stable UUID from the notebook name so re-imports update rather than duplicate."""
+    return str(uuid.uuid5(_LOGICAL_ID_NAMESPACE, display_name))
+
+
 def render_platform(display_name: str) -> str:
     payload = {
         "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
         "metadata": {"type": "Notebook", "displayName": display_name},
-        "config": {"version": "2.0", "logicalId": str(uuid.uuid4())},
+        "config": {"version": "2.0", "logicalId": _deterministic_logical_id(display_name)},
     }
     return json.dumps(payload, indent=2) + "\n"
 

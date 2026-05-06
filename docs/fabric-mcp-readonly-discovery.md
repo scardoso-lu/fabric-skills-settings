@@ -10,6 +10,7 @@ Allowed read-only discovery:
 - List Fabric items in a confirmed sandbox workspace.
 - Inspect item metadata needed to fill `.env` placeholders manually.
 - Compare discovered item names with `.codex-fabric/memory/platform.md`.
+- Fetch notebook or pipeline IDs **after the human has confirmed the item exists**.
 
 Not allowed in this workflow:
 
@@ -19,7 +20,31 @@ Not allowed in this workflow:
 - Asking the user to paste bearer tokens, tenant IDs, or workspace IDs into chat.
 - Production handoff or production workspace operations.
 
-## Human/agent sequence
+## Item creation rule
+
+**Agents cannot create Fabric items** (notebooks, pipelines, lakehouses, warehouses, etc.).
+The human must create items in the Fabric portal or via `fab` CLI before an agent fetches their IDs.
+
+Agents **can** update configuration derived from existing items they have access to — for example, writing the discovered item ID into `.env.example` or into `.codex-fabric/memory/platform.md` after the human confirms the item name.
+
+## Fetching Fabric IDs — human/agent sequence
+
+Use this pattern any time you need a notebook ID, pipeline ID, or lakehouse ID:
+
+1. **Human creates the item** in the Fabric portal (or confirms it already exists).
+2. Human tells the agent: *"The notebook [name] is ready in workspace [name]."*
+3. Agent uses the Fabric MCP tool to list items in the confirmed workspace:
+   ```
+   Use Fabric MCP read-only tools to list notebooks in workspace "[workspace-name]".
+   ```
+4. Agent finds the item by the name the human provided and surfaces the ID.
+5. **Human copies the ID** into `.env` locally (`NOTEBOOK_ITEM_ID=...`).
+6. Agent may update `.codex-fabric/memory/platform.md` with the item name and a placeholder reference (never the real ID).
+
+> Agent must wait for the human to confirm the item exists before attempting to fetch its ID.
+> Do not guess IDs or fabricate them from display names.
+
+## Human/agent sequence (general discovery)
 
 1. Human configures the MCP client locally.
 2. Agent reads `.codex-fabric/MEMORY.md`, `.codex-fabric/memory/project.md`, and `.codex-fabric/memory/platform.md`.
@@ -33,6 +58,7 @@ Not allowed in this workflow:
 - "Use Fabric MCP read-only tools to list sandbox workspaces; do not create or update anything."
 - "Use Fabric MCP read-only tools to list lakehouses in the confirmed sandbox workspace."
 - "Compare discovered sandbox item names with `.codex-fabric/memory/platform.md` and tell me what memory rows are missing."
+- "The notebook 'orders_bronze' is ready in my sandbox workspace. Fetch its item ID so I can add it to .env."
 
 ## Fallback without MCP
 

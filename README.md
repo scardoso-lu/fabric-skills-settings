@@ -132,6 +132,27 @@ fabric-skills-settings/
 └── .env.example                 # Environment variable template
 ```
 
+## Team Setup and Shared Memory
+
+The `.codex-fabric/memory/` directory is **committed to git** and shared across all team members. It is the persistent project state agents read at session start.
+
+### Working on a team
+
+- Treat memory files as shared project state — changes go through the normal PR review process.
+- Each entry should be **dated** (e.g., `2026-05-06: ...`) so parallel additions appear as separate lines rather than conflicts.
+- If two people edit the same memory file concurrently, resolve conflicts by **keeping both entries** — memory is append-oriented, not last-writer-wins.
+- To reduce merge conflicts on high-frequency files like `project.md`, add this to `.codex-fabric/memory/.gitattributes`:
+  ```
+  *.md merge=union
+  ```
+  This tells Git to union-merge additions rather than conflict on them.
+
+### Forking vs. using as a template
+
+- **Single project**: clone the repo, adapt memory to your pipelines, and commit your team's state.
+- **Multiple projects**: fork once per project so each project has its own memory. Do not share a single clone across unrelated pipelines.
+- Memory files under `.codex-fabric/` are templates — replace the placeholder content with your actual pipelines, Fabric items, and decisions before your first real session.
+
 ## Rules (always enforced)
 
 - **security.md** — no hardcoded secrets, sanitization barrier, audit envelope, sandbox boundary
