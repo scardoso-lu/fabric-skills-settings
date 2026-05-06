@@ -240,7 +240,7 @@ ORDER BY cnt DESC;
 
 **Problem**: Minor wording differences in how agents are described between the two files. Low risk but reduces confidence that they're in sync.
 
-**Fix**: Consider a single source of truth (e.g., generate AGENTS.md from CLAUDE.md sections) or add a CI check that compares the two files' key sections.
+**Fix**: Consider a single source of truth (for example, document canonical ownership in a guidance map) or add a local drift check that compares key references across runtime docs.
 
 ---
 
@@ -261,16 +261,34 @@ ORDER BY cnt DESC;
 
 ---
 
+
+## Sprint Implementation — 2026-05-06
+
+The roadmap was reviewed against the project purpose: a newcomer-ready, sandbox-first Microsoft Fabric data engineering wrapper. Items that strengthened day-one setup, safe source registration, validation handoff, security escalation, and reusable templates were implemented. Items that were aspirational or could conflict with the wrapper model were adjusted rather than copied verbatim.
+
+| Item | Verdict | Implementation |
+|---|---|---|
+| 1. Memory seed examples | Accepted | Added commented examples to `project.md`, `platform.md`, and `decisions.md`. |
+| 2. Fabric infrastructure setup guidance | Accepted | Added concrete workspace/lakehouse next steps and Microsoft Learn quickstart link to `setup.sh`; mirrored in `README.md`, `AGENTS.md`, and `CLAUDE.md`. |
+| 3. Fabric auth verification | Accepted with safety adjustment | Added a bounded `fab api get /v1/me` auth check to `setup.sh` using `timeout` when available, so setup warns instead of failing. |
+| 4. Source registration template | Accepted | Added source examples/template to `platform.md` and explicit developer guidance for placeholder-only `SRC_<SYSTEM>_*` entries. |
+| 5. Run ID capture | Accepted with robust parsing | Updated `fabric-notebook-loop` with `RUN_OUTPUT` capture and Python-based JSON/text run ID parsing. |
+| 6. Tester handoff | Accepted | Added tester handoff instructions in both Claude sub-agent and Codex guidance. |
+| 7. Operator correction loop | Accepted | Added pre-remediation logging, developer handback, re-review, and final verdict workflow. |
+| 8. Quarantine escalation playbook | Accepted | Added operator quarantine investigation and incident-report playbook. |
+| 9. Runbook two-phase template | Accepted | Split `templates/runbook.md` into Phase 1 pre-run and Phase 2 post-success sections. |
+| 10. Mock data generator | Accepted | Added `templates/mock-data-generator.py` using Faker seed 42 and `data/sandbox/` output. |
+| 11. Fabric ops concrete commands | Accepted | Added daily `fab job list`, `nbmon`, and quarantine SQL examples. |
+| 12. Notebook-loop full example | Accepted | Added CSV → Bronze worked example. |
+| 13. External skills guide | Adjusted | Added `roadmap/external-skills.md`; external packs are optional references and repo rules remain authoritative. |
+| 14. Skill invocation wording | Accepted | Replaced aspirational slash-command wording with direct `SKILL.md` reads. |
+| 15. CLAUDE/AGENTS drift | Accepted pragmatically | Updated both files now; local drift check implemented in the remaining in-scope sprint work. |
+| 16. README day-one checklist | Accepted | Added a newcomer checklist and corrected project structure details. |
+
+---
 ## Future Ideas (not yet scoped)
 
-| Idea | Value | Effort |
-|---|---|---|
-| CI check: compare CLAUDE.md and AGENTS.md key sections | Low drift risk | Low |
-| Auto-populate `.env` from `fab api` (workspace ID lookup) | Better UX | Medium |
-| Slash command wiring for skills in `.claude/settings.json` | Cleaner DX | Medium |
-| `validate-project.sh` — checks all required files exist and memory is non-empty | Onboarding safety net | Medium |
-| Semantic versioning for memory files (detect stale entries) | Memory hygiene | High |
-| Integration test: full Bronze → Silver → Gold with mock data, automated via CI | Quality gate | High |
+All previously listed in-scope follow-up ideas were either implemented or adjusted in the remaining sprint implementation below. Out-of-scope automated external-service checks, negative-case expansion, and production handoff ideas are intentionally not listed.
 
 ---
 
@@ -279,8 +297,28 @@ ORDER BY cnt DESC;
 | Priority | Items | Status |
 |---|---|---|
 | Already fixed | 1 (`build_fabric_notebooks.py` path bug) | ✅ Done |
-| P0 Day-One Blockers | 4 items | ⬜ Open |
-| P1 Workflow Gaps | 5 items | ⬜ Open |
-| P2 Content Gaps | 4 items | ⬜ Open |
-| P3 Polish | 3 items | ⬜ Open |
-| Future | 6 ideas | 💡 Backlog |
+| P0 Day-One Blockers | 4 items | ✅ Done in 2026-05-06 sprint |
+| P1 Workflow Gaps | 5 items | ✅ Done in 2026-05-06 sprint |
+| P2 Content Gaps | 4 items | ✅ Done in 2026-05-06 sprint |
+| P3 Polish | 3 items | ✅ Done in 2026-05-06 sprint |
+| Remaining in-scope sprints | 4 implemented | ✅ Done |
+
+---
+
+## Remaining In-Scope Sprint Implementation — 2026-05-06
+
+The remaining improvements were reviewed against the wrapper purpose and implemented only where they preserve local/sandbox operation and human control of environment-specific Fabric IDs. Sprint ideas for automated external-service checks, negative-case mock expansion, and production handoff automation were excluded as out of scope.
+
+| Sprint | Theme | Fit review | Implementation |
+|---|---|---|---|
+| Sprint 8 | Source contract validator | Accepted — validates source readiness before agents build pipelines. | Added `bin/validate-source-contract.py` and `docs/examples/mock-orders-source-contract.yaml`. |
+| Sprint 9 | Fabric sandbox smoke runbook | Accepted as human-run sandbox documentation only. | Added `docs/fabric-sandbox-smoke-test.md`. |
+| Sprint 10 | MCP/read-only discovery hardening | Accepted with no token handling and no auto-write behavior. | Added `docs/fabric-mcp-readonly-discovery.md` and `bin/fabric-inventory-readonly`. |
+| Sprint 11 | Agent guidance source map | Accepted as lightweight drift control, not generation complexity. | Added `docs/agent-guidance-map.md` and `bin/validate-agent-guidance.py`. |
+
+## Remaining Backlog
+
+| Idea | Status |
+|---|---|
+| Auto-populate `.env` from Fabric discovery | Closed as adjusted — use read-only discovery plus human copy/paste instead of automatic writes. |
+| Semantic versioning for memory files | Closed as adjusted — use the guidance map and drift check; defer heavier versioning until real pipeline history exists. |

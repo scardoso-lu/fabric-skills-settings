@@ -15,7 +15,10 @@
       "Bash(chmod +x *)",
       "Bash(./bin/install-skills.sh *)",
       "Bash(./setup.sh *)",
-      "Bash(rtk *)"
+      "Bash(rtk *)",
+      "Bash(python3 bin/validate-source-contract.py *)",
+      "Bash(python3 bin/validate-agent-guidance.py *)",
+      "Bash(./bin/fabric-inventory-readonly *)"
     ]
   }
 }

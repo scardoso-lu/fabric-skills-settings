@@ -1,0 +1,45 @@
+# Source Contract Example — MOCK_ORDERS
+# Synthetic example for validating source-contract shape. Do not replace these
+# placeholders with real credentials, hosts, tenant IDs, or connection strings.
+
+source:
+  name: "Mock Orders"
+  system: "MOCK_ORDERS"
+  sandbox_path: "data/sandbox/mock_orders.csv"
+  cadence: "on-demand"
+
+input:
+  schema:
+    - name: "order_id"
+      type: "integer"
+    - name: "customer_id"
+      type: "integer"
+    - name: "order_date"
+      type: "date"
+    - name: "amount"
+      type: "decimal"
+    - name: "status"
+      type: "string"
+  grain: "one synthetic order"
+  primary_keys: ["order_id"]
+  volume: "100 rows per sandbox run"
+
+sensitive_fields: []
+
+output:
+  bronze_table: "bronze_orders"
+  silver_table: "silver_orders"
+  partition_column: "_ingest_date"
+
+validation_rules:
+  - field: "order_id"
+    rule: "required and unique"
+  - field: "amount"
+    rule: "amount >= 0"
+  - field: "customer_id"
+    rule: "required for dimensional joins"
+
+access:
+  owners: ["data-engineering"]
+  consumers: ["agent-validation"]
+  sensitivity: "internal synthetic"
