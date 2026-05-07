@@ -68,7 +68,7 @@ for path in tables_to_vacuum:
 
 ```bash
 # Create folder structure for local development
-mkdir -p src/notebooks fabric_notebooks data/sandbox logs
+mkdir -p workspace fabric_notebooks data/sandbox logs
 
 # Copy environment template
 cp .env.example .env

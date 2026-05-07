@@ -23,9 +23,8 @@ _delta_log/
 !profiles/shared/project-layout/data/
 !profiles/shared/project-layout/data/sandbox/
 !profiles/shared/project-layout/data/sandbox/.gitkeep
-!profiles/shared/project-layout/src/
-!profiles/shared/project-layout/src/notebooks/
-!profiles/shared/project-layout/src/notebooks/.gitkeep
+!profiles/shared/project-layout/workspace/
+!profiles/shared/project-layout/workspace/.gitkeep
 
 # Python
 __pycache__/

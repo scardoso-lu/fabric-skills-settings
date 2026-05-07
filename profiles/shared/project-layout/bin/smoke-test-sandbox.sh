@@ -24,7 +24,7 @@ Usage: bin/smoke-test-sandbox.sh --notebook <name> [--workspace-path <Workspace.
 
 Preconditions:
   - Run from the target repository root after profile installation.
-  - Notebook source exists at src/notebooks/<name>.py.
+  - Notebook source exists at workspace/<name>.py.
   - fab is authenticated and points to a sandbox workspace.
   - FABRIC_WORKSPACE_PATH is set in .env or passed as --workspace-path.
 USAGE

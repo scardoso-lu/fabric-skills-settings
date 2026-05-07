@@ -26,3 +26,5 @@ Checklist:
 - Sandbox boundary confirmed.
 
 Treat DQ failures as potential sensitive-data leaks until root cause is known.
+
+Report APPROVED or BLOCKED (with full remediation list) to orchestrator only. Never communicate results directly to developer or tester.

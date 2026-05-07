@@ -15,13 +15,13 @@ flowchart TD
     end
 
     subgraph Target["Target Repo  —  runtime workspace"]
-        O["🎯 orchestrator\nReads memory/ first · asks one question at a time\nRoutes only · never writes code or runs commands\nTools: Read Glob Grep"]
+        O["🎯 orchestrator\nCentral hub · reads memory/ first\nRoutes all work · receives all results\nNever implements · never writes code\nTools: Read Glob Grep"]
 
-        D["🛠 developer\nsrc/notebooks/*.py with # %% cells\nbuild → fab import → fab job run → nbmon\nUpdates memory/ before handoff\nTools: Read Write Edit Bash Glob Grep"]
+        D["🛠 developer\nworkspace/*.py with # %% cells\nbuild → fab import → fab job run → nbmon\nReports to orchestrator only\nTools: Read Write Edit Bash Glob Grep"]
 
-        T["🔍 tester\nValidates independently — never reads impl first\nRuns dq_*.py via Great Expectations per layer\nChecks: null PKs · dupes · schema drift · RI · PII · lineage\nTools: Read Bash Glob Grep"]
+        T["🔍 tester\nValidates independently · Great Expectations per layer\nNull PKs · dupes · schema drift · RI · PII · lineage\nReports to orchestrator only\nTools: Read Bash Glob Grep"]
 
-        P["🔒 operator\nRead-only security review · never modifies code\nChecks: secrets · masking · least-privilege · RLS/OLS\nGDPR deletion path · lineage envelope · sandbox boundary\nTools: Read Bash Glob Grep"]
+        P["🔒 operator\nRead-only security review · never modifies code\nSecrets · masking · least-privilege · RLS/OLS\nReports to orchestrator only\nTools: Read Bash Glob Grep"]
 
         M[("💾 memory/\nMEMORY.md · project.md\nplatform.md · decisions.md")]
     end
@@ -31,22 +31,27 @@ flowchart TD
     H -->|"install profiles"| INST
     INST -->|"CLAUDE.md · AGENTS.md · skills/ · agents/"| Target
 
-    H -->|"build / fix / validate / review"| O
+    H -->|"request"| O
     O -.->|"reads at session start"| M
 
     O -->|"build · implement · fix · migrate"| D
     O -->|"test · validate · DQ · anomaly"| T
     O -->|"secrets · PII · access · prod handoff"| P
 
-    D -->|"handoff when complete"| T
-    T -->|"PASS"| O
-    T -->|"RI failures · schema drift"| D
-    T -->|"DQ FAIL + PII suspicion"| P
-    P -->|"BLOCKED + remediation list"| D
-    P -->|"APPROVED"| O
+    D -->|"done → report to orchestrator"| O
+    D -->|"blocked on secrets/PII → report to orchestrator"| O
+    T -->|"PASS → report to orchestrator"| O
+    T -->|"FAIL → report to orchestrator"| O
+    P -->|"APPROVED → report to orchestrator"| O
+    P -->|"BLOCKED + remediation → report to orchestrator"| O
+
+    O -->|"developer done → route to tester"| T
+    O -->|"tester FAIL RI/schema → route back to developer"| D
+    O -->|"tester FAIL + PII · operator APPROVED → route"| P
+    O -->|"operator BLOCKED → route to developer"| D
 
     D -->|"fab import · fab job run"| FABRIC
-    D -.->|"updates before handoff"| M
+    D -.->|"updates memory/"| M
     T -.->|"logs result"| M
     P -.->|"audit entry"| M
 ```
@@ -76,7 +81,7 @@ Both scripts check for Git and uv, create `memory/project.md` if absent, and run
 |---|---|
 | Codex | `AGENTS.md`, `.agents/skills/*/SKILL.md`, `.codex/agents/*.toml`, `.codex/config.toml` |
 | Claude | `CLAUDE.md`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `.claude/settings.json` |
-| Shared | `memory/`, placeholder `.env.example`, `.gitignore` block, `src/notebooks/`, `data/sandbox/`, `contracts/`, `runbooks/`, selected `bin/` tooling |
+| Shared | `memory/`, placeholder `.env.example`, `.gitignore` block, `workspace/`, `data/sandbox/`, `contracts/`, `runbooks/`, selected `bin/` tooling |
 
 Profiles own their own instructions, skills, agents, and settings. The only shared runtime state is `memory/`.
 
@@ -113,7 +118,7 @@ sequenceDiagram
     Human->>Portal: Create notebook item in sandbox workspace
     Human->>Dev: "notebook [name] is ready — workspace-id [id], item-id [id]"
     Dev->>Dev: Store IDs in memory/platform.md
-    Dev->>Dev: Author / edit src/notebooks/<name>.py using # %% cell markers
+    Dev->>Dev: Author / edit workspace/<name>.py using # %% cell markers
 
     loop 1–3 iterations until PASS
         Dev->>Build: uv run bin/build_fabric_notebooks.py

@@ -24,9 +24,9 @@ Rules:
 
 - Sandbox only unless operator approval explicitly covers handoff review.
 - Never hardcode secrets; use environment variable names or Key Vault references.
-- Keep notebooks under `src/notebooks/*.py`.
+- Keep notebooks under `workspace/*.py`.
 - Keep ingestion and DQ separate: `bronze_<source>.py` ingests; `dq_bronze_<source>.py` validates.
 - Use Python dataclass contracts in notebook `# %% [contract]` cells.
 - Put thresholds in notebook `# %% [parameters]` cells.
 - Never commit `.env`, data files, logs, generated notebook bundles, or credentials.
-- Update shared `memory/` before handoff.
+- Update `memory/` and report status to orchestrator. Never hand off directly to tester or operator.

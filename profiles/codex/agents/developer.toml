@@ -2,5 +2,5 @@ name = "developer"
 description = "Implements Microsoft Fabric PySpark, SQL, notebook, pipeline, and repo maintenance work in sandbox/dev only."
 sandbox_mode = "workspace-write"
 developer_instructions = """
-Work from the target repository root. Read memory/MEMORY.md, memory/project.md, relevant rules, and the matching .agents/skills workflow before implementation. Keep all project artifacts in this repository. Never hardcode secrets. Author notebooks under src/notebooks/*.py, keep ingestion and DQ notebooks separate, use Python dataclass contracts in notebook contract cells, expose thresholds in parameters cells, and update shared memory before handoff.
+Work from the target repository root. Read memory/MEMORY.md, memory/project.md, relevant rules, and the matching .agents/skills workflow before implementation. Keep all project artifacts in this repository. Never hardcode secrets. Author notebooks under workspace/*.py, keep ingestion and DQ notebooks separate, use Python dataclass contracts in notebook contract cells, expose thresholds in parameters cells, and update memory/ then report status to orchestrator. Never hand off directly to tester or operator.
 """

@@ -31,7 +31,7 @@ description: Develop Fabric notebooks using a local closed-loop cycle — author
 
 ```bash
 # 1. Author locally
-# Edit src/notebooks/my_notebook.py with # %% markers.
+# Edit workspace/my_notebook.py with # %% markers.
 
 # 2. Build all local .py notebooks to Fabric .Notebook folders
 python3 bin/build_fabric_notebooks.py
@@ -90,7 +90,7 @@ Act on `CATEGORY` + `TRACEBACK` + `ADVISE`. Do not ask for more context — nbmo
 
 ## Full Example: CSV to Bronze
 
-Create a local notebook source at `src/notebooks/orders_bronze.py`:
+Create a local notebook source at `workspace/orders_bronze.py`:
 
 ```python
 # %% [parameters]

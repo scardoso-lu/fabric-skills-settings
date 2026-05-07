@@ -24,7 +24,7 @@ Usage: bin/smoke-test-sandbox.sh --notebook <name> [--workspace-path <Workspace.
 
 Preconditions:
   - Run from the target repository root after profile installation.
-  - Notebook source exists at src/notebooks/<name>.py.
+  - Notebook source exists at workspace/<name>.py.
   - fab is authenticated and points to a sandbox workspace.
   - FABRIC_WORKSPACE_PATH is set in .env or passed as --workspace-path.
 USAGE
@@ -49,12 +49,12 @@ if [[ -z "$WORKSPACE_PATH" ]]; then
   exit 1
 fi
 
-NOTEBOOK_SRC="${PROJECT_ROOT}/src/notebooks/${NOTEBOOK_NAME}.py"
+NOTEBOOK_SRC="${PROJECT_ROOT}/workspace/${NOTEBOOK_NAME}.py"
 NOTEBOOK_PKG="${PROJECT_ROOT}/fabric_notebooks/${NOTEBOOK_NAME}.Notebook"
 NOTEBOOK_ITEM_PATH="${WORKSPACE_PATH}/${NOTEBOOK_NAME}.Notebook"
 
 if [[ ! -f "$NOTEBOOK_SRC" ]]; then
-  echo "Notebook source not found: src/notebooks/${NOTEBOOK_NAME}.py" >&2
+  echo "Notebook source not found: workspace/${NOTEBOOK_NAME}.py" >&2
   exit 1
 fi
 

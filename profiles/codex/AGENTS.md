@@ -10,7 +10,7 @@ This repository is the runtime workspace. Work from this repo root; do not use a
 
 ## Repository Layout
 
-- Source notebooks: `src/notebooks/*.py`
+- Source notebooks: `workspace/*.py`
 - Generated Fabric notebook bundles: `fabric_notebooks/`
 - Sandbox data: `data/sandbox/`
 - Filled contracts and project docs: `contracts/`, `runbooks/`, `docs/`

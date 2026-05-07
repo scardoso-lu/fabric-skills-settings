@@ -42,7 +42,7 @@ _PROJECT_ROOT = _PROJECT_ROOT.resolve()
 if not _PROJECT_ROOT.is_dir():
     raise SystemExit(f"Fabric project root does not exist: {_PROJECT_ROOT}")
 
-NOTEBOOK_SOURCE_DIR = _PROJECT_ROOT / "src" / "notebooks"
+NOTEBOOK_SOURCE_DIR = _PROJECT_ROOT / "workspace"
 OUTPUT_DIR = _PROJECT_ROOT / "fabric_notebooks"
 CELL_SEP = "# CELL ********************"
 META_BLOCK = """# METADATA ********************
@@ -96,7 +96,7 @@ def build_one(source_path: Path) -> Path:
 
 def main() -> None:
     if not NOTEBOOK_SOURCE_DIR.exists():
-        raise SystemExit(f"No src/notebooks/ directory found under project root {_PROJECT_ROOT}.")
+        raise SystemExit(f"No workspace/ directory found under project root {_PROJECT_ROOT}.")
 
     sources = sorted(NOTEBOOK_SOURCE_DIR.glob("*.py"))
     if not sources:
