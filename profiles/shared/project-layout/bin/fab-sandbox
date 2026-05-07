@@ -46,4 +46,3 @@ mkdir -p "${FAB_SANDBOX_HOME}"
 export HOME="${FAB_SANDBOX_HOME}"
 
 exec "${FAB_BIN}" "$@"
-

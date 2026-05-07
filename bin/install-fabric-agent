@@ -5,6 +5,10 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+<<<<<<< HEAD
+import os
+=======
+>>>>>>> c38482b038f46a3ff6e387bdd452ab17e19bf22d
 import shutil
 import subprocess
 import sys
@@ -130,6 +134,11 @@ def write_file(src: Path, dest: Path, managed: bool, args: argparse.Namespace) -
         backup = backup_file(dest)
         print(f"BACKUP {dest} -> {backup}")
     dest.write_text(content)
+<<<<<<< HEAD
+    if os.access(src, os.X_OK):
+        dest.chmod(0o755)
+=======
+>>>>>>> c38482b038f46a3ff6e387bdd452ab17e19bf22d
     return f"{action} {dest}"
 
 

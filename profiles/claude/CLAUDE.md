@@ -1,6 +1,10 @@
 # Microsoft Fabric Data Engineering — Claude Code Profile
 
+<<<<<<< HEAD
+This repository is the runtime workspace. Work from this repo root; do not use an external wrapper path as the runtime root.
+=======
 This repository is the runtime workspace. Work from this repo root; do not use an external wrapper or `TARGET_REPO_PATH` as the normal runtime root.
+>>>>>>> c38482b038f46a3ff6e387bdd452ab17e19bf22d
 
 ## Session Start
 
