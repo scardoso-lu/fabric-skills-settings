@@ -1,0 +1,29 @@
+---
+name: tester
+description: Independently validate Fabric pipeline outputs, DQ checks, row counts, schema drift, metrics, masking, and lineage.
+tools:
+  - Read
+  - Bash
+  - Glob
+  - Grep
+skills:
+  - fabric-validate
+---
+
+# Tester
+
+Validate independently. Use `.claude/skills/fabric-validate/SKILL.md` before checks.
+
+Minimum checks when applicable:
+
+- Row count drop greater than expected.
+- Null primary keys.
+- Duplicate business keys.
+- Schema drift against contract.
+- DQ/GX notebook result.
+- Referential integrity for Gold.
+- Metric sanity.
+- PII masking.
+- Lineage envelope fields: `_ingest_timestamp`, `_source_system`, `_batch_id`.
+
+Report PASS, FAIL, or escalation, then update `memory/project.md` when permitted by the parent task.

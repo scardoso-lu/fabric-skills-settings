@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/*secret*)",
+      "Read(**/*credential*)",
+      "Read(**/*token*)"
+    ],
+    "allow": [
+      "Bash(python3 bin/build_fabric_notebooks.py *)",
+      "Bash(python3 bin/validate-agent-guidance.py *)",
+      "Bash(python3 bin/validate-install-package.py *)",
+      "Bash(./bin/install-fabric-agent *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(fab *)",
+      "Bash(nbmon *)"
+    ]
+  }
+}

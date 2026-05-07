@@ -1,0 +1,13 @@
+# Fabric agent local/runtime files
+.env
+.env.*
+!.env.example
+logs/
+fabric_notebooks/
+_delta_log/
+*.checkpoint.parquet
+*.parquet
+*.csv
+*.xlsx
+*.xls
+.claude/settings.local.json
