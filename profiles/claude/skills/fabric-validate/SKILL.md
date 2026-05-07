@@ -25,7 +25,7 @@ DQ notebooks are **separate from ingestion notebooks**. Never mix DQ logic into 
 
 ## AVOID
 
-- Loading `config/thresholds.yaml` or any file from disk at runtime — Fabric cannot reach the config wrapper filesystem
+- Loading `config/thresholds.yaml` or any file from disk at runtime — Fabric cannot reach local repository config files at notebook runtime
 - Writing to or modifying Bronze/Silver/Gold tables from the DQ notebook — read-only
 - Mixing ingestion writes with DQ assertions in the same notebook
 

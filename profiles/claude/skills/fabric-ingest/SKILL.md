@@ -18,7 +18,7 @@ Each source produces **two notebooks**:
 
 ## MUST
 
-- Read source files from `$TARGET_REPO_PATH/data/sandbox/` — in the **target repo**, not the config wrapper. Never read from live databases or APIs directly.
+- Read source files from `data/sandbox/` in this repository. Never read from live databases or APIs directly.
 - Apply sanitization barrier: load to RAM → mask/redact in RAM → write to Delta
 - Inject lineage envelope on every record: `_ingest_timestamp`, `_source_system`, `_batch_id`, `_ingest_date`
 - Use `mergeSchema=True` for schema evolution
@@ -157,6 +157,6 @@ rows = [{"order_id": i, "customer_id": fake.random_int(1, 500),
          "amount": str(fake.pydecimal(2, 2, positive=True)),
          "order_date": fake.date_this_year().isoformat()} for i in range(1, 1001)]
 pd.DataFrame(rows).to_csv(
-    f"{os.environ['TARGET_REPO_PATH']}/data/sandbox/orders.csv", index=False
+    "data/sandbox/orders.csv", index=False
 )
 ```
