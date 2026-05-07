@@ -131,11 +131,14 @@ fabric-skills-settings/
 │       ├── .env.example
 │       ├── .gitignore.fragment
 │       └── project-layout/
+<<<<<<< HEAD
 │           ├── bin/build_fabric_notebooks.py
 │           ├── bin/fab-sandbox
 │           ├── bin/nbmon-sandbox
 │           ├── bin/smoke-test-sandbox.sh
 │           ├── bin/post-smoke-update.py
+=======
+>>>>>>> c38482b038f46a3ff6e387bdd452ab17e19bf22d
 │           ├── src/notebooks/.gitkeep
 │           ├── contracts/.gitkeep
 │           ├── data/sandbox/.gitkeep
@@ -187,7 +190,11 @@ Default safety behavior:
 | `profiles/shared/memory/*` | `memory/*` |
 | `profiles/shared/.env.example` | `.env.example` |
 | `profiles/shared/.gitignore.fragment` | merged into `.gitignore` |
+<<<<<<< HEAD
 | `profiles/shared/project-layout/*` | matching project paths, including neutral target `bin/` helpers |
+=======
+| `profiles/shared/project-layout/*` | matching project paths |
+>>>>>>> c38482b038f46a3ff6e387bdd452ab17e19bf22d
 
 ## Work Phases
 
@@ -325,17 +332,29 @@ Use this loop after every implementation phase:
 | Phase | Status | Last Reviewed | Notes |
 |---|---|---|---|
 | Phase 0 — Verify Vendor Paths | Completed | 2026-05-07 | Verified Codex `AGENTS.md`, `.agents/skills`, `.codex/agents/*.toml`, `.codex/config.toml`, and Claude `.claude/*` profile paths. |
+<<<<<<< HEAD
 | Phase 1 — Package Skeleton | Completed | 2026-05-07 | Added `profiles/codex`, `profiles/claude`, and `profiles/shared`; copied skills into vendor-native `SKILL.md` directories and moved target scaffolding/tooling into `profiles/shared/project-layout`. |
 | Phase 2 — Installer | Partial | 2026-05-07 | Added `bin/install-fabric-agent` with profile selection, dry-run, check, force, backup, self-test, git target validation, and gitignore merge. |
 | Phase 3 — Validation | Partial | 2026-05-07 | Added `bin/validate-install-package.py`; package and disposable target install checks pass. |
 | Phase 4 — Runtime Guidance Rewrite | Partial | 2026-05-07 | Added target-native Codex and Claude profile guidance plus role agents; remaining work is deeper role/skill refinement and plugin packaging. |
 | Phase 5 — Wrapper Deprecation and Migration | Partial | 2026-05-07 | Root `AGENTS.md`, `CLAUDE.md`, `README.md`, setup, and guidance map now describe source-package/installer usage; migration command and plugin packaging remain future work. |
+=======
+| Phase 1 — Package Skeleton | Partial | 2026-05-07 | Added `profiles/codex`, `profiles/claude`, and `profiles/shared`; copied skills into vendor-native `SKILL.md` directories. |
+| Phase 2 — Installer | Partial | 2026-05-07 | Added `bin/install-fabric-agent` with profile selection, dry-run, check, force, backup, self-test, git target validation, and gitignore merge. |
+| Phase 3 — Validation | Partial | 2026-05-07 | Added `bin/validate-install-package.py`; package and disposable target install checks pass. |
+| Phase 4 — Runtime Guidance Rewrite | Partial | 2026-05-07 | Added initial target-native Codex and Claude profile guidance plus role agents; source-root guidance still needs deprecation rewrite. |
+| Phase 5 — Wrapper Deprecation and Migration | Pending | 2026-05-07 | Root guidance, README, and migration docs still describe the wrapper model. |
+>>>>>>> c38482b038f46a3ff6e387bdd452ab17e19bf22d
 
 ## Implementation Progress
 
 | Date | Status | Completed | Partial / Remaining |
 |---|---|---|---|
+<<<<<<< HEAD
 | 2026-05-07 | Partial implementation | Added vendor-native profile package directories, shared memory templates, placeholder env/gitignore scaffolding, profile-aware installer, install-package validator, Codex `.codex/agents/*.toml`, Claude `.claude/agents/*.md`, profile-local skills, target-local helper scripts, and source-package root guidance. | Plugin packaging, migration command, and deeper profile refinements remain future work. |
+=======
+| 2026-05-07 | Partial implementation | Added vendor-native profile package directories, shared memory templates, placeholder env/gitignore scaffolding, profile-aware installer, install-package validator, Codex `.codex/agents/*.toml`, Claude `.claude/agents/*.md`, and profile-local skills. | Root `AGENTS.md`, `CLAUDE.md`, and `README.md` still describe the wrapper runtime; plugin packaging and migration command remain future work. |
+>>>>>>> c38482b038f46a3ff6e387bdd452ab17e19bf22d
 
 ## Course-Correction Log
 
@@ -344,7 +363,10 @@ Use this loop after every implementation phase:
 | 2026-05-06 | Initial installer concept introduced a custom `.fabric-agent/` runtime directory. | Rejected. Use vendor-native profile folders; shared memory is the only shared runtime layer. |
 | 2026-05-06 | Earlier profile split kept agents outside the profile boundary. | Corrected. Agents belong to each vendor profile; only memory is shared. |
 | 2026-05-07 | Implementing the plan surfaced the confirmed Codex project agent path as `.codex/agents/*.toml`, not `.agents/agents/`. | Updated this plan and the installer mapping to use `.codex/agents/*.toml` plus `.codex/config.toml`. |
+<<<<<<< HEAD
 | 2026-05-07 | Main-branch cleanup found leftover root runtime assets (`.claude/`, `skills/`, root `.env.example`, and external skill installer) plus target scripts that still assumed wrapper-based paths. | Removed root runtime assets, rewrote root guidance/setup for source-package usage, and installed neutral target helper scripts from `profiles/shared/project-layout/bin`. |
+=======
+>>>>>>> c38482b038f46a3ff6e387bdd452ab17e19bf22d
 
 ## Open Questions
 

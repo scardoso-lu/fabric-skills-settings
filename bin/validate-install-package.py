@@ -49,11 +49,14 @@ def validate_required(errors: list[str]) -> None:
     require(PROFILES / "shared" / "memory" / "MEMORY.md", errors)
     require(PROFILES / "shared" / ".env.example", errors)
     require(PROFILES / "shared" / ".gitignore.fragment", errors)
+<<<<<<< HEAD
     require(PROFILES / "shared" / "project-layout" / "bin" / "build_fabric_notebooks.py", errors)
     require(PROFILES / "shared" / "project-layout" / "bin" / "fab-sandbox", errors)
     require(PROFILES / "shared" / "project-layout" / "bin" / "nbmon-sandbox", errors)
     require(PROFILES / "shared" / "project-layout" / "bin" / "smoke-test-sandbox.sh", errors)
     require(PROFILES / "shared" / "project-layout" / "bin" / "post-smoke-update.py", errors)
+=======
+>>>>>>> c38482b038f46a3ff6e387bdd452ab17e19bf22d
 
     codex_skills = skill_names(PROFILES / "codex" / "skills")
     claude_skills = skill_names(PROFILES / "claude" / "skills")
@@ -80,7 +83,11 @@ def validate_forbidden_text(errors: list[str]) -> None:
         for phrase in FORBIDDEN:
             if phrase in text:
                 error(f"Forbidden phrase {phrase!r} in {rel}", errors)
+<<<<<<< HEAD
         if "TARGET_REPO_PATH" in text:
+=======
+        if "TARGET_REPO_PATH" in text and "do not use" not in text:
+>>>>>>> c38482b038f46a3ff6e387bdd452ab17e19bf22d
             error(f"Unexpected TARGET_REPO_PATH usage in {rel}", errors)
 
 
