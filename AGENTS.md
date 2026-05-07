@@ -17,7 +17,6 @@ This repository is the source package and installer for Microsoft Fabric agent p
 | `profiles/shared/` | Shared target scaffolding. Runtime sharing is limited to `memory/`; neutral project tooling/scaffolding may also be installed. |
 | `bin/install-fabric-agent` | Profile-aware installer for target git repositories. |
 | `bin/validate-install-package.py` | Validates the vendor-native profile package layout. |
-| `docs/vendor-native-installation-plan.md` | Roadmap and phase tracking for the wrapper-to-installer migration. |
 | `rules/` and `templates/` | Source material for Fabric safety, data engineering, and human-facing templates. |
 
 ## Development Rules
@@ -34,4 +33,4 @@ This repository is the source package and installer for Microsoft Fabric agent p
 
 ## Commit / PR Handoff
 
-Summarize which phase in `docs/vendor-native-installation-plan.md` was advanced, which parts remain partial, and which validations were run.
+Summarize what changed, which validations were run, and whether a target-repo smoke test was performed.

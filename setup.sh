@@ -27,7 +27,7 @@ log_ok() { printf '✓ %s\n' "$*"; }
 log_warn() { printf '⚠ %s\n' "$*"; }
 
 log_step "Source package directories"
-for dir in profiles/codex profiles/claude profiles/shared docs rules templates bin memory; do
+for dir in profiles/codex profiles/claude profiles/shared rules templates bin memory; do
   if [[ -d "${SCRIPT_DIR}/${dir}" ]]; then
     log_ok "${dir}/"
   else

@@ -201,6 +201,3 @@ git init -q "$tmp"
 ./bin/install-fabric-agent --profile all --target "$tmp" --check
 ```
 
-## Roadmap
-
-Track implementation status and course corrections in `docs/vendor-native-installation-plan.md`.

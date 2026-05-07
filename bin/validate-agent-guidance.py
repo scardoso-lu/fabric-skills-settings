@@ -98,22 +98,11 @@ def validate_no_root_runtime(errors: list[str]) -> None:
             errors.append(f"root runtime directory should not exist in source package: {rel(path)}")
 
 
-def validate_plan_tracking(errors: list[str]) -> None:
-    plan = ROOT / "docs" / "vendor-native-installation-plan.md"
-    require(plan, errors)
-    if plan.exists():
-        text = plan.read_text(errors="ignore")
-        for needle in ["Phase Status", "Implementation Progress", "Course-Correction Log"]:
-            if needle not in text:
-                errors.append(f"{rel(plan)} missing {needle!r}")
-
-
 def main() -> int:
     errors: list[str] = []
     validate_root_guidance(errors)
     validate_profiles(errors)
     validate_no_root_runtime(errors)
-    validate_plan_tracking(errors)
 
     if errors:
         print("FAIL: agent guidance validation failed")

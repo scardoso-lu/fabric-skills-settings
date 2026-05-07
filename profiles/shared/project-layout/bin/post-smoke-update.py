@@ -4,7 +4,7 @@
 # ///
 """post-smoke-update.py — Record sandbox smoke test results in agent memory.
 
-Automates the memory update section of docs/fabric-sandbox-smoke-test.md:
+Updates agent memory after a sandbox smoke test run:
   - memory/platform.md  — sandbox item name and status
   - memory/project.md   — smoke test result with timestamp
   - memory/decisions.md — optional architecture notes

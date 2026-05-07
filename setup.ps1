@@ -25,7 +25,7 @@ function Write-Warn  { Write-Host "! $args" }
 
 # ── Source package directories ───────────────────────────────────────────────
 Write-Step "Source package directories"
-foreach ($dir in @('profiles/codex','profiles/claude','profiles/shared','docs','rules','templates','bin','memory')) {
+foreach ($dir in @('profiles/codex','profiles/claude','profiles/shared','rules','templates','bin','memory')) {
     if (Test-Path (Join-Path $ScriptDir $dir) -PathType Container) {
         Write-Ok "$dir/"
     } else {
