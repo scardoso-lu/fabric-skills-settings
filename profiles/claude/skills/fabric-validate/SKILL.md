@@ -45,7 +45,6 @@ DQ notebooks are **separate from ingestion notebooks**. Never mix DQ logic into 
 
 ```python
 # %% [parameters]
-TABLE_PATH: str = ""          # blank = resolved from env
 BATCH_ID_FILTER: str = ""     # blank = check entire table
 ROW_COUNT_MIN: int = 1
 NULL_PK_MAX: int = 0
@@ -71,20 +70,14 @@ CONTRACT = DQContract(
 )
 
 # %% [imports]
-import os
 import great_expectations as gx
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 
 spark = SparkSession.builder.getOrCreate()
 
-TABLE_PATH = TABLE_PATH or (
-    f"abfss://bronze@onelake.dfs.fabric.microsoft.com"
-    f"/{os.environ['BRONZE_LAKEHOUSE_ID']}/Tables/{CONTRACT.table}"
-)
-
 # %% [load]
-df = spark.read.format("delta").load(TABLE_PATH)
+df = spark.read.table(CONTRACT.table)
 if BATCH_ID_FILTER:
     df = df.filter(F.col("_batch_id") == BATCH_ID_FILTER)
 total_rows = df.count()

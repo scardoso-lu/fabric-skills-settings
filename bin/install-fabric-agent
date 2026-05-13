@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -20,6 +21,27 @@ MANAGED_BEGIN = "<!-- BEGIN MANAGED BY fabric-skills-settings -->"
 MANAGED_END = "<!-- END MANAGED BY fabric-skills-settings -->"
 GITIGNORE_BEGIN = "# BEGIN MANAGED BY fabric-skills-settings"
 GITIGNORE_END = "# END MANAGED BY fabric-skills-settings"
+REFRESHABLE_PLACEHOLDER_FILES = {Path(".env.example")}
+REFRESHABLE_SCAFFOLD_MARKERS = {
+    Path("bin/mcp/server.py"):              "Minimal MCP server that exposes selected Microsoft Fabric CLI commands",
+    Path("bin/notebook/build.py"):          "Build simple Fabric .Notebook folders",
+    Path("bin/notebook/deploy.py"):         "Deploy, run, and monitor Fabric notebooks via REST API",
+    Path("bin/notebook/smoke-test.sh"):     "smoke-test.sh",
+    Path("bin/setup/fab-sandbox"):          "Sandbox wrapper for Microsoft Fabric CLI",
+    Path("bin/setup/setup.ps1"):            "setup.ps1 - idempotent target repository setup for Fabric agent projects",
+    Path("bin/setup/setup.sh"):             "setup.sh - idempotent target repository setup for Fabric agent projects",
+}
+PLACEHOLDER_VALUES = {
+    "",
+    "sandbox",
+    "dev",
+    "prod",
+    "file",
+    "<workspace-uuid>",
+    "<lakehouse-uuid>",
+    "<server>.<tenant>.fabric.microsoft.com",
+    "<warehouse-or-sql-endpoint-db-name>",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -106,6 +128,61 @@ def has_managed_marker(path: Path) -> bool:
     return MANAGED_BEGIN in text and MANAGED_END in text
 
 
+def strip_inline_comment(value: str) -> str:
+    """Remove shell-style comments from simple KEY=value template lines."""
+    quote: str | None = None
+    for idx, char in enumerate(value):
+        if char in {"'", '"'}:
+            quote = None if quote == char else char
+        elif char == "#" and quote is None:
+            return value[:idx].strip()
+    return value.strip()
+
+
+def has_non_placeholder_env_values(path: Path) -> bool:
+    """Return true if a refreshable env template appears to contain local values."""
+    text = path.read_text(encoding="utf-8", errors="ignore")
+    suspicious_patterns = [
+        r"https?://",
+        r"abfss://",
+        r"jdbc:",
+        r"AccountKey=",
+        r"SharedAccessSignature=",
+        r"eyJ[A-Za-z0-9_-]+",
+    ]
+    sensitive_key = re.compile(r"(SECRET|PASSWORD|TOKEN|KEY|CONNECTION_STRING)", re.IGNORECASE)
+
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, raw_value = stripped.split("=", 1)
+        value = strip_inline_comment(raw_value).strip().strip('"').strip("'")
+        if value in PLACEHOLDER_VALUES:
+            continue
+        if sensitive_key.search(key) and value:
+            return True
+        if any(re.search(pattern, value) for pattern in suspicious_patterns):
+            return True
+        if value:
+            return True
+    return False
+
+
+def can_refresh_unmanaged_placeholder(rel: Path, dest: Path) -> bool:
+    if rel not in REFRESHABLE_PLACEHOLDER_FILES or not dest.exists():
+        return False
+    return not has_non_placeholder_env_values(dest)
+
+
+def can_refresh_unmanaged_scaffold(rel: Path, dest: Path) -> bool:
+    marker = REFRESHABLE_SCAFFOLD_MARKERS.get(rel)
+    if marker is None or not dest.exists():
+        return False
+    text = dest.read_text(encoding="utf-8", errors="ignore")
+    return marker in text
+
+
 def backup_file(path: Path) -> Path:
     stamp = dt.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
     backup = path.with_name(f"{path.name}.{stamp}.bak")
@@ -113,7 +190,7 @@ def backup_file(path: Path) -> Path:
     return backup
 
 
-def write_file(src: Path, dest: Path, managed: bool, args: argparse.Namespace) -> str:
+def write_file(src: Path, dest: Path, managed: bool, args: argparse.Namespace, rel: Path | None = None) -> str:
     content = render_content(src, managed)
     if args.check:
         if not dest.exists():
@@ -128,7 +205,13 @@ def write_file(src: Path, dest: Path, managed: bool, args: argparse.Namespace) -
         current = dest.read_text(encoding="utf-8", errors="ignore")
         if current == content:
             return f"UNCHANGED {dest}"
-        if not args.force and not has_managed_marker(dest):
+        rel_path = rel or Path()
+        if (
+            not args.force
+            and not has_managed_marker(dest)
+            and not can_refresh_unmanaged_placeholder(rel_path, dest)
+            and not can_refresh_unmanaged_scaffold(rel_path, dest)
+        ):
             raise SystemExit(f"Refusing to overwrite non-managed file: {dest}")
         action = "UPDATE"
 
@@ -204,13 +287,13 @@ def main() -> int:
     operations: list[str] = []
     for profile in planned_profiles(args.profile):
         for src, rel, managed in collect_files(profile):
-            operations.append(write_file(src, target / rel, managed, args))
+            operations.append(write_file(src, target / rel, managed, args, rel))
     for src, rel, managed in collect_shared_files():
         dest = target / rel
         if dest.exists() and rel.parts and rel.parts[0] == "memory" and not has_managed_marker(dest):
             operations.append(f"KEEP existing {dest}")
             continue
-        operations.append(write_file(src, dest, managed, args))
+        operations.append(write_file(src, dest, managed, args, rel))
     operations.append(merge_gitignore(target, planned_profiles(args.profile), args))
 
     for operation in operations:

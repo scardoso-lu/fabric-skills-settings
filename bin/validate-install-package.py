@@ -14,6 +14,15 @@ ROOT = Path(__file__).resolve().parents[1]
 PROFILES = ROOT / "profiles"
 SKILLS = {"fabric-ingest", "fabric-transform", "fabric-model", "fabric-validate", "fabric-notebook-loop", "fabric-ops"}
 AGENTS = {"orchestrator", "developer", "tester", "operator"}
+MIRRORED_HELPERS = [
+    "mcp/server.py",
+    "notebook/build.py",
+    "notebook/deploy.py",
+    "notebook/smoke-test.sh",
+    "setup/fab-sandbox",
+    "setup/setup.ps1",
+    "setup/setup.sh",
+]
 FORBIDDEN = [
     "wrapper repo",
     "configuration wrapper",
@@ -52,11 +61,14 @@ def validate_required(errors: list[str]) -> None:
     require(PROFILES / "shared" / "memory" / "MEMORY.md", errors)
     require(PROFILES / "shared" / ".env.example", errors)
     require(PROFILES / "shared" / ".gitignore.fragment", errors)
-    require(PROFILES / "shared" / "project-layout" / "bin" / "build_fabric_notebooks.py", errors)
-    require(PROFILES / "shared" / "project-layout" / "bin" / "fab-sandbox", errors)
-    require(PROFILES / "shared" / "project-layout" / "bin" / "nbmon-sandbox", errors)
-    require(PROFILES / "shared" / "project-layout" / "bin" / "smoke-test-sandbox.sh", errors)
-    require(PROFILES / "shared" / "project-layout" / "bin" / "post-smoke-update.py", errors)
+    require(PROFILES / "shared" / "project-layout" / ".mcp.json", errors)
+    require(PROFILES / "shared" / "project-layout" / "bin" / "mcp" / "server.py", errors)
+    require(PROFILES / "shared" / "project-layout" / "bin" / "notebook" / "build.py", errors)
+    require(PROFILES / "shared" / "project-layout" / "bin" / "notebook" / "deploy.py", errors)
+    require(PROFILES / "shared" / "project-layout" / "bin" / "notebook" / "smoke-test.sh", errors)
+    require(PROFILES / "shared" / "project-layout" / "bin" / "setup" / "fab-sandbox", errors)
+    require(PROFILES / "shared" / "project-layout" / "bin" / "setup" / "setup.ps1", errors)
+    require(PROFILES / "shared" / "project-layout" / "bin" / "setup" / "setup.sh", errors)
 
     codex_skills = skill_names(PROFILES / "codex" / "skills")
     claude_skills = skill_names(PROFILES / "claude" / "skills")
@@ -110,12 +122,24 @@ def validate_shared_scope(errors: list[str]) -> None:
             error(f"Shared profile must not contain vendor runtime assets: {path.relative_to(ROOT)}", errors)
 
 
+def validate_root_helper_mirrors(errors: list[str]) -> None:
+    for name in MIRRORED_HELPERS:
+        source = PROFILES / "shared" / "project-layout" / "bin" / name
+        mirror = ROOT / "bin" / name
+        if not mirror.exists():
+            error(f"Missing root helper mirror: {mirror.relative_to(ROOT)}", errors)
+            continue
+        if source.read_text(errors="ignore") != mirror.read_text(errors="ignore"):
+            error(f"Root helper mirror differs from install profile: bin/{name}", errors)
+
+
 def main() -> int:
     errors: list[str] = []
     validate_required(errors)
     validate_forbidden_text(errors)
     validate_env_example(errors)
     validate_shared_scope(errors)
+    validate_root_helper_mirrors(errors)
 
     if errors:
         print("FAIL: install package validation failed")

@@ -6,7 +6,7 @@ set -euo pipefail
 # Never use this wrapper for production.
 #
 # Tested against: ms-fabric-cli >= 0.1.0
-# Run './setup.sh' to see the installed version.
+# Run 'bin/setup/setup.sh' to see the installed version.
 
 FAB_MIN_VERSION="${FAB_MIN_VERSION:-0.1.0}"
 FAB_SANDBOX_HOME="${FAB_SANDBOX_HOME:-/tmp/fabric-fab-home}"
@@ -46,4 +46,3 @@ mkdir -p "${FAB_SANDBOX_HOME}"
 export HOME="${FAB_SANDBOX_HOME}"
 
 exec "${FAB_BIN}" "$@"
-

@@ -16,7 +16,7 @@ This repository is the source package and installer for Microsoft Fabric agent p
 | `profiles/claude/` | Claude-native install assets: `CLAUDE.md`, `.claude/skills`, `.claude/agents`, `.claude/settings.json`. |
 | `profiles/shared/` | Shared target scaffolding. Runtime sharing is limited to `memory/`; neutral project tooling/scaffolding may also be installed. |
 | `bin/install-fabric-agent` | Profile-aware installer for target git repositories. |
-| `bin/validate-install-package.py` | Validates the vendor-native profile package layout. |
+| `bin/validate-install-package.py` | Validates this source package's vendor-native profile layout. It is not installed into target repositories. |
 | `rules/` and `templates/` | Source material for Fabric safety, data engineering, and human-facing templates. |
 
 ## Development Rules
@@ -26,9 +26,10 @@ This repository is the source package and installer for Microsoft Fabric agent p
 - Do not reintroduce the wrapper runtime model or external-wrapper path operation into installed profile guidance.
 - Never commit `.env`, credentials, tokens, connection strings, data files, logs, or generated Fabric notebook bundles.
 - Use placeholders only in `.env.example` files.
-- After changing profiles, installer logic, guidance, or validation, run:
+- After changing profiles, installer logic, guidance, or validation, run from this source package repo:
   - `python3 bin/validate-install-package.py`
   - `python3 bin/validate-agent-guidance.py`
+  - `python3 bin/install-fabric-agent --profile all --target <target-repo> --check` when checking an already installed target repository
   - an installer smoke test against a disposable git repo.
 
 ## Commit / PR Handoff

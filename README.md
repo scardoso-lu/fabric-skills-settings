@@ -17,7 +17,7 @@ flowchart TD
     subgraph Target["Target Repo  —  runtime workspace"]
         O["🎯 orchestrator\nCentral hub · reads memory/ first\nRoutes all work · receives all results\nNever implements · never writes code\nTools: Read Glob Grep"]
 
-        D["🛠 developer\nworkspace/*.py with # %% cells\nbuild → fab import → fab job run → nbmon\nReports to orchestrator only\nTools: Read Write Edit Bash Glob Grep"]
+        D["🛠 developer\nworkspace/*.py with # %% cells\nbin/notebook/build.py → deploy.py → monitor\nReports to orchestrator only\nTools: Read Write Edit Bash Glob Grep"]
 
         T["🔍 tester\nValidates independently · Great Expectations per layer\nNull PKs · dupes · schema drift · RI · PII · lineage\nReports to orchestrator only\nTools: Read Bash Glob Grep"]
 
@@ -50,7 +50,7 @@ flowchart TD
     O -->|"tester FAIL + PII · operator APPROVED → route"| P
     O -->|"operator BLOCKED → route to developer"| D
 
-    D -->|"fab import · fab job run"| FABRIC
+    D -->|"bin/notebook/deploy.py (Fabric REST API)"| FABRIC
     D -.->|"updates memory/"| M
     T -.->|"logs result"| M
     P -.->|"audit entry"| M
@@ -104,35 +104,28 @@ codex   # or: claude
 
 ## Notebook deploy loop
 
-The developer never uses the Fabric portal to edit notebooks. All changes happen in local `.py` files and are pushed via CLI.
+The developer never uses the Fabric portal to edit notebooks. All changes happen in local `.py` files and are deployed via the Fabric REST API.
 
 ```mermaid
 sequenceDiagram
     actor Human
     participant Portal as Fabric Portal
     participant Dev as developer agent
-    participant Build as build_fabric_notebooks.py
-    participant Fab as fab CLI
-    participant Nbmon as nbmon
+    participant Build as bin/notebook/build.py
+    participant Deploy as bin/notebook/deploy.py
 
     Human->>Portal: Create notebook item in sandbox workspace
-    Human->>Dev: "notebook [name] is ready — workspace-id [id], item-id [id]"
-    Dev->>Dev: Store IDs in memory/platform.md
+    Human->>Dev: "notebook [name], set FABRIC_WORKSPACE_ID in .env"
     Dev->>Dev: Author / edit workspace/<name>.py using # %% cell markers
 
     loop 1–3 iterations until PASS
-        Dev->>Build: uv run bin/build_fabric_notebooks.py
+        Dev->>Build: python bin/notebook/build.py
         Build-->>Dev: fabric_notebooks/<name>.Notebook
 
-        Dev->>Fab: fab import fabric_notebooks/<name>.Notebook --workspace-id
-        Fab-->>Dev: import OK
-
-        Dev->>Fab: fab job run --item-id --workspace-id
-        Fab-->>Dev: Run ID
-
-        Dev->>Nbmon: nbmon status <run-id>
-        Note over Nbmon: Cold start: ~3 min F64, up to 12 min F2/F4
-        Nbmon-->>Dev: STATUS · CATEGORY · TRACEBACK · ADVISE · CELL
+        Dev->>Deploy: python bin/notebook/deploy.py run <name> <workspace_id>
+        Deploy-->>Dev: create/update OK · job triggered · polling…
+        Note over Deploy: Cold start: ~3 min F64, up to 12 min F2/F4
+        Deploy-->>Dev: STATUS: Completed / Failed
 
         alt FAIL
             Dev->>Dev: Fix the failing cell only — rebuild and redeploy
@@ -141,6 +134,8 @@ sequenceDiagram
 
     Dev->>Dev: Update memory/project.md → handoff to tester
 ```
+
+> `fab import` and `fab job run` require an interactive Windows console and fail in Git Bash or sandboxed environments. `bin/notebook/deploy.py` uses `fab api` (REST API calls via CLI) which works everywhere.
 
 ## Medallion pipeline flow
 
@@ -186,9 +181,17 @@ flowchart LR
 
 ## Validation
 
+Run these from this source package repository. They validate the installer package and profile guidance; they are not installed into target repositories.
+
 ```bash
 uv run bin/validate-install-package.py
 uv run bin/validate-agent-guidance.py
+```
+
+To check that an installed target repository is still aligned with this package, run the installer check from this source repository:
+
+```bash
+uv run python bin/install-fabric-agent --profile all --target /path/to/project-repo --check
 ```
 
 For installer changes, also run a disposable-target smoke test:
@@ -200,4 +203,3 @@ git init -q "$tmp"
 ./bin/install-fabric-agent --profile all --target "$tmp"
 ./bin/install-fabric-agent --profile all --target "$tmp" --check
 ```
-

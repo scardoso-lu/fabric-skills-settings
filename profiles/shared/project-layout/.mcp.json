@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "fabric": {
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "bin/mcp/server.py"
+      ]
+    }
+  }
+}

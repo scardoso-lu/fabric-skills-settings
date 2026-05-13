@@ -92,6 +92,32 @@ def validate_profiles(errors: list[str]) -> None:
         errors.append("Codex and Claude profile agents differ")
 
 
+def validate_setup_guidance(errors: list[str]) -> None:
+    required = [
+        "Configuration is missing in this repo to work correctly. Here is how to fix:",
+        ".\\bin\\setup\\setup.ps1",
+        "bin/setup/setup.sh",
+        "Do not read `.env`; checking that the file exists is enough.",
+        "FABRIC_WORKSPACE_ID",
+    ]
+    forbidden = [
+        "FABRIC_WORKSPACE_ID` is missing",
+        "or `FABRIC_WORKSPACE_ID` is missing",
+        "If `bin/setup.sh`, `.env`, or `FABRIC_WORKSPACE_ID` is missing",
+        "If `bin/setup.ps1`, `bin/setup.sh`, `.env`, or `FABRIC_WORKSPACE_ID` is missing",
+    ]
+    for path in [ROOT / "profiles" / "codex" / "AGENTS.md", ROOT / "profiles" / "claude" / "CLAUDE.md"]:
+        if not path.exists():
+            continue
+        text = path.read_text(errors="ignore")
+        for phrase in required:
+            if phrase not in text:
+                errors.append(f"missing setup guidance phrase {phrase!r} in {rel(path)}")
+        for phrase in forbidden:
+            if phrase in text:
+                errors.append(f"setup guidance implies reading .env via {phrase!r} in {rel(path)}")
+
+
 def validate_no_root_runtime(errors: list[str]) -> None:
     for path in FORBIDDEN_ROOT_RUNTIME:
         if path.exists():
@@ -102,6 +128,7 @@ def main() -> int:
     errors: list[str] = []
     validate_root_guidance(errors)
     validate_profiles(errors)
+    validate_setup_guidance(errors)
     validate_no_root_runtime(errors)
 
     if errors:

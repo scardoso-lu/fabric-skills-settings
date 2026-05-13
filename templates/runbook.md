@@ -52,7 +52,7 @@ spark.sql(f"RESTORE TABLE {table_name} TO VERSION AS OF {version_number}")
 - **Expected row count**:
 - **Expected null PK drops**:
 - **Success indicator**: `✓ Pipeline Finished: Processed X records`
-- **Normal nbmon status**:
+- **Normal run status**:
 
 ### Validation (run after each execution)
 
@@ -73,13 +73,13 @@ WHERE _ingest_timestamp IS NULL
 
 | Symptom | Likely Cause | Resolution |
 |---|---|---|
-| AnalysisException: table not found | Lakehouse ID mismatch | Check BRONZE/SILVER/GOLD_LAKEHOUSE_ID in `.env` |
+| AnalysisException: table not found | Notebook not attached to expected Lakehouse or table not created | Check notebook Lakehouse attachment and table name |
 | 401 Unauthorized | Token expired | Run `fab auth login` |
 | DQ notebook FAIL | Schema change, unexpected nulls, or sensitive data issue | Escalate to developer with failed GX expectation and batch ID |
 
 ### Recovery Steps
 
-1. Check `nbmon status <run-id>` for error details.
+1. Check Fabric portal (Activities → Notebook runs) for error details, or run `python bin/notebook/deploy.py monitor <workspace_id> <item_id> <job_instance_id>`.
 2. Fix root cause (see failure modes above).
 3. Re-run with the same batch parameters (idempotent).
 4. Run validation checks.

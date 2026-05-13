@@ -1,4 +1,9 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "CLAUDE_CODE_EFFORT_LEVEL": "high",
+    "ENABLE_PROMPT_CACHING_1H": "1"
+  },
   "permissions": {
     "deny": [
       "Read(.env)",
@@ -10,7 +15,7 @@
       "Read(**/*token*)"
     ],
     "allow": [
-      "Bash(python3 bin/build_fabric_notebooks.py *)",
+      "Bash(python3 bin/notebook/build.py *)",
       "Bash(python3 bin/validate-agent-guidance.py *)",
       "Bash(python3 bin/validate-install-package.py *)",
       "Bash(./bin/install-fabric-agent *)",
@@ -18,7 +23,9 @@
       "Bash(git diff *)",
       "Bash(git log *)",
       "Bash(fab *)",
-      "Bash(nbmon *)"
+      "mcp__fabric__fabric_list",
+      "mcp__fabric__fabric_get",
+      "mcp__fabric__fabric_api_get"
     ]
   }
 }

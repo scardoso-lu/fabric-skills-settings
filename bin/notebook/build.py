@@ -33,7 +33,7 @@ def _load_env(root: Path) -> None:
         os.environ.setdefault(key.strip(), val.strip())
 
 
-_SCRIPT_ROOT = Path(__file__).resolve().parent.parent
+_SCRIPT_ROOT = Path(__file__).resolve().parent.parent.parent
 _load_env(_SCRIPT_ROOT)
 
 _project_root_raw = os.environ.get("FABRIC_PROJECT_ROOT")
@@ -52,17 +52,54 @@ META_BLOCK = """# METADATA ********************
 # META   "language_group": "synapse_pyspark"
 # META }"""
 
+_LAKEHOUSE_ID   = os.environ.get("FABRIC_LAKEHOUSE_ID", "").strip()
+_LAKEHOUSE_NAME = os.environ.get("FABRIC_LAKEHOUSE_NAME", "").strip()
+_WORKSPACE_ID   = os.environ.get("FABRIC_WORKSPACE_ID", "").strip()
+
+
+def _notebook_meta_block() -> str:
+    """Return the notebook-level META block for default lakehouse binding, or ''."""
+    if not _LAKEHOUSE_ID:
+        return ""
+    lines = [
+        "# METADATA ********************",
+        "",
+        "# META {",
+        '# META   "kernel_info": {',
+        '# META     "name": "synapse_pyspark"',
+        "# META   },",
+        '# META   "dependencies": {',
+        '# META     "lakehouse": {',
+        f'# META       "default_lakehouse": "{_LAKEHOUSE_ID}",',
+        f'# META       "default_lakehouse_name": "{_LAKEHOUSE_NAME}",',
+        f'# META       "default_lakehouse_workspace_id": "{_WORKSPACE_ID}",',
+        '# META       "known_lakehouses": [',
+        "# META         {",
+        f'# META           "id": "{_LAKEHOUSE_ID}"',
+        "# META         }",
+        "# META       ]",
+        "# META     }",
+        "# META   }",
+        "# META }",
+    ]
+    return "\n".join(lines)
+
 
 def split_cells(source: str) -> list[str]:
     parts = re.split(r"^# %%.*$", source, flags=re.MULTILINE)
     return [part.strip() for part in parts if part.strip()]
 
 
+PROLOGUE = "# Fabric notebook source"
+
+
 def render_notebook(source_path: Path) -> str:
     cells = []
     for body in split_cells(source_path.read_text(encoding="utf-8")):
         cells.append(f"{CELL_SEP}\n\n{body}\n\n{META_BLOCK}")
-    return "\n\n".join(cells) + "\n"
+    notebook_meta = _notebook_meta_block()
+    header = PROLOGUE + ("\n\n" + notebook_meta if notebook_meta else "")
+    return header + "\n\n" + "\n\n".join(cells) + "\n"
 
 
 def _deterministic_logical_id(display_name: str) -> str:

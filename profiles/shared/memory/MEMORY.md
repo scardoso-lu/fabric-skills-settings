@@ -15,4 +15,4 @@ This is shared, vendor-neutral project memory for Fabric work in this repository
 - Keep entries dated and short.
 - Lead with the fact, then add details.
 - Never store real credentials, tokens, connection strings, workspace IDs, or lakehouse IDs.
-- Use placeholders such as `SRC_ORDERS_PATH` or Key Vault reference names when needed.
+- Use item names and Key Vault reference names when needed; do not store secrets or Fabric IDs in memory.

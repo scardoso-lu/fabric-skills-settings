@@ -6,7 +6,12 @@ This repository is the runtime workspace. Work from this repo root; do not use a
 
 1. Read `memory/MEMORY.md`.
 2. Read `memory/project.md`.
-3. Mention relevant context briefly, then address the request.
+3. If `bin/setup/setup.ps1`, `bin/setup/setup.sh`, or `.env` is missing, report:
+   "Configuration is missing in this repo to work correctly. Here is how to fix:"
+   Then show Windows commands first: `.\bin\setup\setup.ps1`, edit `.env` to set `FABRIC_WORKSPACE_ID`, and rerun `.\bin\setup\setup.ps1`.
+   Also show the bash alternative: `bash bin/setup/setup.sh`, edit `.env`, and rerun `bash bin/setup/setup.sh`.
+   Do not read `.env`; checking that the file exists is enough.
+4. Mention relevant context briefly, then address the request.
 
 ## Role Agents
 

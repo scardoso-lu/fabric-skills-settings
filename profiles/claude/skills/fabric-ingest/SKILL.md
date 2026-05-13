@@ -96,8 +96,7 @@ INGEST_DATE = (
     datetime.fromisoformat(INGEST_DATE_OVERRIDE).date()
     if INGEST_DATE_OVERRIDE else INGEST_TS.date()
 )
-SRC = SOURCE_PATH or os.environ.get("SRC_ORDERS_PATH", "/lakehouse/default/Files/orders.csv")
-BRONZE_PATH = f"abfss://bronze@onelake.dfs.fabric.microsoft.com/{os.environ['BRONZE_LAKEHOUSE_ID']}/Tables/{CONTRACT.bronze_table}"
+SRC = SOURCE_PATH or "/lakehouse/default/Files/orders.csv"
 
 # %% [schemas]
 SCHEMA = StructType([
@@ -123,7 +122,7 @@ def write_bronze(df: DataFrame) -> None:
         .option("replaceWhere", f"_ingest_date = '{INGEST_DATE}'")
         .partitionBy("_ingest_date")
         .mode("overwrite")
-        .save(BRONZE_PATH)
+        .saveAsTable(CONTRACT.bronze_table)
     )
 
 # %% [ingest]
@@ -134,7 +133,7 @@ write_bronze(df)
 # %% [summary]
 print(f"[OK] {CONTRACT.bronze_table}: {df.count()} rows written")
 print(f"     batch_id={BATCH_ID}  ingest_date={INGEST_DATE}")
-print(f"     path={BRONZE_PATH}")
+print(f"     table={CONTRACT.bronze_table}")
 ```
 
 ## Supported Sandbox Sources

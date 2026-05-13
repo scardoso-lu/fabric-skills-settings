@@ -18,7 +18,7 @@ This repository maintains and installs Microsoft Fabric agent profiles. It is no
 
 ## Required Checks
 
-Run these after guidance, profile, installer, or validation changes:
+Run these from this source package repo after guidance, profile, installer, or validation changes:
 
 ```bash
 python3 bin/validate-install-package.py
@@ -26,3 +26,9 @@ python3 bin/validate-agent-guidance.py
 ```
 
 Also smoke-test `bin/install-fabric-agent` against a disposable git repo when installer mappings or profile files change.
+
+Do not run these validators from an installed target repository; they are not installed there. To check an installed target repository, run this from the source package repo:
+
+```bash
+python3 bin/install-fabric-agent --profile all --target /path/to/project-repo --check
+```

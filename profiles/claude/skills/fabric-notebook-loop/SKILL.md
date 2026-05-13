@@ -1,6 +1,6 @@
 ---
 name: fabric-notebook-loop
-description: Develop Fabric notebooks using a local closed-loop cycle — author in .py locally, build to .Notebook format, deploy via fab import, execute, capture the run ID, monitor with nbmon, diagnose errors, fix, and redeploy. Use for iterative notebook development without portal interaction. Typically converges in 1–3 iterations. Cold-start time varies by capacity tier (≈3 min on F64, up to 8–12 min on F2/F4).
+description: Develop Fabric notebooks using a local closed-loop cycle — author in .py locally, build to .Notebook format, deploy via REST API, execute, monitor, diagnose errors, fix, and redeploy. Use for iterative notebook development without portal interaction. Typically converges in 1–3 iterations. Cold-start time varies by capacity tier (≈3 min on F64, up to 8–12 min on F2/F4).
 ---
 
 # fabric-notebook-loop
@@ -8,10 +8,10 @@ description: Develop Fabric notebooks using a local closed-loop cycle — author
 ## MUST
 
 - Use `# %%` cell markers in local `.py` files
-- Build notebooks with `python3 bin/build_fabric_notebooks.py`
-- Capture the run ID from `fab job run` before monitoring
-- Monitor runs with `nbmon status` — never use `fab job run-status` for error diagnosis
-- Never pipe full driver logs into agent context — use nbmon's 7-line summary
+- Build notebooks with `python bin/notebook/build.py`
+- Deploy and run via `bin/notebook/deploy.py` — NOT `fab import` or `fab job run` (both require an interactive Windows console and fail in Git Bash / sandboxed environments)
+- Monitor via `deploy_notebook_api.py monitor` or by checking job instance status through the Fabric REST API
+- Never pipe full driver logs into agent context — summarise to STATUS + error message only
 - Use HighConcurrency pool for initial cold start (≈3 min on F64; F2/F4 can reach 8–12 min); subsequent runs within 20 min are fast on any capacity tier
 
 ## PREFER
@@ -22,7 +22,8 @@ description: Develop Fabric notebooks using a local closed-loop cycle — author
 
 ## AVOID
 
-- Relying on `tags` metadata — `fab import` strips tags
+- Using `fab import` — requires an interactive Windows console; use `bin/notebook/deploy.py deploy` instead
+- Using `fab job run` — same console issue; use `bin/notebook/deploy.py run` instead
 - Jupyter kernel for Delta Lake writes (Spark kernel required)
 - Reading from HTTP/HTTPS URLs in Spark (stage to Files/ first via Data Factory)
 - Using `df.show()` or `print()` in production cells
@@ -33,22 +34,28 @@ description: Develop Fabric notebooks using a local closed-loop cycle — author
 # 1. Author locally
 # Edit workspace/my_notebook.py with # %% markers.
 
-# 2. Build all local .py notebooks to Fabric .Notebook folders
-python3 bin/build_fabric_notebooks.py
+# 2. Build, deploy, run, and monitor in one command.
+bin/notebook/smoke-test.sh --notebook my_notebook
 
-# 3. Deploy to Fabric
-fab import fabric_notebooks/my_notebook.Notebook --workspace-id "$WORKSPACE_ID"
+# 3. Fix and repeat.
+```
 
-# 4. Run and capture the run ID
-RUN_OUTPUT=$(fab job run --item-id "$NOTEBOOK_ITEM_ID" --workspace-id "$WORKSPACE_ID")
-RUN_ID=$(printf '%s\n' "$RUN_OUTPUT" | sed -nE 's/.*(runId|Run ID|run_id)[" :_=]+([A-Za-z0-9-]+).*/\2/p' | head -1)
-test -n "$RUN_ID" || { echo "Could not parse run ID from fab output:"; printf '%s\n' "$RUN_OUTPUT"; exit 1; }
-echo "Run ID: $RUN_ID"
+The smoke test script reads `FABRIC_WORKSPACE_ID` from `.env` automatically.
 
-# 5. Monitor
-nbmon status "$RUN_ID"
+### Step by step (if you need finer control)
 
-# 6. Fix and repeat
+```bash
+# Build
+python bin/notebook/build.py
+
+# Deploy only
+python bin/notebook/deploy.py deploy my_notebook "$FABRIC_WORKSPACE_ID"
+
+# Deploy + run + monitor
+python bin/notebook/deploy.py run my_notebook "$FABRIC_WORKSPACE_ID"
+
+# Monitor an existing job instance
+python bin/notebook/deploy.py monitor "$FABRIC_WORKSPACE_ID" <item_id> <job_instance_id>
 ```
 
 ## Cell Structure
@@ -74,19 +81,16 @@ except Exception as e:
     raise
 ```
 
-## nbmon Output Interpretation
+## Run Status Interpretation
 
 ```
-RUN ID   : abc-123
-STATUS   : Failed
-DURATION : 4m 32s
-CATEGORY : PySpark — AnalysisException
-TRACEBACK: AnalysisException: Table not found: bronze.raw_orders
-ADVISE   : Verify lakehouse_id and table name. Check that the table exists in the specified lakehouse.
-CELL     : Cell 3 (line 12)
+STATUS: InProgress   ← still running, keep polling
+STATUS: Completed    ← success
+STATUS: Failed       ← check failureReason in the job instance response
+STATUS: Cancelled    ← manually stopped
 ```
 
-Act on `CATEGORY` + `TRACEBACK` + `ADVISE`. Do not ask for more context — nbmon gives you enough.
+Act on `STATUS` + `failureReason`. If the notebook fails, fix only the failing cell, rebuild, redeploy, rerun.
 
 ## Full Example: CSV to Bronze
 
@@ -94,12 +98,12 @@ Create a local notebook source at `workspace/orders_bronze.py`:
 
 ```python
 # %% [parameters]
-import os
 from pyspark.sql import functions as F
 
-source_path = os.environ.get("SRC_ORDERS_PATH", "data/sandbox/orders.csv")
+SOURCE_PATH = "/lakehouse/default/Files/orders.csv"
+source_path = SOURCE_PATH or "/lakehouse/default/Files/orders.csv"
 source_system = "ORDERS"
-batch_id = os.environ.get("BATCH_ID", "manual-dev")
+batch_id = "manual-dev"
 
 # %%
 try:
@@ -132,12 +136,7 @@ except Exception as exc:
 Run the complete loop:
 
 ```bash
-python3 bin/build_fabric_notebooks.py
-fab import fabric_notebooks/orders_bronze.Notebook --workspace-id "$WORKSPACE_ID"
-RUN_OUTPUT=$(fab job run --item-id "$NOTEBOOK_ITEM_ID" --workspace-id "$WORKSPACE_ID")
-RUN_ID=$(printf '%s\n' "$RUN_OUTPUT" | sed -nE 's/.*(runId|Run ID|run_id)[" :_=]+([A-Za-z0-9-]+).*/\2/p' | head -1)
-test -n "$RUN_ID" || { echo "Could not parse run ID from fab output:"; printf '%s\n' "$RUN_OUTPUT"; exit 1; }
-nbmon status "$RUN_ID"
+bin/notebook/smoke-test.sh --notebook orders_bronze
 ```
 
-If `nbmon` reports failure, fix only the failing cell, rebuild, redeploy, rerun, and monitor again.
+If the run fails, check the STATUS output, fix only the failing cell, rebuild, redeploy, rerun.

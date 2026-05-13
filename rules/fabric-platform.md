@@ -25,7 +25,7 @@ Single auth flow for all Fabric CLI tools:
 ```bash
 fab auth login    # device-code; token cached at ~/.config/fab/cache.bin
 ```
-All `fab`, `nbmon`, and notebook scripts share this cache. Do not re-authenticate per tool.
+All `fab` CLI commands share this cache. Do not re-authenticate per tool.
 
 For REST API calls, extract the bearer token:
 ```bash
@@ -36,21 +36,24 @@ Use this when `fab api` fails on non-JSON endpoints (text/plain responses).
 ## FP-03: Notebook Authoring
 
 - Author in local `.py` files using `# %%` cell markers
-- Build to `.Notebook` format with `bin/build-notebooks.py`
-- Deploy with `fab import <path>`
-- `fab import` strips `tags` metadata — do not rely on tags for parameter injection
+- Build to `.Notebook` format with `python bin/notebook/build.py`
+- Deploy via REST API: `python bin/notebook/deploy.py deploy <name> <workspace_id>`
+- Full loop: `bin/notebook/smoke-test.sh --notebook <name>` (reads `FABRIC_WORKSPACE_ID` from `.env`)
+- `fab import` and `fab job run` require an interactive Windows console — do not use in automated or sandboxed environments
+- `tags` metadata is stripped by the REST API — do not rely on tags for parameter injection
 - Notebook cells must end with `\n` to prevent visual merge issues
 
-## FP-04: Debugging (nbmon Only)
+## FP-04: Debugging Job Runs
 
-`nbmon status <run-id>` is the ONLY reliable debugging path for Spark job failures.
-`fab job run-status` gives generic errors only — do not rely on it for diagnosis.
+Use `bin/notebook/deploy.py monitor` for real-time status polling:
 
 ```bash
-nbmon status <run-id>    # 7-line diagnostic banner + traceback + Spark Advise category
+python bin/bin/notebook/deploy.py monitor <workspace_id> <item_id> <job_instance_id>
 ```
 
-Never pipe full driver logs (~800 KB) into agent context. Use nbmon's summary.
+For detailed error traces, open the Fabric portal: Activities → Notebook runs → select the failed run.
+
+`fab job run-status` and `nbmon status` require an interactive Windows console — do not use them in Git Bash or sandboxed environments.
 
 ## FP-05: Spark vs SQL Endpoint
 

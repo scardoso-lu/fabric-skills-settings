@@ -33,14 +33,17 @@ description: Operate and maintain a Fabric data platform — orchestrate pipelin
 ## Daily Checks
 
 ```bash
-# Check recent notebook runs in the sandbox workspace.
-fab job list --workspace-id "$WORKSPACE_ID" --type Notebook
+# List items in the sandbox workspace (shows notebooks, lakehouses, etc.)
+fab api "workspaces/$FABRIC_WORKSPACE_ID/items" --output_format json
 
-# For a single suspicious run, prefer nbmon for diagnostics.
-nbmon status "$RUN_ID"
+# Check recent job runs for a specific notebook item
+fab api "workspaces/$FABRIC_WORKSPACE_ID/items/<item_id>/jobs/instances" --output_format json
+
+# Monitor a specific job instance
+python bin/notebook/deploy.py monitor "$FABRIC_WORKSPACE_ID" <item_id> <job_instance_id>
 ```
 
-Check DQ notebook run results in the Fabric portal (Activities → Notebook runs) or via `nbmon`.
+Check DQ notebook run results in the Fabric portal (Activities → Notebook runs).
 
 ## VACUUM Pattern
 
@@ -72,6 +75,7 @@ mkdir -p workspace fabric_notebooks data/sandbox logs
 
 # Copy environment template
 cp .env.example .env
+# Fill only FABRIC_WORKSPACE_ID for the common sandbox loop.
 
 # Install Fabric CLI
 uv tool install ms-fabric-cli
