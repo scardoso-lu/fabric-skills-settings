@@ -30,6 +30,26 @@ description: Operate and maintain a Fabric data platform — orchestrate pipelin
 **Weekly**: Run VACUUM, check for schema drift, review slow jobs, review DQ trend reports  
 **Monthly**: Capacity review, access review, Key Vault secret rotation check, stale item audit
 
+## Lakehouse Inspection
+
+```bash
+# List all lakehouses in the workspace with their tables and column schemas
+python tool/lakehouse/list-tables.py
+
+# Scope to a specific lakehouse
+python tool/lakehouse/list-tables.py --lakehouse bronze_lh
+
+# Inspect one table
+python tool/lakehouse/list-tables.py --lakehouse bronze_lh --table raw_orders
+
+# Machine-readable JSON (pipe to jq for filtering)
+python tool/lakehouse/list-tables.py --json
+```
+
+Column schema is read from each table's Delta transaction log via the OneLake DFS
+endpoint using the `fab auth token` credential. If the token is unavailable, table
+names and types are still listed without schema.
+
 ## Daily Checks
 
 ```bash

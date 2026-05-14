@@ -11,9 +11,9 @@ description: Develop Fabric notebooks using a local closed-loop cycle — author
 - Build notebooks with `python tool/notebook/build.py`
 - Deploy and run via `tool/notebook/deploy.py` — NOT `fab import` or `fab job run` (both require an interactive Windows console and fail in Git Bash / sandboxed environments)
 - Monitor via `tool/notebook/deploy.py monitor` or by checking job instance status through the Fabric REST API
-- After a successful run, `deploy.py run` automatically fetches the notebook definition back from Fabric into `workspace/<topic>/<name>.Notebook/` (git-tracked, synced with Fabric UI)
-- After fetch, delete the source `.py` — the `.Notebook/` bundle is the canonical git artifact
-- Commit `workspace/<topic>/<name>.Notebook/` (without the `.py`) to git after each successful loop so Fabric Git integration stays current
+- After a successful run, `deploy.py run` automatically fetches the notebook definition back from Fabric into `workspace/<topic>/<name>.Notebook/` (synced with Fabric UI)
+- After fetch, report to orchestrator and stop — the human commits via the Fabric UI Git integration
+- Never run `git add`, `git rm`, or `git commit` — all git commits are the human's responsibility via Fabric UI
 - `fabric_notebooks/<topic>/<name>.Notebook/` is the build intermediate (gitignored) — never commit it
 - Never pipe full driver logs into agent context — summarise to STATUS + error message only
 - Use HighConcurrency pool for initial cold start (≈3 min on F64; F2/F4 can reach 8–12 min); subsequent runs within 20 min are fast on any capacity tier
@@ -55,11 +55,10 @@ python tool/notebook/deploy.py deploy my_notebook "$FABRIC_WORKSPACE_ID"
 #    - STATUS missing or unclear → ask human for validation. Do NOT re-run.
 #    Never re-run the smoke test autonomously — each run consumes Fabric capacity.
 
-# 5. After PASS — fetch the Fabric bundle, delete the .py source, and commit.
+# 5. After PASS — fetch the Fabric bundle and report. Do NOT commit.
+#    The human commits via the Fabric UI Git integration.
 python tool/notebook/deploy.py fetch my_notebook "$FABRIC_WORKSPACE_ID"
-git rm workspace/<topic>/my_notebook.py
-git add workspace/<topic>/my_notebook.Notebook/
-git commit -m "sync: my_notebook after successful run"
+# Report to orchestrator: fetch complete. Human commits via Fabric UI.
 ```
 
 `FABRIC_WORKSPACE_ID` is read from `.env` automatically. The intermediate build in `fabric_notebooks/` is gitignored.

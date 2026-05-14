@@ -12,10 +12,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PROFILES = ROOT / "profiles"
-SKILLS = {"fabric-ingest", "fabric-transform", "fabric-model", "fabric-validate", "fabric-notebook-loop", "fabric-ops"}
+SKILLS = {"fabric-ingest", "fabric-transform", "fabric-model", "fabric-validate", "fabric-notebook-loop", "fabric-ops", "fabric-pipeline"}
 AGENTS = {"orchestrator", "developer", "tester", "operator"}
 MIRRORED_HELPERS = [
+    "lakehouse/list-tables.py",
     "mcp/server.py",
+    "pipeline/manage.py",
     "notebook/build.py",
     "notebook/deploy.py",
     "notebook/smoke-test.ps1",
@@ -83,6 +85,8 @@ def validate_required(errors: list[str]) -> None:
     require(PROFILES / "shared" / "project-layout" / "tool" / "setup" / "fabric-inventory-readonly.ps1", errors)
     require(PROFILES / "shared" / "project-layout" / "tool" / "setup" / "setup.ps1", errors)
     require(PROFILES / "shared" / "project-layout" / "tool" / "setup" / "setup.sh", errors)
+    require(PROFILES / "shared" / "project-layout" / "tool" / "lakehouse" / "list-tables.py", errors)
+    require(PROFILES / "shared" / "project-layout" / "tool" / "pipeline" / "manage.py", errors)
     require(PROFILES / "shared" / "project-layout" / "tool" / "validate" / "pipeline-lineage.py", errors)
     require(PROFILES / "shared" / "project-layout" / "tool" / "validate" / "source-contract.py", errors)
 

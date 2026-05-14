@@ -2,6 +2,27 @@
 
 These rules apply to all agents and all pipelines. They are non-negotiable.
 
+OWASP Data Security Top 10 (2025) mapping:
+
+| OWASP | Rule(s) |
+|---|---|
+| DATA1 Injection Attacks | SEC-08 |
+| DATA2 Broken Auth & Access Control | SEC-01, SEC-04 |
+| DATA3 Data Breaches | SEC-02, SEC-03, SEC-07 |
+| DATA4 Malware & Ransomware | SEC-10, SEC-12 |
+| DATA5 Insider Threats | SEC-04, SEC-06 |
+| DATA6 Weak Cryptography | SEC-01, SEC-09 |
+| DATA7 Insecure Data Handling | SEC-02, SEC-03, SEC-05 |
+| DATA8 Inadequate Third-Party Security | SEC-10, SEC-12 |
+| DATA9 Data Inventory & Management | SEC-06, SEC-11 |
+| DATA10 Non-Compliance | SEC-05 |
+
+OWASP Top 10 (2025) mapping:
+
+| OWASP | Rule(s) |
+|---|---|
+| A03:2025 Software Supply Chain Failures | SEC-10, SEC-12 |
+
 ---
 
 ## SEC-00: Agents Never Handle Real Credentials — ABSOLUTE RULE
@@ -96,3 +117,47 @@ print(payload)      # forbidden
 df.show()           # forbidden in production
 logging.info(row)   # forbidden if row contains PII
 ```
+
+## SEC-08: Injection Prevention
+
+Never build Spark SQL or JDBC queries from string concatenation. Use the Column API or parameterized queries.
+
+```python
+# ❌ Forbidden
+spark.sql(f"SELECT * FROM {table_name} WHERE id = '{user_id}'")
+
+# ✅ Correct
+df.filter(F.col("id") == user_id)
+spark.sql("SELECT * FROM orders WHERE id = :id", args={"id": user_id})
+```
+
+For JDBC sources, use `PreparedStatement`-style patterns and never interpolate external values into query strings.
+
+## SEC-09: Encryption Requirements
+
+- Source connections must use TLS/SSL endpoints — reject plain HTTP
+- Never use MD5 or SHA-1 for integrity checks; use SHA-256 or stronger
+- Key Vault URIs must use versioned secret references to prevent silent key rotation bypass
+- Fabric Lakehouse encryption at rest is platform-managed; confirm it has not been disabled in workspace settings
+
+## SEC-10: Third-Party Dependency Vetting
+
+- Pin all pip installs with version bounds: `%pip install "pkg>=1.0,<2.0"`
+- Never install from git URLs, local file paths, or non-PyPI indexes unless approved by operator
+- Check new package names for typosquatting before adding them
+- No untested packages in production pipelines
+- Before adding any new package, verify it has no known CVEs via [osv.dev](https://osv.dev) or NVD
+
+## SEC-11: Data Inventory Maintenance
+
+`memory/platform.md` must list every lakehouse, table, source system, and its sensitivity classification. Update after every pipeline creation, deletion, or schema change. An unmapped table is an unmanaged risk.
+
+## SEC-12: Software Bill of Materials and Supply Chain Integrity
+
+A03:2025 Software Supply Chain Failures applies to every notebook that installs packages at runtime.
+
+- Maintain `memory/sbom.md` listing every `%pip install` package across all notebooks with its pinned version bounds and the notebook(s) that use it
+- Update `memory/sbom.md` whenever a package is added, removed, or version-bumped
+- Remove unused packages from notebook pip cells — each extra package is additional attack surface
+- Do not pin to a version that has a known CVE; check osv.dev before bumping any version bound
+- Transitive dependencies of high-risk packages (network I/O, crypto, serialisation) require operator awareness even if not directly imported

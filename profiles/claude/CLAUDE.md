@@ -43,7 +43,7 @@ One topic subfolder per data source or business domain (e.g. `workspace/lux_ener
 ## Notebook Workflow
 
 ```
-author  →  build  →  deploy (REST)  →  smoke test  →  fetch  →  git commit
+author  →  build  →  deploy (REST)  →  smoke test  →  fetch  →  human commits via Fabric UI
   .py        fabric_notebooks/           Fabric       (exec+monitor)  workspace/<topic>/<name>.Notebook/
 ```
 
@@ -52,7 +52,7 @@ Deploy and smoke test are separate steps:
 - Smoke test (trigger existing notebook): Windows `tool\notebook\smoke-test.ps1 -Notebook <name>` · Linux/Mac `tool/notebook/smoke-test.sh --notebook <name>`
 - Fetch after a passing run: `python tool/notebook/deploy.py fetch <name> <workspace_id>`
 
-The smoke test never deploys. It triggers a job on whatever is already in Fabric and reports STATUS.
+The smoke test never deploys. It triggers a job on whatever is already in Fabric and reports STATUS. After fetch, stop and report to the orchestrator — never run `git add`, `git rm`, or `git commit`. The human manages all git commits via the Fabric UI Git integration.
 
 ## tool/ layout
 
@@ -60,6 +60,8 @@ The smoke test never deploys. It triggers a job on whatever is already in Fabric
 |---|---|---|
 | `tool/setup/` | Human (once) | `setup.ps1/sh` environment check · `fab-sandbox` authenticated Fabric CLI wrapper · `fabric-inventory-readonly` read-only workspace/item lookup |
 | `tool/notebook/` | Developer agent | `build.py` compile `.py` → `.Notebook` · `deploy.py` deploy/exec/fetch via REST · `smoke-test.ps1/sh` trigger and monitor |
+| `tool/lakehouse/` | Developer agent | `list-tables.py` list all lakehouse tables with column names and types |
+| `tool/pipeline/` | Developer agent | `manage.py` create, deploy, run, and monitor a Data Factory pipeline that chains all topic notebooks |
 | `tool/validate/` | Developer agent | `pipeline-lineage.py` staging-path consistency (run before every build) · `source-contract.py` contracts/ YAML shape check |
 | `tool/mcp/` | Infrastructure | MCP server exposing Fabric CLI commands to agents |
 | `tool/pre-commit-check.ps1/sh` | Developer agent | Runs all pre-commit validators before committing |

@@ -17,6 +17,7 @@ REQUIRED_SKILLS = {
     "fabric-validate",
     "fabric-notebook-loop",
     "fabric-ops",
+    "fabric-pipeline",
 }
 REQUIRED_AGENTS = {"orchestrator", "developer", "tester", "operator"}
 FORBIDDEN_ROOT_RUNTIME = [

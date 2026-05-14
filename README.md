@@ -6,24 +6,6 @@ Fabric Agent Pack turns a normal git repository into a guided Microsoft Fabric p
 
 > This repository is the **source package and installer**, not the day-to-day Fabric project workspace. Install a profile into your actual project repository, then run Codex or Claude Code from that target repository root.
 
-## Why use it?
-
-- **Vendor-native profiles** — Codex and Claude each get their own native instructions, agents, skills, and settings.
-- **Fabric-first notebook loop** — agents author local `workspace/<topic>/*.py` notebook sources, build Fabric notebook bundles, deploy through the Fabric REST API, and smoke-test existing notebooks.
-- **Human-controlled execution** — agents report status through an orchestrator pattern, pause on unclear failures, and keep security reviews separate from implementation.
-- **Data-quality by design** — ingestion and DQ notebooks stay separate, with Great Expectations-oriented validation for bronze, silver, and gold layers.
-- **Portable project scaffolding** — target repositories receive shared `memory/`, `workspace/`, `contracts/`, `data/sandbox/`, `runbooks/`, and `tool/` folders.
-
-## What gets installed?
-
-| Profile | Installed into target repo |
-|---|---|
-| Codex | `AGENTS.md`, `.agents/skills/*/SKILL.md`, `.codex/agents/*.toml`, `.codex/config.toml` |
-| Claude | `CLAUDE.md`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `.claude/settings.json` |
-| Shared | `memory/`, placeholder `.env.example`, managed `.gitignore` block, `workspace/`, `data/sandbox/`, `contracts/`, `runbooks/`, `tool/` tooling |
-
-The only shared runtime state between vendor profiles is `memory/`. Runtime Codex assets stay under `profiles/codex/`; runtime Claude assets stay under `profiles/claude/`.
-
 ## Quick start
 
 ### 1. Prepare this source package
@@ -137,3 +119,23 @@ git init -q "$tmp"
 ./bin/install-fabric-agent --profile all --target "$tmp"
 ./bin/install-fabric-agent --profile all --target "$tmp" --check
 ```
+
+## What gets installed?
+
+| Profile | Installed into target repo |
+|---|---|
+| Codex | `AGENTS.md`, `.agents/skills/*/SKILL.md`, `.codex/agents/*.toml`, `.codex/config.toml` |
+| Claude | `CLAUDE.md`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `.claude/settings.json` |
+| Shared | `memory/`, placeholder `.env.example`, managed `.gitignore` block, `workspace/`, `data/sandbox/`, `contracts/`, `runbooks/`, `tool/` tooling |
+
+The only shared runtime state between vendor profiles is `memory/`. Runtime Codex assets stay under `profiles/codex/`; runtime Claude assets stay under `profiles/claude/`.
+
+
+## Why use it?
+
+- **Ship faster** — agents handle notebook authoring, deployment, schema validation, and pipeline wiring. Engineers own approvals and production handoffs.
+- **OWASP-compliant by default** — Data Security Top 10 and Supply Chain (A03:2025) baked in: no credential leakage, parameterized queries, pinned dependencies, CVE checks, PII masking.
+- **Harness engineering** — agents run inside a structured harness of guardrails, role definitions, skill boundaries, and memory. Consistent, auditable behavior without custom prompt engineering per project.
+- **Separation of duties** — implementation, testing, and security review are distinct agents. Nothing reaches production without a human sign-off.
+- **Quality gates at every layer** — mandatory Great Expectations checks at bronze, silver, and gold. Failed DQ stops the pipeline; agents do not auto-retry.
+- **Token savings** — RTK optimizer cuts shell-output tokens 60–90%, keeping long sessions economical.

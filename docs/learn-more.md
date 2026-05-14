@@ -88,6 +88,8 @@ The Shared profile installs five tool groups into every target repository:
 |---|---|---|
 | `tool/setup/` | Human, one-time | Environment setup and Fabric admin helpers: `setup.ps1`, `setup.sh`, `fab-sandbox`, `fabric-inventory-readonly` |
 | `tool/notebook/` | Developer agent | Notebook build → deploy → smoke-test cycle: `build.py`, `deploy.py`, `smoke-test.ps1/sh` |
+| `tool/lakehouse/` | Developer agent | `list-tables.py` — read-only inventory of lakehouse tables with column names and types |
+| `tool/pipeline/` | Developer agent | `manage.py` — create, deploy, run, and monitor a Data Factory pipeline that chains all topic notebooks |
 | `tool/validate/` | Developer agent | Pre-deploy gates: `pipeline-lineage.py` for staging path consistency and `source-contract.py` for contract YAML shape |
 | `tool/mcp/` | Infrastructure | MCP server exposing Fabric CLI commands to agents |
 | `tool/pre-commit-check.ps1/sh` | Developer agent | Runs validators before committing workspace changes |
@@ -127,8 +129,7 @@ sequenceDiagram
 
     alt STATUS: Completed
         Dev->>Deploy: deploy.py fetch <name> <workspace_id>
-        Dev->>Dev: git rm workspace/<topic>/<name>.py
-        Dev->>Dev: git add workspace/<topic>/<name>.Notebook/ · git commit · handoff to tester
+        Note over Dev: Report fetch complete to orchestrator. STOP.<br/>Human commits via Fabric UI Git integration.
     else STATUS: Failed or unclear
         Dev->>Human: Report FAIL + failureReason · await approval
         Human-->>Dev: Approve next run

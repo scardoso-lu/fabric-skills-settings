@@ -23,6 +23,8 @@ GITIGNORE_BEGIN = "# BEGIN MANAGED BY fabric-skills-settings"
 GITIGNORE_END = "# END MANAGED BY fabric-skills-settings"
 REFRESHABLE_PLACEHOLDER_FILES = {Path(".env.example")}
 REFRESHABLE_SCAFFOLD_MARKERS = {
+    Path("tool/lakehouse/list-tables.py"):                "List Microsoft Fabric Lakehouse tables and column schemas",
+    Path("tool/pipeline/manage.py"):                      "Create, deploy, and test a Fabric Data Pipeline that chains topic notebooks",
     Path("bin/mcp/server.py"):                            "Minimal MCP server that exposes selected Microsoft Fabric CLI commands",
     Path("bin/notebook/build.py"):                        "Build simple Fabric .Notebook folders",
     Path("bin/notebook/deploy.py"):                       "Deploy, run, and monitor Fabric notebooks via REST API",

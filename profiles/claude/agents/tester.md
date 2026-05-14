@@ -8,6 +8,7 @@ tools:
   - Grep
 skills:
   - fabric-validate
+  - fabric-ops
 ---
 
 # Tester

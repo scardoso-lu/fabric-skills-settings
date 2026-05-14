@@ -140,6 +140,20 @@ if not passed:
     )
 ```
 
+## Security DQ Checks
+
+Include these checks in DQ notebooks for tables that receive external or user-generated data (OWASP Data Security Top 10):
+
+| Risk | OWASP | Check | GX Expectation |
+|---|---|---|---|
+| SQL injection chars in PK | DATA1 | PK matches safe-char pattern | `ExpectColumnValuesToMatchRegex(column=pk, regex=r"^[A-Za-z0-9_\-\.]+$")` |
+| Unexpected volume spike | DATA3 | Row count within expected ceiling | `ExpectTableRowCountToBeBetween(max_value=EXPECTED_MAX)` |
+| PII masking verification | DATA7 | Masked column follows format | `ExpectColumnValuesToMatchRegex(column="email", regex=r"^[A-Z]{3}\*+@.*$")` |
+| Audit envelope integrity | DATA5/DATA9 | Envelope columns non-null and in range | `ExpectColumnValuesToBeBetween(column="_ingest_timestamp", ...)` |
+| Schema drift | DATA9 | Column set matches contract | `ExpectColumnToExist` for each contract field |
+
+Add `EXPECTED_MAX` and masking regex defaults to the `# %% [parameters]` cell. Set `EXPECTED_MAX = 0` to skip the ceiling check for unbounded tables.
+
 ## Standard Expectations Reference
 
 | Check | GX Expectation class |
