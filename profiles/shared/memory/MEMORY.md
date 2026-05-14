@@ -28,6 +28,31 @@ memory/
 
 - `memory/runbooks/` — scheduled pipeline runbooks and run results.
 - `memory/security/` — security reviews, access decisions, sensitive field registry.
+- `memory/skill-fixes/` — recorded gaps and workarounds discovered in skills or tools during real work. Read all files here at session start; they take precedence over skill SKILL.md defaults. Write a new entry whenever a skill or tool behaves incorrectly and a fix or workaround is applied.
+
+### skill-fixes entry format
+
+```markdown
+---
+name: <skill-name>-<issue-slug>
+description: <one-line summary of the gap and the fix>
+metadata:
+  type: feedback
+  date: YYYY-MM-DD
+---
+
+# Gap: <short title>
+
+## What happened
+
+## Root cause
+
+## Fix applied
+
+## Rule going forward
+**Why:** ...
+**How to apply:** ...
+```
 
 ## Update Rules
 

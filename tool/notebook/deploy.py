@@ -40,18 +40,25 @@ FAB_SANDBOX_HOME = os.environ.get("FAB_SANDBOX_HOME") or str(Path(tempfile.gette
 _POLL_INTERVAL = 10  # seconds between status polls
 
 
+def _user_home() -> Path:
+    if os.name == "nt":
+        home = Path.home()
+    else:
+        import pwd
+        home = Path(pwd.getpwuid(os.getuid()).pw_dir)
+    if not home.exists():
+        raise SystemExit(f"Could not resolve current user's home directory: {home}")
+    return home
+
+
 def _resolve_fab_command() -> tuple[list[str], bool]:
     """Return (command_prefix, uses_wrapper). Prefers fab-sandbox.ps1 on Windows."""
     wrapper = SCRIPT_ROOT / "tool" / "setup" / "fab-sandbox.ps1"
     if os.name == "nt" and wrapper.exists():
         powershell = os.environ.get("POWERSHELL_BIN") or "powershell.exe"
         return [powershell, "-ExecutionPolicy", "Bypass", "-File", str(wrapper)], True
-    import shutil
-    fab = shutil.which("fab")
-    if fab:
-        return [fab], False
-    candidate = Path(os.environ.get("FAB_BIN", "")) if os.environ.get("FAB_BIN") else None
-    if candidate and candidate.exists():
+    candidate = _user_home() / ".local" / "bin" / "fab"
+    if candidate.exists():
         return [str(candidate)], False
     raise SystemExit("fab executable not found. Install with: uv tool install ms-fabric-cli")
 

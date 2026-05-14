@@ -27,8 +27,14 @@ Options:
     exit 0
 }
 
-if (-not (Get-Command fab -ErrorAction SilentlyContinue)) {
-    Write-Error "Fabric CLI (fab) is not installed. Run '.\setup.ps1 -InstallTools' first."
+$UserProfile = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::UserProfile)
+if (-not $UserProfile -and $env:USERPROFILE) { $UserProfile = $env:USERPROFILE }
+$FabBin = Join-Path $UserProfile ".local\bin\fab.exe"
+if (-not (Test-Path -LiteralPath $FabBin -PathType Leaf)) {
+    $FabBin = Join-Path $UserProfile ".local\bin\fab"
+}
+if (-not (Test-Path -LiteralPath $FabBin -PathType Leaf)) {
+    Write-Error "Fabric CLI (fab) is not installed at the expected user-local path. Run '.\setup.ps1 -InstallTools' first."
     exit 127
 }
 
@@ -38,8 +44,8 @@ if ($Items) {
         exit 2
     }
     Write-Host "# Fabric items for workspace (read-only): $WorkspaceId"
-    fab api get "/v1/workspaces/$WorkspaceId/items"
+    & $FabBin api get "/v1/workspaces/$WorkspaceId/items"
 } else {
     Write-Host "# Fabric workspaces (read-only)"
-    fab api get "/v1/workspaces"
+    & $FabBin api get "/v1/workspaces"
 }

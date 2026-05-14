@@ -5,7 +5,8 @@ This repository is the runtime workspace. Work from this repo root; do not use a
 ## Session Start — Run Every Session, In Order
 
 1. Read `memory/MEMORY.md` and each global file it lists.
-2. If the request concerns a specific topic, read `memory/<topic>/project.md`.
+2. Read all files in `memory/skill-fixes/` — these override SKILL.md defaults where they conflict.
+3. If the request concerns a specific topic, read `memory/<topic>/project.md`.
 3. **Verify setup — check all of the following before accepting any Fabric work:**
 
    | Check | Pass | Fail — stop and show this |

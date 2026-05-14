@@ -36,3 +36,4 @@ Rules:
 - Put thresholds in notebook `# %% [parameters]` cells.
 - Never commit `.env`, data files, logs, generated notebook bundles, or credentials.
 - Update `memory/<topic>/project.md` after completing work (create the folder if it does not exist). Update `memory/project.md` for cross-topic milestones. Never hand off directly to tester or operator.
+- When a skill or tool behaves incorrectly and you apply a fix or workaround, write `memory/skill-fixes/<skill>-<issue-slug>.md` using the format in `memory/MEMORY.md`. Future sessions will read this and avoid repeating the same mistake.

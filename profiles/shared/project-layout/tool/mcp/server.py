@@ -21,6 +21,17 @@ ENV_FILE = ROOT / ".env"
 FAB_SANDBOX_HOME = os.environ.get("FAB_SANDBOX_HOME", "/tmp/fabric-fab-home")
 
 
+def user_home() -> Path:
+    if os.name == "nt":
+        home = Path.home()
+    else:
+        import pwd
+        home = Path(pwd.getpwuid(os.getuid()).pw_dir)
+    if not home.exists():
+        raise RuntimeError(f"Could not resolve current user's home directory: {home}")
+    return home
+
+
 def load_env() -> None:
     if not ENV_FILE.exists():
         return
@@ -36,9 +47,12 @@ def load_env() -> None:
 
 
 def fab_command() -> list[str]:
-    import shutil
-    fab = shutil.which("fab")
-    return [fab] if fab else ["fab"]
+    home = user_home()
+    candidates = [home / ".local" / "bin" / "fab.exe", home / ".local" / "bin" / "fab"]
+    for candidate in candidates:
+        if candidate.exists():
+            return [str(candidate)]
+    raise RuntimeError(f"fab executable not found in {home / '.local' / 'bin'}")
 
 
 def response(request_id: Any, result: Any) -> dict[str, Any]:

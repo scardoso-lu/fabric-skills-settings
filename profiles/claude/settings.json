@@ -59,7 +59,11 @@
       "Skill(fabric-notebook-loop)",
       "Bash(powershell -File tool/setup/fab-sandbox.ps1 api --help)",
       "Bash(powershell.exe -File tool/setup/fab-sandbox.ps1 --version)",
-      "Bash(powershell.exe -File tool/setup/fab-sandbox.ps1 api workspaces --output_format json)"
+      "Bash(powershell.exe -File tool/setup/fab-sandbox.ps1 api workspaces --output_format json)",
+      "Skill(fabric-pipeline)",
+      "PowerShell(python tool/pipeline/manage.py *)",
+      "Bash(bash tool/setup/fab-sandbox --version)",
+      "Bash(bash tool/setup/fab-sandbox api workspaces --output_format json)"
     ]
   },
   "enableAllProjectMcpServers": true,

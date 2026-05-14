@@ -31,6 +31,17 @@ FAB_SANDBOX_HOME = os.environ.get("FAB_SANDBOX_HOME") or str(Path(tempfile.gette
 ONELAKE_DFS = "https://onelake.dfs.fabric.microsoft.com"
 
 
+def _user_home() -> Path:
+    if os.name == "nt":
+        home = Path.home()
+    else:
+        import pwd
+        home = Path(pwd.getpwuid(os.getuid()).pw_dir)
+    if not home.exists():
+        raise SystemExit(f"Could not resolve current user's home directory: {home}")
+    return home
+
+
 def _load_env(root: Path) -> None:
     env_file = root / ".env"
     if not env_file.exists():
@@ -49,12 +60,8 @@ def _resolve_fab_command() -> tuple[list[str], bool]:
     if os.name == "nt" and wrapper.exists():
         ps = os.environ.get("POWERSHELL_BIN") or "powershell.exe"
         return [ps, "-ExecutionPolicy", "Bypass", "-File", str(wrapper)], True
-    import shutil
-    fab = shutil.which("fab")
-    if fab:
-        return [fab], False
-    candidate = Path(os.environ.get("FAB_BIN", "")) if os.environ.get("FAB_BIN") else None
-    if candidate and candidate.exists():
+    candidate = _user_home() / ".local" / "bin" / "fab"
+    if candidate.exists():
         return [str(candidate)], False
     raise SystemExit("fab not found. Install with: uv tool install ms-fabric-cli")
 

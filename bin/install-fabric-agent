@@ -25,16 +25,16 @@ REFRESHABLE_PLACEHOLDER_FILES = {Path(".env.example")}
 REFRESHABLE_SCAFFOLD_MARKERS = {
     Path("tool/lakehouse/list-tables.py"):                "List Microsoft Fabric Lakehouse tables and column schemas",
     Path("tool/pipeline/manage.py"):                      "Create, deploy, and test a Fabric Data Pipeline that chains topic notebooks",
-    Path("bin/mcp/server.py"):                            "Minimal MCP server that exposes selected Microsoft Fabric CLI commands",
-    Path("bin/notebook/build.py"):                        "Build simple Fabric .Notebook folders",
-    Path("bin/notebook/deploy.py"):                       "Deploy, run, and monitor Fabric notebooks via REST API",
-    Path("bin/notebook/smoke-test.sh"):                   "smoke-test.sh",
-    Path("bin/setup/fab-sandbox"):                        "Sandbox wrapper for Microsoft Fabric CLI",
-    Path("bin/setup/fabric-inventory-readonly"):          "Human-run read-only Fabric inventory helper",
-    Path("bin/setup/setup.ps1"):                          "setup.ps1 - idempotent target repository setup for Fabric agent projects",
-    Path("bin/setup/setup.sh"):                           "setup.sh - idempotent target repository setup for Fabric agent projects",
-    Path("bin/validate/pipeline-lineage.py"):             "Verify staging-path consistency across notebooks in the same pipeline topic",
-    Path("bin/validate/source-contract.py"):              "Validate Fabric Codex source-contract YAML shape without external dependencies",
+    Path("tool/mcp/server.py"):                           "Minimal MCP server that exposes selected Microsoft Fabric CLI commands",
+    Path("tool/notebook/build.py"):                       "Build simple Fabric .Notebook folders",
+    Path("tool/notebook/deploy.py"):                      "Deploy, run, and monitor Fabric notebooks via REST API",
+    Path("tool/notebook/smoke-test.sh"):                  "smoke-test.sh",
+    Path("tool/setup/fab-sandbox"):                       "Sandbox wrapper for Microsoft Fabric CLI",
+    Path("tool/setup/fabric-inventory-readonly"):         "Human-run read-only Fabric inventory helper",
+    Path("tool/setup/setup.ps1"):                         "setup.ps1 - idempotent target repository setup for Fabric agent projects",
+    Path("tool/setup/setup.sh"):                          "setup.sh - idempotent target repository setup for Fabric agent projects",
+    Path("tool/validate/pipeline-lineage.py"):            "Verify staging-path consistency across notebooks in the same pipeline topic",
+    Path("tool/validate/source-contract.py"):             "Validate Fabric Codex source-contract YAML shape without external dependencies",
 }
 PLACEHOLDER_VALUES = {
     "",
@@ -234,7 +234,7 @@ def write_file(src: Path, dest: Path, managed: bool, args: argparse.Namespace, r
 
 
 _PROFILE_IGNORES: dict[str, list[str]] = {
-    "shared": ["bin/", "contracts/", "data/", "memory/", "runbooks/"],
+    "shared": ["tool/", "contracts/", "data/", "memory/", "runbooks/"],
     "codex": ["AGENTS.md", ".agents/", ".codex/"],
     "claude": ["CLAUDE.md", ".claude/"],
 }

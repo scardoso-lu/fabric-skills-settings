@@ -44,8 +44,10 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if ! command -v fab >/dev/null 2>&1; then
-    echo "Fabric CLI (fab) is not installed. Run './setup.sh --install-tools' first." >&2
+user_home="$(python3 -c 'import os,pwd; print(pwd.getpwuid(os.getuid()).pw_dir)' 2>/dev/null || true)"
+fab_bin="${user_home}/.local/bin/fab"
+if [[ -z "$user_home" || ! -x "$fab_bin" ]]; then
+    echo "Fabric CLI (fab) is not installed at the expected user-local path. Run './setup.sh --install-tools' first." >&2
     exit 127
 fi
 
@@ -55,8 +57,8 @@ if [[ "$list_items" == "true" ]]; then
         exit 2
     fi
     echo "# Fabric items for workspace (read-only): ${workspace_id}"
-    fab api get "/v1/workspaces/${workspace_id}/items"
+    "$fab_bin" api get "/v1/workspaces/${workspace_id}/items"
 else
     echo "# Fabric workspaces (read-only)"
-    fab api get "/v1/workspaces"
+    "$fab_bin" api get "/v1/workspaces"
 fi

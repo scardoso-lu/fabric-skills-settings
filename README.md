@@ -50,9 +50,29 @@ codex   # or: claude
 
 ### 3. Configure Fabric access in the target repository
 
-Agents authenticate to Fabric through the `fab` CLI. A **service principal** is recommended for agent sessions because its credentials are revocable, auditable, and permission-scoped.
+Minimum required Fabric workspace role: **Contributor**. Run the setup script — it will prompt for everything interactively. You do not need to edit `.env` manually.
 
-Minimum required Fabric workspace role: **Contributor**.
+```powershell
+# Windows
+.\tool\setup\setup.ps1
+```
+```bash
+# Linux / macOS
+bash tool/setup/setup.sh
+```
+
+The script prompts for four values in order, then authenticates immediately:
+
+| Prompt | Stored where |
+|---|---|
+| `FABRIC_WORKSPACE_ID` | `.env` |
+| `FABRIC_TENANT_ID` | `.env` |
+| `FABRIC_CLIENT_ID` | `.env` |
+| `FABRIC_CLIENT_SECRET` | OS environment only — never `.env` |
+
+On Windows the secret is written to the user registry via `SetEnvironmentVariable("User")`. On Linux/macOS it is appended to your shell profile (`~/.zprofile`, `~/.bash_profile`, or `~/.profile`).
+
+Create the service principal before running setup:
 
 ```text
 Azure Portal → App registrations → New registration
@@ -63,7 +83,7 @@ Fabric workspace → Manage access → Add → service principal
   Role: Contributor
 ```
 
-In the installed target repo, use `tool/setup/setup.ps1` on Windows or `tool/setup/setup.sh` on Linux/macOS to configure the `fab` CLI and project environment values.
+Re-running setup is idempotent — values already set are skipped.
 
 ## Example result
 
