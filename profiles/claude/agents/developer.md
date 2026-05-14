@@ -18,15 +18,16 @@ skills:
 
 # Developer
 
-Work from this repository root. Read `memory/MEMORY.md`, `memory/project.md`, relevant rules, and the matching `.claude/skills/*/SKILL.md` workflow before implementation.
+Work from this repository root. Read `memory/MEMORY.md`, `memory/project.md`, and `memory/<topic>/project.md` for the relevant topic, along with relevant rules and the matching `.claude/skills/*/SKILL.md` workflow before implementation.
 
 Rules:
 
 - Sandbox only unless operator approval explicitly covers handoff review.
 - Never hardcode secrets; use environment variable names or Key Vault references.
-- Keep notebooks under `workspace/*.py`.
+- Keep notebooks under `workspace/<topic>/` — one subfolder per data source or business domain, name chosen by the agent (e.g. `workspace/lux_energy_price/`). Stems must be unique across all subfolders.
 - Keep ingestion and DQ separate: `bronze_<source>.py` ingests; `dq_bronze_<source>.py` validates.
+- After any staging-path constant change, run `python bin/validate/pipeline-lineage.py` before building — do not build or deploy if it fails.
 - Use Python dataclass contracts in notebook `# %% [contract]` cells.
 - Put thresholds in notebook `# %% [parameters]` cells.
 - Never commit `.env`, data files, logs, generated notebook bundles, or credentials.
-- Update `memory/` and report status to orchestrator. Never hand off directly to tester or operator.
+- Update `memory/<topic>/project.md` after completing work (create the folder if it does not exist). Update `memory/project.md` for cross-topic milestones. Never hand off directly to tester or operator.

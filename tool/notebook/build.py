@@ -30,7 +30,8 @@ def _load_env(root: Path) -> None:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, val = line.partition("=")
-        os.environ.setdefault(key.strip(), val.strip())
+        val = val.split("#")[0].strip().strip('"').strip("'")
+        os.environ.setdefault(key.strip(), val)
 
 
 _SCRIPT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -118,7 +119,9 @@ def render_platform(display_name: str) -> str:
 
 def build_one(source_path: Path) -> Path:
     display_name = source_path.stem
-    notebook_dir = OUTPUT_DIR / f"{display_name}.Notebook"
+    # Preserve topic subfolder: workspace/<topic>/name.py → workspace/<topic>/name.Notebook
+    topic_rel = source_path.parent.relative_to(NOTEBOOK_SOURCE_DIR)
+    notebook_dir = OUTPUT_DIR / topic_rel / f"{display_name}.Notebook"
     notebook_dir.mkdir(parents=True, exist_ok=True)
     (notebook_dir / "notebook-content.py").write_text(
         render_notebook(source_path),
@@ -135,9 +138,12 @@ def main() -> None:
     if not NOTEBOOK_SOURCE_DIR.exists():
         raise SystemExit(f"No workspace/ directory found under project root {_PROJECT_ROOT}.")
 
-    sources = sorted(NOTEBOOK_SOURCE_DIR.glob("*.py"))
+    sources = sorted(
+        p for p in NOTEBOOK_SOURCE_DIR.rglob("*.py")
+        if "__pycache__" not in p.parts and ".Notebook" not in p.parts
+    )
     if not sources:
-        raise SystemExit(f"No .py notebooks found under {NOTEBOOK_SOURCE_DIR}.")
+        raise SystemExit(f"No .py notebooks found under {NOTEBOOK_SOURCE_DIR}/. Create workspace/<topic>/<name>.py first.")
 
     for source in sources:
         print(f"wrote {build_one(source)}")

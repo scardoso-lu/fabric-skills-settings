@@ -7,14 +7,15 @@ description: Ingest local sandbox files (CSV, Parquet, JSON, Excel) into a Micro
 
 ## Separation of concerns — non-negotiable
 
-Each source produces **two notebooks**:
+Each source produces **three notebooks**:
 
 | Notebook | Naming | Job |
 |---|---|---|
-| Ingestion | `bronze_<source>.py` | Read → sanitize → inject lineage → write all rows to Bronze. Nothing else. |
+| Download | `download_<source>.py` | Call source API → skip existing sandbox files → save raw files as-is. No Spark. No Delta writes. |
+| Ingestion | `bronze_<source>.py` | Read sandbox files → compare against Bronze Delta table → process only new files → MERGE/partition-overwrite. Never full-overwrite. |
 | Data quality | `dq_bronze_<source>.py` | Run Great Expectations checks on the Bronze table. Fail the job if checks fail. |
 
-**Never mix DQ logic into the ingestion notebook.** Ingestion writes all rows unconditionally; DQ runs after and decides whether the batch is acceptable.
+**Never combine these responsibilities.** A single notebook that downloads + ingests + overwrites is always wrong.
 
 ## MUST
 
@@ -26,6 +27,9 @@ Each source produces **two notebooks**:
 - **Source contracts are Python `@dataclass` embedded in the notebook** (`# %% [contract]` cell) — never YAML files
 - **Downloads are Python notebooks** (`download_sources.py`) — never `.sh` scripts; use `mssparkutils` detection for Fabric vs local
 - **Thresholds belong in the DQ notebook's parameter cell**, not in the ingestion notebook
+- **`download_<source>` must skip existing sandbox files** — check by filename before downloading; never re-download a file already present in `Files/data/sandbox/<topic>/`
+- **`bronze_<source>` must process only new files** — compare sandbox filenames against records already in the Bronze Delta table; do not reprocess files already ingested
+- **`bronze_<source>` must use MERGE or partition-overwrite** — never full-overwrite the Bronze table; use `replaceWhere` or Delta MERGE so existing partitions are preserved
 
 ## PREFER
 
@@ -41,6 +45,23 @@ Each source produces **two notebooks**:
 - Writing raw unmasked data to any Delta table (sanitize first, always)
 - Any filtering, splitting, or conditional writes based on data quality — that belongs in the DQ notebook
 - `df.show()` or `print(df)` with sensitive columns
+- Absolute paths like `/lakehouse/default/Files/...` — Fabric's `mssparkutils` rejects them; use lakehouse-relative paths: `Files/data/sandbox/...`
+
+## Source organisation
+
+Notebooks live under `workspace/<topic>/` — one subfolder per data source or business domain. The agent picks the folder name from the data subject (snake_case, short, descriptive — e.g. `lux_energy_price`, `lux_residence`). Stems must be unique across all subfolders because Fabric display names are flat.
+
+```
+workspace/
+  lux_energy_price/
+    download_electricity_day_ahead_prices.py
+    bronze_electricity_day_ahead_prices.py
+    dq_bronze_electricity_day_ahead_prices.py
+  lux_residence/
+    download_population_stats.py
+    bronze_population_stats.py
+    dq_bronze_population_stats.py
+```
 
 ## Notebook cell structure
 
@@ -96,7 +117,7 @@ INGEST_DATE = (
     datetime.fromisoformat(INGEST_DATE_OVERRIDE).date()
     if INGEST_DATE_OVERRIDE else INGEST_TS.date()
 )
-SRC = SOURCE_PATH or "/lakehouse/default/Files/orders.csv"
+SRC = SOURCE_PATH or "Files/data/sandbox/orders.csv"  # lakehouse-relative, not /lakehouse/default/...
 
 # %% [schemas]
 SCHEMA = StructType([
@@ -144,6 +165,47 @@ print(f"     table={CONTRACT.bronze_table}")
 | Parquet | `spark.read.format("parquet").load(path)` |
 | GeoJSON | `spark.read.format("json").option("multiLine","true").load(path)` then `explode(col("features"))` |
 | Excel | `pandas.read_excel()` → `spark.createDataFrame(pd_df)` |
+
+## Multi-notebook pipelines
+
+When a `download_sources.py` notebook fetches files that the Bronze notebook then reads, the paths **must match exactly**. Use a single shared constant so the match is guaranteed in code, not by coincidence:
+
+```python
+# Both download_sources.py and bronze_<source>.py — same value in both files
+FABRIC_STAGING_DIR = "Files/data/sandbox/<topic>/xml"
+LOCAL_STAGING_DIR  = "data/sandbox/<topic>/xml"
+```
+
+Use `mssparkutils` detection to resolve the active path at runtime:
+
+```python
+try:
+    from notebookutils import mssparkutils as mss
+    IS_FABRIC = True
+except ImportError:
+    IS_FABRIC = False
+
+OUTPUT_DIR = FABRIC_STAGING_DIR if IS_FABRIC else LOCAL_STAGING_DIR
+```
+
+After any change to a staging directory constant, verify consistency before building:
+
+```bash
+python tool/validate/pipeline-lineage.py
+```
+
+A path mismatch produces a silent empty read — no error, just missing data. A FAIL must be fixed before building or deploying.
+
+## Non-standard packages
+
+The Fabric Spark runtime does not include packages like `great_expectations`, `requests`, or `lxml`. Add a `%pip install` cell as the **first cell** of any notebook that needs them:
+
+```python
+# %% [install]
+%pip install "great_expectations>=1.0,<2.0"
+```
+
+This works when the notebook is API-triggered because `deploy.py` sets `_inlineInstallationEnabled` automatically.
 
 ## Mock Data
 

@@ -18,10 +18,18 @@ MIRRORED_HELPERS = [
     "mcp/server.py",
     "notebook/build.py",
     "notebook/deploy.py",
+    "notebook/smoke-test.ps1",
     "notebook/smoke-test.sh",
+    "pre-commit-check.ps1",
+    "pre-commit-check.sh",
     "setup/fab-sandbox",
+    "setup/fab-sandbox.ps1",
+    "setup/fabric-inventory-readonly",
+    "setup/fabric-inventory-readonly.ps1",
     "setup/setup.ps1",
     "setup/setup.sh",
+    "validate/pipeline-lineage.py",
+    "validate/source-contract.py",
 ]
 FORBIDDEN = [
     "wrapper repo",
@@ -62,13 +70,21 @@ def validate_required(errors: list[str]) -> None:
     require(PROFILES / "shared" / ".env.example", errors)
     require(PROFILES / "shared" / ".gitignore.fragment", errors)
     require(PROFILES / "shared" / "project-layout" / ".mcp.json", errors)
-    require(PROFILES / "shared" / "project-layout" / "bin" / "mcp" / "server.py", errors)
-    require(PROFILES / "shared" / "project-layout" / "bin" / "notebook" / "build.py", errors)
-    require(PROFILES / "shared" / "project-layout" / "bin" / "notebook" / "deploy.py", errors)
-    require(PROFILES / "shared" / "project-layout" / "bin" / "notebook" / "smoke-test.sh", errors)
-    require(PROFILES / "shared" / "project-layout" / "bin" / "setup" / "fab-sandbox", errors)
-    require(PROFILES / "shared" / "project-layout" / "bin" / "setup" / "setup.ps1", errors)
-    require(PROFILES / "shared" / "project-layout" / "bin" / "setup" / "setup.sh", errors)
+    require(PROFILES / "shared" / "project-layout" / "tool" / "mcp" / "server.py", errors)
+    require(PROFILES / "shared" / "project-layout" / "tool" / "notebook" / "build.py", errors)
+    require(PROFILES / "shared" / "project-layout" / "tool" / "notebook" / "deploy.py", errors)
+    require(PROFILES / "shared" / "project-layout" / "tool" / "notebook" / "smoke-test.ps1", errors)
+    require(PROFILES / "shared" / "project-layout" / "tool" / "notebook" / "smoke-test.sh", errors)
+    require(PROFILES / "shared" / "project-layout" / "tool" / "pre-commit-check.ps1", errors)
+    require(PROFILES / "shared" / "project-layout" / "tool" / "pre-commit-check.sh", errors)
+    require(PROFILES / "shared" / "project-layout" / "tool" / "setup" / "fab-sandbox", errors)
+    require(PROFILES / "shared" / "project-layout" / "tool" / "setup" / "fab-sandbox.ps1", errors)
+    require(PROFILES / "shared" / "project-layout" / "tool" / "setup" / "fabric-inventory-readonly", errors)
+    require(PROFILES / "shared" / "project-layout" / "tool" / "setup" / "fabric-inventory-readonly.ps1", errors)
+    require(PROFILES / "shared" / "project-layout" / "tool" / "setup" / "setup.ps1", errors)
+    require(PROFILES / "shared" / "project-layout" / "tool" / "setup" / "setup.sh", errors)
+    require(PROFILES / "shared" / "project-layout" / "tool" / "validate" / "pipeline-lineage.py", errors)
+    require(PROFILES / "shared" / "project-layout" / "tool" / "validate" / "source-contract.py", errors)
 
     codex_skills = skill_names(PROFILES / "codex" / "skills")
     claude_skills = skill_names(PROFILES / "claude" / "skills")
@@ -124,13 +140,65 @@ def validate_shared_scope(errors: list[str]) -> None:
 
 def validate_root_helper_mirrors(errors: list[str]) -> None:
     for name in MIRRORED_HELPERS:
-        source = PROFILES / "shared" / "project-layout" / "bin" / name
-        mirror = ROOT / "bin" / name
+        source = PROFILES / "shared" / "project-layout" / "tool" / name
+        mirror = ROOT / "tool" / name
         if not mirror.exists():
             error(f"Missing root helper mirror: {mirror.relative_to(ROOT)}", errors)
             continue
         if source.read_text(errors="ignore") != mirror.read_text(errors="ignore"):
-            error(f"Root helper mirror differs from install profile: bin/{name}", errors)
+            error(f"Root helper mirror differs from install profile: tool/{name}", errors)
+
+
+def validate_ps1_syntax(errors: list[str]) -> None:
+    """Smoke-test.ps1 must not use PS7-only null-conditional ?. operator."""
+    for location in [
+        PROFILES / "shared" / "project-layout" / "tool" / "notebook" / "smoke-test.ps1",
+        ROOT / "tool" / "notebook" / "smoke-test.ps1",
+    ]:
+        if not location.exists():
+            continue
+        text = location.read_text(errors="ignore")
+        if "?." in text:
+            rel_path = location.relative_to(ROOT)
+            errors.append(
+                f"PS7-only null-conditional '?.' found in {rel_path} — must be PS5.1 compatible"
+            )
+
+
+def validate_load_env_strips_comments(errors: list[str]) -> None:
+    """build.py and deploy.py must strip inline comments from .env values."""
+    for name in ("build.py", "deploy.py"):
+        for location in [
+            PROFILES / "shared" / "project-layout" / "tool" / "notebook" / name,
+            ROOT / "tool" / "notebook" / name,
+        ]:
+            if not location.exists():
+                continue
+            text = location.read_text(errors="ignore")
+            if 'val.split("#")[0]' not in text:
+                rel_path = location.relative_to(ROOT)
+                errors.append(
+                    f"_load_env in {rel_path} does not strip inline comments"
+                    " — add val.split(\"#\")[0].strip() before setdefault"
+                )
+
+
+def validate_gitignore_fragment(errors: list[str]) -> None:
+    """gitignore.fragment must ignore tool/ and must not hide installed operational assets."""
+    path = PROFILES / "shared" / ".gitignore.fragment"
+    if not path.exists():
+        return
+    text = path.read_text(errors="ignore")
+    if "tool/" not in text:
+        errors.append(
+            "profiles/shared/.gitignore.fragment must ignore tool/"
+            " — agent tooling is installed by the package manager, not committed by humans"
+        )
+    if ".mcp.json" in text:
+        errors.append(
+            "profiles/shared/.gitignore.fragment ignores .mcp.json"
+            " — this is an installed tracked asset and must not be ignored"
+        )
 
 
 def main() -> int:
@@ -140,6 +208,9 @@ def main() -> int:
     validate_env_example(errors)
     validate_shared_scope(errors)
     validate_root_helper_mirrors(errors)
+    validate_ps1_syntax(errors)
+    validate_load_env_strips_comments(errors)
+    validate_gitignore_fragment(errors)
 
     if errors:
         print("FAIL: install package validation failed")

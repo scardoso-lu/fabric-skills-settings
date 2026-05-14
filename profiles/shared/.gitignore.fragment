@@ -1,7 +1,6 @@
 # Fabric agent local/runtime files
 .env
 .env.*
-!.env.example
 logs/
 fabric_notebooks/
 _delta_log/
@@ -11,3 +10,4 @@ _delta_log/
 *.xlsx
 *.xls
 .claude/settings.local.json
+tool/

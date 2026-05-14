@@ -8,9 +8,13 @@ description: Develop Fabric notebooks using a local closed-loop cycle — author
 ## MUST
 
 - Use `# %%` cell markers in local `.py` files
-- Build notebooks with `python bin/notebook/build.py`
-- Deploy and run via `bin/notebook/deploy.py` — NOT `fab import` or `fab job run` (both require an interactive Windows console and fail in Git Bash / sandboxed environments)
-- Monitor via `bin/notebook/deploy.py monitor` or by checking job instance status through the Fabric REST API
+- Build notebooks with `python tool/notebook/build.py`
+- Deploy and run via `tool/notebook/deploy.py` — NOT `fab import` or `fab job run` (both require an interactive Windows console and fail in Git Bash / sandboxed environments)
+- Monitor via `tool/notebook/deploy.py monitor` or by checking job instance status through the Fabric REST API
+- After a successful run, `deploy.py run` automatically fetches the notebook definition back from Fabric into `workspace/<topic>/<name>.Notebook/` (git-tracked, synced with Fabric UI)
+- After fetch, delete the source `.py` — the `.Notebook/` bundle is the canonical git artifact
+- Commit `workspace/<topic>/<name>.Notebook/` (without the `.py`) to git after each successful loop so Fabric Git integration stays current
+- `fabric_notebooks/<topic>/<name>.Notebook/` is the build intermediate (gitignored) — never commit it
 - Never pipe full driver logs into agent context — summarise to STATUS + error message only
 - Use HighConcurrency pool for initial cold start (≈3 min on F64; F2/F4 can reach 8–12 min); subsequent runs within 20 min are fast on any capacity tier
 
@@ -22,40 +26,64 @@ description: Develop Fabric notebooks using a local closed-loop cycle — author
 
 ## AVOID
 
-- Using `fab import` — requires an interactive Windows console; use `bin/notebook/deploy.py deploy` instead
-- Using `fab job run` — same console issue; use `bin/notebook/deploy.py run` instead
+- Using `fab import` — requires an interactive Windows console; use `tool/notebook/deploy.py deploy` instead
+- Using `fab job run` — same console issue; use `tool/notebook/deploy.py run` instead
 - Jupyter kernel for Delta Lake writes (Spark kernel required)
 - Reading from HTTP/HTTPS URLs in Spark (stage to Files/ first via Data Factory)
 - Using `df.show()` or `print()` in production cells
 
 ## The Loop
 
+Deploy and smoke test are **separate steps**. The smoke test never deploys.
+
 ```bash
 # 1. Author locally
-# Edit workspace/my_notebook.py with # %% markers.
+# Edit workspace/<topic>/my_notebook.py with # %% markers.
 
-# 2. Build, deploy, run, and monitor in one command.
-bin/notebook/smoke-test.sh --notebook my_notebook
+# 2. Build and deploy (run whenever the source changes).
+python tool/notebook/build.py
+python tool/notebook/deploy.py deploy my_notebook "$FABRIC_WORKSPACE_ID"
 
-# 3. Fix and repeat.
+# 3. Smoke test — triggers a job execution on the already-deployed notebook and monitors it.
+#    Never builds or deploys. Always runs against whatever is currently in Fabric.
+#    Windows:   tool\notebook\smoke-test.ps1 -Notebook my_notebook
+#    Linux/Mac: tool/notebook/smoke-test.sh --notebook my_notebook
+
+# 4. Report STATUS to orchestrator and STOP.
+#    - STATUS: Completed → PASS. Proceed to step 5.
+#    - STATUS: Failed    → report FAIL + failureReason. Do NOT re-run. Await human approval.
+#    - STATUS missing or unclear → ask human for validation. Do NOT re-run.
+#    Never re-run the smoke test autonomously — each run consumes Fabric capacity.
+
+# 5. After PASS — fetch the Fabric bundle, delete the .py source, and commit.
+python tool/notebook/deploy.py fetch my_notebook "$FABRIC_WORKSPACE_ID"
+git rm workspace/<topic>/my_notebook.py
+git add workspace/<topic>/my_notebook.Notebook/
+git commit -m "sync: my_notebook after successful run"
 ```
 
-The smoke test script reads `FABRIC_WORKSPACE_ID` from `.env` automatically.
+`FABRIC_WORKSPACE_ID` is read from `.env` automatically. The intermediate build in `fabric_notebooks/` is gitignored.
 
-### Step by step (if you need finer control)
+### Individual commands
 
 ```bash
-# Build
-python bin/notebook/build.py
+# Build: workspace/<topic>/name.py → fabric_notebooks/<topic>/name.Notebook/
+python tool/notebook/build.py
 
-# Deploy only
-python bin/notebook/deploy.py deploy my_notebook "$FABRIC_WORKSPACE_ID"
+# Deploy built artifact to Fabric (no run)
+python tool/notebook/deploy.py deploy my_notebook "$FABRIC_WORKSPACE_ID"
 
-# Deploy + run + monitor
-python bin/notebook/deploy.py run my_notebook "$FABRIC_WORKSPACE_ID"
+# Execute already-deployed notebook (trigger + monitor, no build/deploy) — used by smoke-test.sh
+python tool/notebook/deploy.py exec my_notebook "$FABRIC_WORKSPACE_ID"
 
-# Monitor an existing job instance
-python bin/notebook/deploy.py monitor "$FABRIC_WORKSPACE_ID" <item_id> <job_instance_id>
+# Fetch current Fabric definition → workspace/<topic>/<name>.Notebook/ (standalone sync)
+python tool/notebook/deploy.py fetch my_notebook "$FABRIC_WORKSPACE_ID"
+
+# Monitor an existing job instance (debugging)
+python tool/notebook/deploy.py monitor "$FABRIC_WORKSPACE_ID" <item_id> <job_instance_id>
+
+# One-shot full cycle (deploy + exec + fetch) — for initial bring-up only, not for repeated testing
+python tool/notebook/deploy.py run my_notebook "$FABRIC_WORKSPACE_ID"
 ```
 
 ## Cell Structure
@@ -90,11 +118,16 @@ STATUS: Failed       ← check failureReason in the job instance response
 STATUS: Cancelled    ← manually stopped
 ```
 
-Act on `STATUS` + `failureReason`. If the notebook fails, fix only the failing cell, rebuild, redeploy, rerun.
+Act on `STATUS` + `failureReason`:
+- `Completed` → report PASS to orchestrator.
+- `Failed` → report FAIL + `failureReason` to orchestrator and **STOP**. Fix the failing cell locally, then await human approval before the next run.
+- No clear STATUS in output → ask human for validation. Do **not** re-run.
+
+Never trigger a second smoke-test run autonomously — each run consumes Fabric capacity.
 
 ## Full Example: CSV to Bronze
 
-Create a local notebook source at `workspace/orders_bronze.py`:
+Create a local notebook source at `workspace/<topic>/orders_bronze.py`:
 
 ```python
 # %% [parameters]
@@ -133,10 +166,13 @@ except Exception as exc:
     raise
 ```
 
-Run the complete loop:
+Build, deploy, then smoke test:
 
 ```bash
-bin/notebook/smoke-test.sh --notebook orders_bronze
+python tool/notebook/build.py
+python tool/notebook/deploy.py deploy orders_bronze "$FABRIC_WORKSPACE_ID"
+tool\notebook\smoke-test.ps1 -Notebook orders_bronze     # Windows
+tool/notebook/smoke-test.sh --notebook orders_bronze      # Linux/Mac
 ```
 
-If the run fails, check the STATUS output, fix only the failing cell, rebuild, redeploy, rerun.
+If the run fails, check the STATUS output, fix only the failing cell, then report to the orchestrator and await human approval before the next run.

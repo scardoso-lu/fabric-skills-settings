@@ -22,6 +22,26 @@ EOF
 fi
 actions+=("uv found")
 
+echo "-- Check rtk (token optimizer)"
+if command -v rtk >/dev/null 2>&1; then
+  actions+=("rtk already installed")
+else
+  if curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh; then
+    # install.sh puts binary in ~/.local/bin; add to PATH for this session
+    export PATH="$HOME/.local/bin:$PATH"
+    if command -v rtk >/dev/null 2>&1; then
+      actions+=("rtk installed — ensure ~/.local/bin is in your PATH (add to ~/.bashrc or ~/.zshrc)")
+    else
+      echo "   rtk installed to ~/.local/bin but not found on PATH." >&2
+      echo '   Add to your shell profile: export PATH="$HOME/.local/bin:$PATH"' >&2
+      actions+=("rtk installed (restart shell or add ~/.local/bin to PATH)")
+    fi
+  else
+    echo "   rtk install failed — install manually: https://github.com/rtk-ai/rtk" >&2
+    actions+=("rtk not installed (optional, install manually)")
+  fi
+fi
+
 echo "-- Check Microsoft Fabric CLI"
 if "${SCRIPT_DIR}/fab-sandbox" --version >/dev/null 2>&1; then
   actions+=("ms-fabric-cli already available")
@@ -33,7 +53,13 @@ fi
 echo "-- Check .env"
 if [[ ! -f "$ENV_FILE" ]]; then
   if [[ ! -f "$ENV_EXAMPLE" ]]; then
-    echo "Missing .env and .env.example at project root." >&2
+    cat >&2 <<'EOF'
+Missing .env and .env.example at project root.
+
+This script is for installed target repositories only.
+If you are in the fabric-skills-settings source package, run the source setup instead:
+  bash setup.sh
+EOF
     exit 1
   fi
   cp "$ENV_EXAMPLE" "$ENV_FILE"

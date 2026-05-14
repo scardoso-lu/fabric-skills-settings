@@ -16,6 +16,26 @@ This repository maintains and installs Microsoft Fabric agent profiles. It is no
 - Do not add root `.claude/agents`, root `skills/`, or wrapper-style target repo instructions.
 - Do not reintroduce external-wrapper runtime guidance.
 
+## Source package `bin/` layout
+
+Scripts at the **root of `bin/`** are source-package-only — they validate and install profiles; they are never copied to target repositories:
+
+| Script | Purpose |
+|---|---|
+| `bin/install-fabric-agent` | Installs profiles into a target repository |
+| `bin/validate-install-package.py` | Validates the installer package layout |
+| `bin/validate-agent-guidance.py` | Validates profile guidance content |
+| `bin/pre-commit-check.ps1/.sh` | Runs both validators as a pre-commit gate |
+
+Scripts under **subdirectories of `bin/`** mirror `profiles/shared/project-layout/bin/` exactly and are installed into every target repository. `bin/validate-install-package.py` enforces that mirror parity. Add new installed scripts to the project-layout subdirectory **and** the matching `bin/` subdirectory, then register them in `MIRRORED_HELPERS` and `REFRESHABLE_SCAFFOLD_MARKERS` in the installer:
+
+| Subdirectory | Who uses it in target repo | Contains |
+|---|---|---|
+| `bin/setup/` | Human (one-time) | `setup.ps1/sh`, `fab-sandbox`, `fabric-inventory-readonly` |
+| `bin/notebook/` | Developer agent | `build.py`, `deploy.py`, `smoke-test.ps1/sh` |
+| `bin/validate/` | Developer agent | `pipeline-lineage.py`, `source-contract.py` |
+| `bin/mcp/` | Infrastructure | `server.py` |
+
 ## Required Checks
 
 Run these from this source package repo after guidance, profile, installer, or validation changes:

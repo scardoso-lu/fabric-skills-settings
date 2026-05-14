@@ -40,6 +40,35 @@ Install uv, then rerun:
 }
 $Actions.Add("uv found")
 
+Write-Host "-- Check rtk (token optimizer)"
+if (Get-Command rtk -ErrorAction SilentlyContinue) {
+    $Actions.Add("rtk already installed")
+} else {
+    $rtkInstallDir = Join-Path $env:USERPROFILE ".local\bin"
+    try {
+        $releaseInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/rtk-ai/rtk/releases/latest" -ErrorAction Stop
+        $asset = $releaseInfo.assets | Where-Object { $_.name -like "*windows*msvc*.zip" } | Select-Object -First 1
+        if (-not $asset) { throw "No Windows asset found in RTK release" }
+        $zipPath = Join-Path $env:TEMP "rtk-windows.zip"
+        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zipPath -ErrorAction Stop
+        New-Item -ItemType Directory -Force -Path $rtkInstallDir | Out-Null
+        Expand-Archive -Path $zipPath -DestinationPath $rtkInstallDir -Force
+        Remove-Item $zipPath
+        # Add to current session
+        $env:PATH = "$rtkInstallDir;$env:PATH"
+        # Persist to user PATH if not already present
+        $userPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+        if ($userPath -notlike "*$rtkInstallDir*") {
+            [Environment]::SetEnvironmentVariable("PATH", "$rtkInstallDir;$userPath", "User")
+        }
+        $Actions.Add("rtk installed to $rtkInstallDir")
+    } catch {
+        Write-Warning "rtk install failed: $_"
+        Write-Warning "Install manually: https://github.com/rtk-ai/rtk"
+        $Actions.Add("rtk not installed (optional, install manually)")
+    }
+}
+
 Write-Host "-- Check Microsoft Fabric CLI"
 $FabSandbox = Join-Path $ScriptDir "fab-sandbox"
 $fabReady = $false
@@ -65,7 +94,13 @@ if ($fabReady) {
 Write-Host "-- Check .env"
 if (-not (Test-Path -LiteralPath $EnvFile)) {
     if (-not (Test-Path -LiteralPath $EnvExample)) {
-        Write-Error "Missing .env and .env.example at project root."
+        Write-Error @"
+Missing .env and .env.example at project root.
+
+This script is for installed target repositories only.
+If you are in the fabric-skills-settings source package, run the source setup instead:
+  .\setup.ps1
+"@
         exit 1
     }
     Copy-Item -LiteralPath $EnvExample -Destination $EnvFile

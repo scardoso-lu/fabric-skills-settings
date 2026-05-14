@@ -23,13 +23,16 @@ GITIGNORE_BEGIN = "# BEGIN MANAGED BY fabric-skills-settings"
 GITIGNORE_END = "# END MANAGED BY fabric-skills-settings"
 REFRESHABLE_PLACEHOLDER_FILES = {Path(".env.example")}
 REFRESHABLE_SCAFFOLD_MARKERS = {
-    Path("bin/mcp/server.py"):              "Minimal MCP server that exposes selected Microsoft Fabric CLI commands",
-    Path("bin/notebook/build.py"):          "Build simple Fabric .Notebook folders",
-    Path("bin/notebook/deploy.py"):         "Deploy, run, and monitor Fabric notebooks via REST API",
-    Path("bin/notebook/smoke-test.sh"):     "smoke-test.sh",
-    Path("bin/setup/fab-sandbox"):          "Sandbox wrapper for Microsoft Fabric CLI",
-    Path("bin/setup/setup.ps1"):            "setup.ps1 - idempotent target repository setup for Fabric agent projects",
-    Path("bin/setup/setup.sh"):             "setup.sh - idempotent target repository setup for Fabric agent projects",
+    Path("bin/mcp/server.py"):                            "Minimal MCP server that exposes selected Microsoft Fabric CLI commands",
+    Path("bin/notebook/build.py"):                        "Build simple Fabric .Notebook folders",
+    Path("bin/notebook/deploy.py"):                       "Deploy, run, and monitor Fabric notebooks via REST API",
+    Path("bin/notebook/smoke-test.sh"):                   "smoke-test.sh",
+    Path("bin/setup/fab-sandbox"):                        "Sandbox wrapper for Microsoft Fabric CLI",
+    Path("bin/setup/fabric-inventory-readonly"):          "Human-run read-only Fabric inventory helper",
+    Path("bin/setup/setup.ps1"):                          "setup.ps1 - idempotent target repository setup for Fabric agent projects",
+    Path("bin/setup/setup.sh"):                           "setup.sh - idempotent target repository setup for Fabric agent projects",
+    Path("bin/validate/pipeline-lineage.py"):             "Verify staging-path consistency across notebooks in the same pipeline topic",
+    Path("bin/validate/source-contract.py"):              "Validate Fabric Codex source-contract YAML shape without external dependencies",
 }
 PLACEHOLDER_VALUES = {
     "",
@@ -102,7 +105,7 @@ def collect_shared_files() -> list[tuple[Path, Path, bool]]:
         if src.is_file():
             entries.append((src, Path("memory") / src.relative_to(shared / "memory"), True))
     for src in sorted((shared / "project-layout").rglob("*")):
-        if src.is_file():
+        if src.is_file() and "__pycache__" not in src.parts and src.suffix not in {".pyc", ".pyo", ".pyd"}:
             entries.append((src, src.relative_to(shared / "project-layout"), False))
     entries.append((shared / ".env.example", Path(".env.example"), False))
     return entries

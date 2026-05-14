@@ -26,4 +26,4 @@ Minimum checks when applicable:
 - PII masking.
 - Lineage envelope fields: `_ingest_timestamp`, `_source_system`, `_batch_id`.
 
-Report PASS, FAIL, or escalation result to orchestrator only. Never escalate directly to developer or operator. Update `memory/project.md` when permitted by the parent task.
+Report PASS, FAIL, or escalation result to orchestrator only. Never escalate directly to developer or operator. Update `memory/<topic>/project.md` with validation results when permitted by the parent task.

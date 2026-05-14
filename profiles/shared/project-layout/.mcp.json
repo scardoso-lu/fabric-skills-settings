@@ -4,7 +4,7 @@
       "type": "stdio",
       "command": "python",
       "args": [
-        "bin/mcp/server.py"
+        "tool/mcp/server.py"
       ]
     }
   }

@@ -40,7 +40,7 @@ fab api "workspaces/$FABRIC_WORKSPACE_ID/items" --output_format json
 fab api "workspaces/$FABRIC_WORKSPACE_ID/items/<item_id>/jobs/instances" --output_format json
 
 # Monitor a specific job instance
-python bin/notebook/deploy.py monitor "$FABRIC_WORKSPACE_ID" <item_id> <job_instance_id>
+python tool/notebook/deploy.py monitor "$FABRIC_WORKSPACE_ID" <item_id> <job_instance_id>
 ```
 
 Check DQ notebook run results in the Fabric portal (Activities → Notebook runs).
@@ -71,7 +71,7 @@ for path in tables_to_vacuum:
 
 ```bash
 # Create folder structure for local development
-mkdir -p workspace fabric_notebooks data/sandbox logs
+mkdir -p workspace data/sandbox logs
 
 # Copy environment template
 cp .env.example .env

@@ -94,15 +94,15 @@ def validate_profiles(errors: list[str]) -> None:
 
 def validate_setup_guidance(errors: list[str]) -> None:
     required = [
-        "Configuration is missing in this repo to work correctly. Here is how to fix:",
-        ".\\bin\\setup\\setup.ps1",
-        "bin/setup/setup.sh",
-        "Do not read `.env`; checking that the file exists is enough.",
+        "tool\\setup\\setup.ps1",
+        "tool/setup/setup.sh",
         "FABRIC_WORKSPACE_ID",
+        "fab-sandbox auth login",
+        "Do **not** read `.env` contents",
+        "Setup incomplete",
     ]
     forbidden = [
         "FABRIC_WORKSPACE_ID` is missing",
-        "or `FABRIC_WORKSPACE_ID` is missing",
         "If `bin/setup.sh`, `.env`, or `FABRIC_WORKSPACE_ID` is missing",
         "If `bin/setup.ps1`, `bin/setup.sh`, `.env`, or `FABRIC_WORKSPACE_ID` is missing",
     ]
@@ -118,6 +118,36 @@ def validate_setup_guidance(errors: list[str]) -> None:
                 errors.append(f"setup guidance implies reading .env via {phrase!r} in {rel(path)}")
 
 
+def validate_auth_network_guidance(errors: list[str]) -> None:
+    """Auth-failure guidance must mention network restriction so agents don't treat firewalls as auth errors."""
+    for path in [ROOT / "profiles" / "codex" / "AGENTS.md", ROOT / "profiles" / "claude" / "CLAUDE.md"]:
+        if not path.exists():
+            continue
+        text = path.read_text(errors="ignore")
+        if "network" not in text.lower():
+            errors.append(
+                f"auth failure row in {rel(path)} must mention network restriction"
+                " — agents must not treat a firewall block as a permanent auth failure"
+            )
+
+
+def validate_item_creation_guidance(errors: list[str]) -> None:
+    """Guidance must distinguish what humans create (workspace/lakehouses) from what agents auto-create (notebooks/folders)."""
+    for path in [ROOT / "profiles" / "codex" / "AGENTS.md", ROOT / "profiles" / "claude" / "CLAUDE.md"]:
+        if not path.exists():
+            continue
+        text = path.read_text(errors="ignore")
+        if "lakehouse" not in text.lower():
+            errors.append(
+                f"{rel(path)} must state that humans create lakehouses"
+                " — missing item-creation boundary guidance"
+            )
+        if "notebook items" not in text and "notebook" not in text.lower():
+            errors.append(
+                f"{rel(path)} must clarify that agents may create notebook items automatically"
+            )
+
+
 def validate_no_root_runtime(errors: list[str]) -> None:
     for path in FORBIDDEN_ROOT_RUNTIME:
         if path.exists():
@@ -129,6 +159,8 @@ def main() -> int:
     validate_root_guidance(errors)
     validate_profiles(errors)
     validate_setup_guidance(errors)
+    validate_auth_network_guidance(errors)
+    validate_item_creation_guidance(errors)
     validate_no_root_runtime(errors)
 
     if errors:

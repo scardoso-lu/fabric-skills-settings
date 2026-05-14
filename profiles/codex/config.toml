@@ -1,10 +1,12 @@
 model_reasoning_effort = "high"
+plan_mode_reasoning_effort = "high"
 model_verbosity = "low"
 model_auto_compact_token_limit = 120000
 
 [agents]
 max_threads = 6
 max_depth = 1
+job_max_runtime_seconds = 1800
 
 [shell_environment_policy]
 inherit = "all"
@@ -12,6 +14,6 @@ ignore_default_excludes = false
 
 [mcp_servers.fabric]
 command = "python"
-args = ["bin/mcp/server.py"]
+args = ["tool/mcp/server.py"]
 startup_timeout_ms = 20000
 tool_timeout_ms = 120000
