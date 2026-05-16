@@ -121,13 +121,16 @@ The resulting Delta table contains 1,000 rows and 27 columns, including lineage 
 
 For the deeper human/machine split, architecture diagrams, notebook deployment loop, medallion flow, authoring rules, safety behavior, and validation commands, see [docs/learn-more.md](docs/learn-more.md).
 
+For upcoming work around semantic models, cross-table contracts, OneLake shortcuts, data agents, stronger setup, observability, and security hardening, see [docs/ROADMAP.md](docs/ROADMAP.md).
+
 ## Validation commands for contributors
 
-Run these from this source package repository after changing profiles, installer logic, guidance, or validation code:
+Run these from this source package repository after changing profiles, installer logic, guidance, validation, or installable tooling:
 
 ```bash
-python3 bin/validate-install-package.py
-python3 bin/validate-agent-guidance.py
+uv run bin/validate-install-package.py
+uv run bin/validate-agent-guidance.py
+uv run --group dev pytest
 ```
 
 For installer changes, also run a disposable-target smoke test:
