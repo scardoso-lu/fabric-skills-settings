@@ -17,6 +17,11 @@ description: Develop Fabric notebooks using a local closed-loop cycle — author
 - `fabric_notebooks/<topic>/<name>.Notebook/` is the build intermediate (gitignored) — never commit it
 - Never pipe full driver logs into agent context — summarise to STATUS + error message only
 - Use HighConcurrency pool for initial cold start (≈3 min on F64; F2/F4 can reach 8–12 min); subsequent runs within 20 min are fast on any capacity tier
+- Default to Python kernel (`# FABRIC_KERNEL: python`) for any notebook that does not write Delta tables via Spark — it starts faster (≈30 s vs ≈3–8 min) and supports warehouse + lakehouse dependencies simultaneously
+- Use `# FABRIC_LAKEHOUSE: <NAME>` and `# FABRIC_WAREHOUSE: <NAME>` sentinels to declare notebook dependencies — one sentinel per artifact, first lakehouse = default
+- Ensure `.env` has a matching `FABRIC_LAKEHOUSE_<NAME>=<uuid>` entry for each sentinel
+- PySpark notebooks: lakehouses only (no warehouse sentinel — Fabric rejects warehouse metadata in PySpark format)
+- Python notebooks: lakehouses + up to one warehouse sentinel
 
 ## PREFER
 
@@ -28,7 +33,10 @@ description: Develop Fabric notebooks using a local closed-loop cycle — author
 
 - Using `fab import` — requires an interactive Windows console; use `tool/notebook/deploy.py deploy` instead
 - Using `fab job run` — same console issue; use `tool/notebook/deploy.py run` instead
-- Jupyter kernel for Delta Lake writes (Spark kernel required)
+- Using PySpark kernel for dbt, API calls, or CLI tools — Python kernel is always faster and supports more dependency types
+- Adding warehouse dependencies to PySpark notebooks — Fabric returns "Unsupported content"
+- Using `DefaultAzureCredential` / `authentication: auto` for dbt-fabric subprocesses in Python kernel — IMDS is unreachable; use `notebookutils.credentials.getToken("https://database.windows.net/")` instead
+- Hard-coding the DWH TDS hostname — always read `FABRIC_WAREHOUSE_HOST` from `.env`; the prefix is NOT derived from workspace_id
 - Reading from HTTP/HTTPS URLs in Spark (stage to Files/ first via Data Factory)
 - Using `df.show()` or `print()` in production cells
 

@@ -52,7 +52,10 @@ After changing profiles, installer logic, guidance, validation, or installable t
 ```bash
 uv run bin/validate-install-package.py
 uv run bin/validate-agent-guidance.py
+uv run --group dev pytest
 ```
+
+Run the unit tests after any change to `tool/notebook/build.py` or `tool/pipeline/manage.py`.
 
 For installer or profile-file changes, also check an installed target or run a disposable-target smoke test:
 

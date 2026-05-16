@@ -13,6 +13,7 @@ This repository is the runtime workspace. Work from this repo root; do not use a
    |---|---|---|
    | `.env` exists | file present | Run setup: Windows `.\tool\setup\setup.ps1` · Linux/Mac `bash tool/setup/setup.sh` |
    | `FABRIC_WORKSPACE_ID` set | non-empty in `.env` | Edit `.env` → set `FABRIC_WORKSPACE_ID=<uuid>`, then rerun setup |
+   | `FABRIC_WAREHOUSE_HOST` set | non-empty in `.env` (if project uses a Data Warehouse) | Fabric UI → Data Warehouse → Settings → Connection strings → SQL connection string |
    | `fab` reachable | Windows: `tool\setup\fab-sandbox.ps1 --version` exits 0 · Linux/Mac: `bash tool/setup/fab-sandbox --version` exits 0 | Run setup script; it installs `ms-fabric-cli` via `uv tool install ms-fabric-cli` |
    | `fab` authenticated | Windows: `tool\setup\fab-sandbox.ps1 api workspaces --output_format json` exits 0 · Linux/Mac: `bash tool/setup/fab-sandbox api workspaces --output_format json` exits 0 | Windows: `tool\setup\fab-sandbox.ps1 auth login` · Linux/Mac: `bash tool/setup/fab-sandbox auth login` · If the check fails due to network restriction (sandbox/firewall), escalate and request network access before retrying — do not treat a network block as a permanent auth failure |
 

@@ -32,6 +32,19 @@ Usage (from target repo root):
 
     # List all data pipelines in the workspace
     python tool/pipeline/manage.py list
+
+Pipeline parameters
+-------------------
+If workspace/<topic>/pipeline_params.json exists, its "parameters" dict is used as the
+pipeline-level parameter schema (names + default values). CI/CD substitutes env-specific
+values in this file before running manage.py for test/prod environments.
+
+Use --params KEY=VALUE,... to override individual parameters at invocation time (e.g. to
+supply a WAREHOUSE_HOST for a manual dev run without committing it to pipeline_params.json).
+
+Example:
+    python tool/pipeline/manage.py test --topic jaffle_shop \\
+        --params WAREHOUSE_HOST=<dev-tds-endpoint>
 """
 from __future__ import annotations
 
@@ -43,11 +56,15 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 from pathlib import Path
 
 SCRIPT_ROOT = Path(__file__).resolve().parents[2]
 FAB_SANDBOX_HOME = os.environ.get("FAB_SANDBOX_HOME") or str(Path(tempfile.gettempdir()) / "fabric-fab-home")
 _POLL_INTERVAL = 10
+
+# Namespace UUID for deterministic logical IDs — must match build.py so IDs are consistent.
+_LOGICAL_ID_NAMESPACE = uuid.UUID("b1f4e6d2-8c3a-4f7e-9b2d-1a5c0e8f3d6a")
 
 _NOTEBOOK_ORDER: list[str] = [
     "download_",
@@ -240,13 +257,47 @@ def _resolve_notebooks(
 # Pipeline definition builder
 # ---------------------------------------------------------------------------
 
+def _read_topic_params(topic: str) -> dict[str, str]:
+    """Read pipeline_params.json for the topic if it exists. Returns parameter name→defaultValue map."""
+    params_file = SCRIPT_ROOT / "workspace" / topic / "pipeline_params.json"
+    if not params_file.exists():
+        return {}
+    data = json.loads(params_file.read_text(encoding="utf-8"))
+    return {k: str(v) for k, v in data.get("parameters", {}).items()}
+
+
+def _parse_params(raw: str | None) -> dict[str, str]:
+    """Parse 'KEY=VALUE,KEY2=VALUE2' into a dict."""
+    if not raw:
+        return {}
+    result: dict[str, str] = {}
+    for item in raw.split(","):
+        if "=" in item:
+            k, _, v = item.partition("=")
+            result[k.strip()] = v.strip()
+    return result
+
+
 def _build_pipeline_content(
-    pipeline_name: str, workspace_id: str, notebooks: list[dict]
+    pipeline_name: str,
+    workspace_id: str,
+    notebooks: list[dict],
+    params: dict[str, str] | None = None,
 ) -> str:
+    # Embed values directly in every activity — no pipeline-level parameter indirection.
+    # CI/CD substitutes values in pipeline_params.json per environment before running
+    # manage.py create, so the deployed pipeline carries the correct env-specific values.
+    activity_params: dict = (
+        {k: {"value": v, "type": "string"} for k, v in params.items()} if params else {}
+    )
+
     activities: list[dict] = []
     prev: str | None = None
     for nb in notebooks:
         activity_name = f"run_{nb['displayName']}"
+        type_props: dict = {"notebookId": nb["id"], "workspaceId": workspace_id}
+        if activity_params:
+            type_props["parameters"] = activity_params
         activities.append({
             "name": activity_name,
             "type": "TridentNotebook",
@@ -260,10 +311,7 @@ def _build_pipeline_content(
                 "secureOutput": False,
                 "secureInput": False,
             },
-            "typeProperties": {
-                "notebookId": nb["id"],
-                "workspaceId": workspace_id,
-            },
+            "typeProperties": type_props,
         })
         prev = activity_name
 
@@ -278,15 +326,19 @@ def _build_pipeline_content(
 
 
 def _build_platform_file(pipeline_name: str) -> str:
+    logical_id = str(uuid.uuid5(_LOGICAL_ID_NAMESPACE, pipeline_name))
     return json.dumps({
         "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
         "metadata": {"type": "DataPipeline", "displayName": pipeline_name},
-        "config": {"version": "2.0", "logicalId": "00000000-0000-0000-0000-000000000000"},
+        "config": {"version": "2.0", "logicalId": logical_id},
     }, indent=2)
 
 
 def _build_definition(
-    pipeline_name: str, workspace_id: str, notebooks: list[dict]
+    pipeline_name: str,
+    workspace_id: str,
+    notebooks: list[dict],
+    params: dict[str, str] | None = None,
 ) -> dict:
     def _b64(text: str) -> str:
         return base64.b64encode(text.encode()).decode()
@@ -295,7 +347,9 @@ def _build_definition(
         "parts": [
             {
                 "path": "pipeline-content.json",
-                "payload": _b64(_build_pipeline_content(pipeline_name, workspace_id, notebooks)),
+                "payload": _b64(
+                    _build_pipeline_content(pipeline_name, workspace_id, notebooks, params)
+                ),
                 "payloadType": "InlineBase64",
             },
             {
@@ -312,7 +366,10 @@ def _build_definition(
 # ---------------------------------------------------------------------------
 
 def cmd_create(
-    workspace_id: str, topic: str, explicit_notebooks: list[str] | None
+    workspace_id: str,
+    topic: str,
+    explicit_notebooks: list[str] | None,
+    params: dict[str, str] | None = None,
 ) -> str:
     """Create or update the Data Pipeline for the topic. Returns the item ID."""
     pipeline_name = f"pipeline_{topic}"
@@ -322,8 +379,10 @@ def cmd_create(
     print(f"Activities ({len(notebooks)}):")
     for i, nb in enumerate(notebooks):
         print(f"  {i + 1}. {nb['displayName']}  ({nb['id']})")
+    if params:
+        print(f"Parameters ({len(params)}): {', '.join(f'{k}={v!r}' for k, v in params.items())}")
 
-    definition = _build_definition(pipeline_name, workspace_id, notebooks)
+    definition = _build_definition(pipeline_name, workspace_id, notebooks, params)
     existing = _find_item(workspace_id, pipeline_name, "DataPipeline")
 
     if existing:
@@ -435,6 +494,11 @@ def main() -> int:
         "--notebooks",
         help="Comma-separated ordered notebook display names (overrides auto-discover)",
     )
+    p_create.add_argument(
+        "--params",
+        help="Pipeline parameters as KEY=VALUE pairs (comma-separated). "
+             "Merged with workspace/<topic>/pipeline_params.json; CLI values take precedence.",
+    )
 
     p_run = sub.add_parser("run", help="Trigger a pipeline run")
     p_run.add_argument(
@@ -454,6 +518,11 @@ def main() -> int:
         "--notebooks",
         help="Comma-separated ordered notebook display names (overrides auto-discover)",
     )
+    p_test.add_argument(
+        "--params",
+        help="Pipeline parameters as KEY=VALUE pairs (comma-separated). "
+             "Merged with workspace/<topic>/pipeline_params.json; CLI values take precedence.",
+    )
     p_test.add_argument("--timeout", type=int, default=3600, help="Timeout in seconds (default 3600)")
 
     sub.add_parser("list", help="List all data pipelines in the workspace")
@@ -470,7 +539,8 @@ def main() -> int:
 
     elif args.command == "create":
         explicit = [n.strip() for n in args.notebooks.split(",")] if args.notebooks else None
-        cmd_create(workspace_id, args.topic, explicit)
+        params = {**_read_topic_params(args.topic), **_parse_params(getattr(args, "params", None))}
+        cmd_create(workspace_id, args.topic, explicit, params or None)
 
     elif args.command == "run":
         pipeline_id, job_id = cmd_run(workspace_id, args.pipeline)
@@ -490,7 +560,8 @@ def main() -> int:
 
     elif args.command == "test":
         explicit = [n.strip() for n in args.notebooks.split(",")] if args.notebooks else None
-        pipeline_id = cmd_create(workspace_id, args.topic, explicit)
+        params = {**_read_topic_params(args.topic), **_parse_params(getattr(args, "params", None))}
+        pipeline_id = cmd_create(workspace_id, args.topic, explicit, params or None)
         pipeline_name = f"pipeline_{args.topic}"
         _, job_id = cmd_run(workspace_id, pipeline_name)
         final = cmd_status(workspace_id, pipeline_id, job_id, timeout=args.timeout)

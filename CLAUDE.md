@@ -58,7 +58,10 @@ Run these from this source package repo after guidance, profile, installer, vali
 ```bash
 uv run bin/validate-install-package.py
 uv run bin/validate-agent-guidance.py
+uv run --group dev pytest
 ```
+
+Run the unit tests after any change to `tool/notebook/build.py` or `tool/pipeline/manage.py`.
 
 Also smoke-test `bin/install-fabric-agent` against a disposable git repo when installer mappings or profile files change.
 
