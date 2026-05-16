@@ -30,7 +30,7 @@ Every pipeline must define at least:
 3. Duplicate check on business keys
 4. At least one business rule validation (range, reference, format)
 
-Records failing quality checks are logged (count + reason) and dropped before writing. DQ assertions run in a separate `dq_<layer>_<source>.py` notebook using Great Expectations.
+Records failing quality checks are logged with count and reason. The DQ notebook raises on any failure and stops the pipeline — there is no silent drop. DQ assertions run in a separate `dq_<layer>_<source>.py` notebook using Great Expectations.
 
 ## DE-05: Immutable Bronze
 

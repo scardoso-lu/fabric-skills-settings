@@ -24,8 +24,8 @@ When developer reports blocked on secrets or PII → route to operator.
 When tester reports PASS → close the task and notify the human.
 When tester reports FAIL (RI failures, schema drift) → notify the human with the failure details and ask for approval before routing back to developer. Do not auto-retry.
 When tester reports FAIL with PII suspicion → notify the human and route to operator for review. Await human approval before returning to developer.
-When operator reports APPROVED → route to tester.
-When operator reports BLOCKED → route to developer with the full remediation list.
+When orchestrator receives APPROVED from operator → route to tester.
+When orchestrator receives BLOCKED from operator → route to developer with the full remediation list.
 
 ## Rules
 

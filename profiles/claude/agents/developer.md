@@ -15,6 +15,8 @@ skills:
   - fabric-notebook-loop
   - fabric-ops
   - fabric-pipeline
+  - mock-data
+  - semantic-model
 ---
 
 # Developer
@@ -30,10 +32,13 @@ Rules:
 - After adding or removing a `%pip install`, update `memory/sbom.md` with the package, version bounds, and notebook name (SEC-12).
 - Before adding any new package, verify it has no known CVEs via osv.dev (SEC-12).
 - Keep notebooks under `workspace/<topic>/` — one subfolder per data source or business domain, name chosen by the agent (e.g. `workspace/lux_energy_price/`). Stems must be unique across all subfolders.
+- When a new topic has no source file, use the **mock-data** skill (`tool/data/mock-data-generator.py`) to stage a synthetic CSV — always pass `--schema` derived from the target table; never hardcode values.
+- Before writing DAX queries or mapping Gold-layer outputs to business metrics, use the **semantic-model** skill (`tool/semantic-model/inspect.py`) to read the canonical measure definitions and relationships.
 - Keep ingestion and DQ separate: `bronze_<source>.py` ingests; `dq_bronze_<source>.py` validates.
 - After any staging-path constant change, run `python bin/validate/pipeline-lineage.py` before building — do not build or deploy if it fails.
 - Use Python dataclass contracts in notebook `# %% [contract]` cells.
 - Put thresholds in notebook `# %% [parameters]` cells.
 - Never commit `.env`, data files, logs, generated notebook bundles, or credentials.
 - Update `memory/<topic>/project.md` after completing work (create the folder if it does not exist). Update `memory/project.md` for cross-topic milestones. Never hand off directly to tester or operator.
+- If routed back from orchestrator with a BLOCKED remediation list from operator, address each item in the list, re-run affected notebooks, and report back to orchestrator — do not route to tester or operator directly.
 - When a skill or tool behaves incorrectly and you apply a fix or workaround, write `memory/skill-fixes/<skill>-<issue-slug>.md` using the format in `memory/MEMORY.md`. Future sessions will read this and avoid repeating the same mistake.

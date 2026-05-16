@@ -61,8 +61,10 @@ The smoke test never deploys. It triggers a job on whatever is already in Fabric
 | Directory | Invoked by | Purpose |
 |---|---|---|
 | `tool/setup/` | Human (once) | `setup.ps1/sh` environment check · `fab-sandbox` authenticated Fabric CLI wrapper · `fabric-inventory-readonly` read-only workspace/item lookup |
+| `tool/data/` | Developer agent | `mock-data-generator.py` creates deterministic synthetic CSV files under `data/sandbox/` when no real source is available; optional engines support Faker, Mimesis, and sklearn |
 | `tool/notebook/` | Developer agent | `build.py` compile `.py` → `.Notebook` · `deploy.py` deploy/exec/fetch via REST · `smoke-test.ps1/sh` trigger and monitor |
 | `tool/lakehouse/` | Developer agent | `list-tables.py` list all lakehouse tables with column names and types |
+| `tool/semantic-model/` | Developer agent | `inspect.py` list and inspect semantic models — tables, columns, DAX measures, relationships |
 | `tool/pipeline/` | Developer agent | `manage.py` create, deploy, run, and monitor a Data Factory pipeline that chains all topic notebooks |
 | `tool/validate/` | Developer agent | `pipeline-lineage.py` staging-path consistency (run before every build) · `source-contract.py` contracts/ YAML shape check |
 | `tool/mcp/` | Infrastructure | MCP server exposing Fabric CLI commands to agents |
@@ -77,6 +79,7 @@ The smoke test never deploys. It triggers a job on whatever is already in Fabric
 - Source contracts belong in notebook `# %% [contract]` cells as Python dataclasses, not YAML files.
 - Thresholds belong in notebook `# %% [parameters]` cells so Fabric pipeline parameters can override them.
 - Keep download, ingestion, and data quality separate: `download_<source>.py` fetches, `bronze_<source>.py` ingests only new files, `dq_bronze_<source>.py` validates.
+- If no source files exist for a new or demo topic, generate synthetic sandbox data using the **mock-data** skill (`python tool/data/mock-data-generator.py`). Always pass `--schema '<json>'` or `--schema-file <path>` derived from the target table — there are no default schemas. Use `--engine faker` for realistic PII-shaped values, `--engine mimesis` for high-volume generation, or `--engine sklearn` for controlled ML fixtures. See `.agents/skills/mock-data/SKILL.md` for the full engine selection guide and column type reference.
 
 ## Pipeline Structure
 
@@ -101,6 +104,8 @@ Use repo skills in `.agents/skills/`:
 - `fabric-notebook-loop` for local `.py` to Fabric notebook iteration.
 - `fabric-ops` for orchestration, VACUUM, inventory, and platform operations.
 - `fabric-pipeline` for creating, deploying, and testing the Data Factory pipeline that chains all topic notebooks end-to-end.
+- `mock-data` for generating deterministic synthetic sandbox CSV files when no real source exists.
+- `semantic-model` for listing and inspecting Fabric Semantic Models (tables, DAX measures, relationships) before writing DAX or mapping Gold outputs to KPIs.
 
 ## Agents
 
@@ -115,10 +120,12 @@ Project-scoped Codex custom agents live in `.codex/agents/*.toml`. Use the role 
 
 RTK reduces shell output token consumption 60–90%. It is installed by `tool/setup/setup.sh` / `tool/setup/setup.ps1`.
 
-Prefix shell commands with `rtk` — it applies its filter if one exists, otherwise passes the command through unchanged:
+Codex has no Bash hook, so prefix shell commands manually with `rtk` — it applies its filter if one exists, otherwise passes the command through unchanged:
 
 - `rtk git status` · `rtk git log` · `rtk git diff`
 - `rtk pytest` · `rtk ruff check` · `rtk pip`
 - `rtk fab` for Fabric CLI commands
 
 Use `rtk gain` to see token savings and `rtk discover` to find new opportunities.
+
+Note: Claude Code sessions handle RTK automatically via the Bash hook — no manual prefix needed there.

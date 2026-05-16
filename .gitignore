@@ -18,6 +18,10 @@ _delta_log/
 *.csv
 *.xlsx
 *.xls
+!tool/data/
+!tool/data/mock-data-generator.py
+!profiles/shared/project-layout/tool/data/
+!profiles/shared/project-layout/tool/data/mock-data-generator.py
 
 # Allow packaged target scaffolding placeholders under profiles/shared/project-layout
 !profiles/shared/project-layout/data/

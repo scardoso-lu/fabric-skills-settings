@@ -1,6 +1,9 @@
 # RTK Token Optimizer
 
-RTK reduces token consumption 60–90% by filtering and compressing shell output before it reaches the AI. The Claude Code hook intercepts Bash commands automatically — no manual prefix needed.
+RTK reduces token consumption 60–90% by filtering and compressing shell output before it reaches the AI.
+
+- **Claude Code:** The Bash hook intercepts commands automatically — no manual prefix needed.
+- **Codex:** No hook is available — prefix commands manually with `rtk`.
 
 ## Golden Rule
 

@@ -12,10 +12,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PROFILES = ROOT / "profiles"
-SKILLS = {"fabric-ingest", "fabric-transform", "fabric-model", "fabric-validate", "fabric-notebook-loop", "fabric-ops", "fabric-pipeline"}
+SKILLS = {"fabric-ingest", "fabric-transform", "fabric-model", "fabric-validate", "fabric-notebook-loop", "fabric-ops", "fabric-pipeline", "semantic-model", "mock-data"}
 AGENTS = {"orchestrator", "developer", "tester", "operator"}
 MIRRORED_HELPERS = [
+    "data/mock-data-generator.py",
     "lakehouse/list-tables.py",
+    "semantic-model/inspect.py",
     "mcp/server.py",
     "pipeline/manage.py",
     "notebook/build.py",
@@ -86,6 +88,8 @@ def validate_required(errors: list[str]) -> None:
     require(PROFILES / "shared" / "project-layout" / "tool" / "setup" / "setup.ps1", errors)
     require(PROFILES / "shared" / "project-layout" / "tool" / "setup" / "setup.sh", errors)
     require(PROFILES / "shared" / "project-layout" / "tool" / "lakehouse" / "list-tables.py", errors)
+    require(PROFILES / "shared" / "project-layout" / "tool" / "semantic-model" / "inspect.py", errors)
+    require(PROFILES / "shared" / "project-layout" / "tool" / "data" / "mock-data-generator.py", errors)
     require(PROFILES / "shared" / "project-layout" / "tool" / "pipeline" / "manage.py", errors)
     require(PROFILES / "shared" / "project-layout" / "tool" / "validate" / "pipeline-lineage.py", errors)
     require(PROFILES / "shared" / "project-layout" / "tool" / "validate" / "source-contract.py", errors)

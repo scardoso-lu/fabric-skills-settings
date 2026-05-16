@@ -209,15 +209,4 @@ This works when the notebook is API-triggered because `deploy.py` sets `_inlineI
 
 ## Mock Data
 
-```python
-from faker import Faker
-import pandas as pd, os
-
-fake = Faker(); Faker.seed(42)
-rows = [{"order_id": i, "customer_id": fake.random_int(1, 500),
-         "amount": str(fake.pydecimal(2, 2, positive=True)),
-         "order_date": fake.date_this_year().isoformat()} for i in range(1, 1001)]
-pd.DataFrame(rows).to_csv(
-    "data/sandbox/orders.csv", index=False
-)
-```
+Use the **mock-data** skill to generate a synthetic `data/sandbox/<topic>.csv` before building the notebook pipeline.

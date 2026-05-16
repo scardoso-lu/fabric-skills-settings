@@ -140,8 +140,8 @@ Create a local notebook source at `workspace/<topic>/orders_bronze.py`:
 # %% [parameters]
 from pyspark.sql import functions as F
 
-SOURCE_PATH = "/lakehouse/default/Files/orders.csv"
-source_path = SOURCE_PATH or "/lakehouse/default/Files/orders.csv"
+SOURCE_PATH = "Files/data/sandbox/orders.csv"
+source_path = SOURCE_PATH or "Files/data/sandbox/orders.csv"
 source_system = "ORDERS"
 batch_id = "manual-dev"
 

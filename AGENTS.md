@@ -27,11 +27,17 @@ The installer copies `profiles/shared/project-layout/tool/` into target reposito
 | Target path | Purpose |
 |---|---|
 | `tool/setup/` | Human one-time setup, Fabric CLI sandbox wrappers, and read-only inventory helpers. |
+| `tool/data/` | Deterministic synthetic CSV generator for sandbox topics; `--schema` or `--schema-file` always required. |
 | `tool/notebook/` | Notebook build, deploy, smoke-test, fetch, run, and monitor helpers. |
 | `tool/pipeline/` | Data Factory pipeline create, update, run, status, list, and test helper. |
 | `tool/lakehouse/` | Lakehouse table and schema inspection helper. |
+| `tool/semantic-model/` | Fabric Semantic Model inspection via sempy.fabric — lists models and shows tables, DAX measures, relationships. |
 | `tool/validate/` | Local source-contract and pipeline-lineage validators. |
 | `tool/mcp/` | Fabric MCP server used by installed agent profiles. |
+
+## File Scanning
+
+When searching or globbing files in this repository, always exclude `.venv/`. It contains third-party packages and will produce irrelevant matches and slow scans.
 
 ## Development Rules
 

@@ -31,7 +31,7 @@ This repository is the runtime workspace. Work from this repo root; do not use a
 ```
 workspace/
   <topic>/
-    <name>.py            ← transient working source (# %% cells); deleted after successful fetch
+    <name>.py            ← working source (# %% cells); remove manually after the .Notebook/ is committed
     <name>.Notebook/     ← canonical git artifact; committed after every passing run,
                            synced with Fabric UI via Git integration
 
@@ -61,8 +61,10 @@ The smoke test never deploys. It triggers a job on whatever is already in Fabric
 | Directory | Invoked by | Purpose |
 |---|---|---|
 | `tool/setup/` | Human (once) | `setup.ps1/sh` environment check · `fab-sandbox` authenticated Fabric CLI wrapper · `fabric-inventory-readonly` read-only workspace/item lookup |
+| `tool/data/` | Developer agent | `mock-data-generator.py` creates deterministic synthetic CSV files under `data/sandbox/` when no real source is available; optional engines support Faker, Mimesis, and sklearn |
 | `tool/notebook/` | Developer agent | `build.py` compile `.py` → `.Notebook` · `deploy.py` deploy/exec/fetch via REST · `smoke-test.ps1/sh` trigger and monitor |
 | `tool/lakehouse/` | Developer agent | `list-tables.py` list all lakehouse tables with column names and types |
+| `tool/semantic-model/` | Developer agent | `inspect.py` list and inspect semantic models — tables, columns, DAX measures, relationships |
 | `tool/pipeline/` | Developer agent | `manage.py` create, deploy, run, and monitor a Data Factory pipeline that chains all topic notebooks |
 | `tool/validate/` | Developer agent | `pipeline-lineage.py` staging-path consistency (run before every build) · `source-contract.py` contracts/ YAML shape check |
 | `tool/mcp/` | Infrastructure | MCP server exposing Fabric CLI commands to agents |
@@ -79,6 +81,8 @@ Every data source topic requires exactly three notebooks. No exceptions.
 | Data quality | `dq_bronze_<source>.py` | Great Expectations checks: row count > 0, no null PKs, no duplicate PKs, schema match, business sanity. Print structured PASS/FAIL per check. Raise on any FAIL. |
 
 A single notebook that downloads + ingests + overwrites is always wrong. The developer agent creates stubs for all three; the tester agent owns and fills `dq_bronze_<source>.py`.
+
+If no source files exist for a new or demo topic, generate synthetic sandbox data using the **mock-data** skill (`python tool/data/mock-data-generator.py`). Always pass `--schema '<json>'` or `--schema-file <path>` derived from the target table — there are no default schemas. Use `--engine faker` for realistic PII-shaped values, `--engine mimesis` for high-volume generation, or `--engine sklearn` for controlled ML fixtures. See `.claude/skills/mock-data/SKILL.md` for the full engine selection guide and column type reference.
 
 ## Role Agents
 

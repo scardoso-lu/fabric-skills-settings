@@ -18,6 +18,8 @@ REQUIRED_SKILLS = {
     "fabric-notebook-loop",
     "fabric-ops",
     "fabric-pipeline",
+    "semantic-model",
+    "mock-data",
 }
 REQUIRED_AGENTS = {"orchestrator", "developer", "tester", "operator"}
 FORBIDDEN_ROOT_RUNTIME = [

@@ -102,6 +102,52 @@ if ($fabOk) {
     $Actions.Add("ms-fabric-cli installed")
 }
 
+# ── Mock-data libraries ───────────────────────────────────────────────────────
+Write-Host ""
+Write-Host "-- Optional: mock-data libraries (tool/data/mock-data-generator.py)"
+& python -c "import faker, mimesis" *>$null
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "  Faker and Mimesis already installed"
+    $Actions.Add("Faker and Mimesis: already installed")
+} else {
+    $ans = Read-Host "  Install Faker and Mimesis for realistic dummy names, emails, addresses? [y/N]"
+    if ($ans -match "^[yY]") {
+        python -m pip install "Faker>=26" "mimesis>=18"
+        if ($LASTEXITCODE -eq 0) { $Actions.Add("Faker and Mimesis: installed") }
+        else { Write-Warning "Install failed — run manually: pip install Faker mimesis" }
+    } else {
+        $Actions.Add("Faker and Mimesis: skipped")
+    }
+}
+& python -c "import sklearn" *>$null
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "  scikit-learn already installed"
+    $Actions.Add("scikit-learn: already installed")
+} else {
+    $ans = Read-Host "  Install scikit-learn for ML classification fixtures? [y/N]"
+    if ($ans -match "^[yY]") {
+        python -m pip install "scikit-learn>=1.5"
+        if ($LASTEXITCODE -eq 0) { $Actions.Add("scikit-learn: installed") }
+        else { Write-Warning "Install failed — run manually: pip install scikit-learn" }
+    } else {
+        $Actions.Add("scikit-learn: skipped")
+    }
+}
+& python -c "import sempy.fabric" *>$null
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "  semantic-link already installed"
+    $Actions.Add("semantic-link: already installed")
+} else {
+    $ans = Read-Host "  Install semantic-link (sempy.fabric) for semantic model inspection? [y/N]"
+    if ($ans -match "^[yY]") {
+        python -m pip install "semantic-link>=0.9"
+        if ($LASTEXITCODE -eq 0) { $Actions.Add("semantic-link: installed") }
+        else { Write-Warning "Install failed — run manually: pip install semantic-link" }
+    } else {
+        $Actions.Add("semantic-link: skipped")
+    }
+}
+
 # ── Load existing .env ────────────────────────────────────────────────────────
 if (Test-Path -LiteralPath $EnvFile) { Read-DotEnv -Path $EnvFile }
 

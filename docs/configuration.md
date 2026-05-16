@@ -181,6 +181,9 @@ The pipeline helper embeds concrete parameter values in each `TridentNotebook` a
 Build and deploy notebooks from the target repository root:
 
 ```bash
+python tool/data/mock-data-generator.py --schema '[{"name":"id","type":"id"},{"name":"amount","type":"decimal"}]' --topic <topic> --rows 1000
+python tool/data/mock-data-generator.py --engine faker --topic <topic> --rows 1000 --schema '[{"name":"id","type":"id"},{"name":"name","type":"name"},{"name":"email","type":"email"}]'
+python tool/data/mock-data-generator.py --schema-file schemas/<topic>.json --rows 1000  # schema from file
 python tool/validate/pipeline-lineage.py
 python tool/notebook/build.py
 python tool/notebook/deploy.py deploy <name> <workspace_id>

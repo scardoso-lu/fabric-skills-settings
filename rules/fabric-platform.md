@@ -36,19 +36,19 @@ Use this when `fab api` fails on non-JSON endpoints (text/plain responses).
 ## FP-03: Notebook Authoring
 
 - Author in local `.py` files using `# %%` cell markers
-- Build to `.Notebook` format with `python bin/notebook/build.py`
-- Deploy via REST API: `python bin/notebook/deploy.py deploy <name> <workspace_id>`
-- Full loop: `bin/notebook/smoke-test.sh --notebook <name>` (reads `FABRIC_WORKSPACE_ID` from `.env`)
+- Build to `.Notebook` format with `python tool/notebook/build.py`
+- Deploy via REST API: `python tool/notebook/deploy.py deploy <name> <workspace_id>`
+- Full loop: `tool/notebook/smoke-test.sh --notebook <name>` (reads `FABRIC_WORKSPACE_ID` from `.env`)
 - `fab import` and `fab job run` require an interactive Windows console — do not use in automated or sandboxed environments
 - `tags` metadata is stripped by the REST API — do not rely on tags for parameter injection
 - Notebook cells must end with `\n` to prevent visual merge issues
 
 ## FP-04: Debugging Job Runs
 
-Use `bin/notebook/deploy.py monitor` for real-time status polling:
+Use `tool/notebook/deploy.py monitor` for real-time status polling:
 
 ```bash
-python bin/bin/notebook/deploy.py monitor <workspace_id> <item_id> <job_instance_id>
+python tool/notebook/deploy.py monitor <workspace_id> <item_id> <job_instance_id>
 ```
 
 For detailed error traces, open the Fabric portal: Activities → Notebook runs → select the failed run.

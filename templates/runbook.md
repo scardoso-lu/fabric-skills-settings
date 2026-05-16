@@ -79,7 +79,7 @@ WHERE _ingest_timestamp IS NULL
 
 ### Recovery Steps
 
-1. Check Fabric portal (Activities → Notebook runs) for error details, or run `python bin/notebook/deploy.py monitor <workspace_id> <item_id> <job_instance_id>`.
+1. Check Fabric portal (Activities → Notebook runs) for error details, or run `python tool/notebook/deploy.py monitor <workspace_id> <item_id> <job_instance_id>`.
 2. Fix root cause (see failure modes above).
 3. Re-run with the same batch parameters (idempotent).
 4. Run validation checks.

@@ -146,6 +146,46 @@ else
   actions+=("ms-fabric-cli installed")
 fi
 
+# ── Mock-data libraries ───────────────────────────────────────────────────────
+echo ""
+echo "-- Optional: mock-data libraries (tool/data/mock-data-generator.py)"
+if python -c "import faker, mimesis" 2>/dev/null; then
+  echo "  Faker and Mimesis already installed"
+  actions+=("Faker and Mimesis: already installed")
+else
+  read -rp "  Install Faker and Mimesis for realistic dummy names, emails, addresses? [y/N] " _mock_ans
+  if [[ "${_mock_ans,,}" == "y" ]]; then
+    python -m pip install "Faker>=26" "mimesis>=18"
+    actions+=("Faker and Mimesis: installed")
+  else
+    actions+=("Faker and Mimesis: skipped")
+  fi
+fi
+if python -c "import sklearn" 2>/dev/null; then
+  echo "  scikit-learn already installed"
+  actions+=("scikit-learn: already installed")
+else
+  read -rp "  Install scikit-learn for ML classification fixtures? [y/N] " _sklearn_ans
+  if [[ "${_sklearn_ans,,}" == "y" ]]; then
+    python -m pip install "scikit-learn>=1.5"
+    actions+=("scikit-learn: installed")
+  else
+    actions+=("scikit-learn: skipped")
+  fi
+fi
+if python -c "import sempy.fabric" 2>/dev/null; then
+  echo "  semantic-link already installed"
+  actions+=("semantic-link: already installed")
+else
+  read -rp "  Install semantic-link (sempy.fabric) for semantic model inspection? [y/N] " _sempy_ans
+  if [[ "${_sempy_ans,,}" == "y" ]]; then
+    python -m pip install "semantic-link>=0.9"
+    actions+=("semantic-link: installed")
+  else
+    actions+=("semantic-link: skipped")
+  fi
+fi
+
 # ── Load existing .env ────────────────────────────────────────────────────────
 if [[ -f "$ENV_FILE" ]]; then
   _load_dot_env "$ENV_FILE"

@@ -121,8 +121,6 @@ The resulting Delta table contains 1,000 rows and 27 columns, including lineage 
 
 For the deeper human/machine split, architecture diagrams, notebook deployment loop, medallion flow, authoring rules, safety behavior, and validation commands, see [docs/learn-more.md](docs/learn-more.md).
 
-For upcoming work around semantic models, cross-table contracts, OneLake shortcuts, data agents, stronger setup, observability, and security hardening, see [docs/ROADMAP.md](docs/ROADMAP.md).
-
 ## Validation commands for contributors
 
 Run these from this source package repository after changing profiles, installer logic, guidance, validation, or installable tooling:
@@ -149,7 +147,8 @@ git init -q "$tmp"
 |---|---|
 | Codex | `AGENTS.md`, `.agents/skills/*/SKILL.md`, `.codex/agents/*.toml`, `.codex/config.toml` |
 | Claude | `CLAUDE.md`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `.claude/settings.json` |
-| Shared | `memory/`, placeholder `.env.example`, managed `.gitignore` block, `workspace/`, `data/sandbox/`, `contracts/`, `runbooks/`, `tool/` tooling |
+| Shared | `memory/`, placeholder `.env.example`, managed `.gitignore` block, `workspace/`, `data/sandbox/`, `contracts/`, `runbooks/`, `tool/` |
+
 
 The only shared runtime state between vendor profiles is `memory/`. Runtime Codex assets stay under `profiles/codex/`; runtime Claude assets stay under `profiles/claude/`.
 

@@ -31,9 +31,11 @@ Installable target tooling lives under `tool/` in this source repo and must mirr
 | Tool path | Who uses it in target repo | Contains |
 |---|---|---|
 | `tool/setup/` | Human once, agents for checks | `setup.ps1/sh`, `fab-sandbox`, `fabric-inventory-readonly`. |
+| `tool/data/` | Developer agent | `mock-data-generator.py` for deterministic synthetic CSV; `--schema` or `--schema-file` required. |
 | `tool/notebook/` | Developer agent | `build.py`, `deploy.py`, `smoke-test.ps1/sh`. |
 | `tool/pipeline/` | Developer agent | `manage.py` for Data Factory pipeline create, update, run, status, list, and test. |
 | `tool/lakehouse/` | Developer agent | `list-tables.py` for table/schema discovery. |
+| `tool/semantic-model/` | Developer and tester agents | `inspect.py` for listing and inspecting Fabric Semantic Models via sempy.fabric. |
 | `tool/validate/` | Developer agent | `pipeline-lineage.py`, `source-contract.py`. |
 | `tool/mcp/` | Infrastructure | `server.py`. |
 
@@ -50,6 +52,10 @@ When adding or changing an installed helper:
 - Fabric credentials must be passed through environment variables or approved secret stores, never command-line arguments.
 - `FABRIC_CLIENT_SECRET` must not be written to `.env`.
 - RTK installation must stay pinned to a specific release and verify downloaded assets against that release's checksum before execution or extraction.
+
+## File Scanning
+
+When searching or globbing files in this repository, always exclude `.venv/`. It contains third-party packages and will produce irrelevant matches and slow scans.
 
 ## Required Checks
 
