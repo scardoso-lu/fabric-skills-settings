@@ -8,9 +8,31 @@ Fabric Agent Pack turns a normal git repository into a guided Microsoft Fabric p
 
 ## Quick start
 
-### 1. Prepare this source package
+### Option A — pip install (recommended)
 
-From this repository root:
+No git clone required. Install the package and run the CLI directly:
+
+```bash
+pip install fabric-skills-settings
+```
+
+Preview what will be written, then apply:
+
+```bash
+# preview changes first
+install-fabric-agent --profile all --target /path/to/project-repo --dry-run
+
+# apply
+install-fabric-agent --profile all --target /path/to/project-repo
+```
+
+`--profile` accepts `claude`, `codex`, or `all`.
+
+---
+
+### Option B — from source (contributors)
+
+Clone this repository, then prepare the source package:
 
 #### Linux / macOS
 
@@ -29,9 +51,7 @@ From this repository root:
 
 Both setup scripts check for Git and uv, create `memory/project.md` if absent, and run the package validators.
 
-### 2. Install into a target repository
-
-Use a real project repository as the target. Preview first, then apply:
+Install into a target repository:
 
 ```bash
 # preview changes first
@@ -48,7 +68,9 @@ cd /path/to/project-repo
 codex   # or: claude
 ```
 
-### 3. Configure Fabric access in the target repository
+---
+
+### 2. Configure Fabric access in the target repository
 
 Minimum required Fabric workspace role: **Contributor**. Run the setup script — it will prompt for everything interactively. You do not need to edit `.env` manually.
 
