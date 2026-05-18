@@ -40,11 +40,15 @@ import csv
 import datetime as dt
 import importlib
 import json
+import re
 import random
 import uuid as uuid_module
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
+
+_TOPIC_RE = re.compile(r"^[a-zA-Z0-9_\-]+$")
+_SCRIPT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -327,6 +331,19 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.rows < 1:
         raise SystemExit("--rows must be greater than zero")
+    # FIND-14: validate topic name to prevent path traversal
+    if not _TOPIC_RE.match(args.topic):
+        raise SystemExit(
+            f"Invalid topic name {args.topic!r}. "
+            "Only alphanumeric characters, hyphens, and underscores are allowed."
+        )
+    if args.output:
+        resolved = args.output.resolve()
+        if not resolved.is_relative_to(_SCRIPT_ROOT):
+            raise SystemExit(
+                f"--output {args.output!r} must be within the project root. "
+                "Absolute paths outside the project are not allowed."
+            )
     schema = load_schema(args)
     output = args.output or Path("data") / "sandbox" / f"{args.topic}.csv"
     fieldnames, rows = build_rows(args, schema)

@@ -53,7 +53,7 @@ names and types are still listed without schema.
 ## Daily Checks
 
 ```bash
-# List items in the sandbox workspace (shows notebooks, lakehouses, etc.)
+# List items in the workspace (shows notebooks, lakehouses, etc.)
 fab api "workspaces/$FABRIC_WORKSPACE_ID/items" --output_format json
 
 # Check recent job runs for a specific notebook item

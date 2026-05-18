@@ -35,6 +35,7 @@ ORDERS_SCHEMA = json.dumps([
 
 def test_stdlib_engine_writes_deterministic_business_csv(tmp_path):
     generator = load_generator()
+    generator._SCRIPT_ROOT = tmp_path  # allow writing to tmp_path (FIND-14 containment)
     output = tmp_path / "orders.csv"
 
     assert generator.main([
@@ -60,6 +61,7 @@ def test_stdlib_engine_writes_deterministic_business_csv(tmp_path):
 
 def test_stdlib_engine_is_deterministic_across_runs(tmp_path):
     generator = load_generator()
+    generator._SCRIPT_ROOT = tmp_path
     out1 = tmp_path / "run1.csv"
     out2 = tmp_path / "run2.csv"
 
@@ -71,6 +73,7 @@ def test_stdlib_engine_is_deterministic_across_runs(tmp_path):
 
 def test_schema_flag_generates_custom_columns(tmp_path):
     generator = load_generator()
+    generator._SCRIPT_ROOT = tmp_path
     output = tmp_path / "custom.csv"
     schema = json.dumps([
         {"name": "pk",    "type": "id"},
@@ -92,6 +95,7 @@ def test_schema_flag_generates_custom_columns(tmp_path):
 
 def test_schema_file_flag_generates_custom_columns(tmp_path):
     generator = load_generator()
+    generator._SCRIPT_ROOT = tmp_path
     schema_file = tmp_path / "schema.json"
     schema_file.write_text(json.dumps([
         {"name": "id",   "type": "id"},
@@ -137,6 +141,7 @@ ML_SCHEMA = json.dumps([
 )
 def test_sklearn_engine_generates_expected_columns(tmp_path):
     generator = load_generator()
+    generator._SCRIPT_ROOT = tmp_path
     output = tmp_path / "ml.csv"
 
     assert generator.main([

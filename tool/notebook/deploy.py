@@ -31,12 +31,22 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 import time
 from pathlib import Path
 
 SCRIPT_ROOT = Path(__file__).resolve().parent.parent.parent
-FAB_SANDBOX_HOME = os.environ.get("FAB_SANDBOX_HOME") or str(Path(tempfile.gettempdir()) / "fabric-fab-home")
+
+
+def _fab_sandbox_dir() -> Path:
+    if os.name == "nt":
+        localappdata = os.environ.get("LOCALAPPDATA", "")
+        base = Path(localappdata) if localappdata else Path.home()
+    else:
+        base = Path.home() / ".cache"
+    return base / "fabric-fab-home"
+
+
+FAB_SANDBOX_HOME = str(_fab_sandbox_dir())
 _POLL_INTERVAL = 10  # seconds between status polls
 
 
@@ -51,12 +61,40 @@ def _user_home() -> Path:
     return home
 
 
+import re as _re
+
+_PS_CANDIDATES = [
+    Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe",
+    Path(r"C:\Program Files\PowerShell\7\pwsh.exe"),
+]
+_UUID_RE = _re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", _re.IGNORECASE)
+
+
+def _validate_workspace_id(workspace_id: str) -> None:
+    if not _UUID_RE.match(workspace_id):
+        raise SystemExit(
+            f"Invalid workspace ID {workspace_id!r}. Expected a UUID "
+            "(xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)."
+        )
+    expected = os.environ.get("FABRIC_WORKSPACE_ID", "").strip()
+    if expected and workspace_id.lower() != expected.lower():
+        raise SystemExit(
+            f"workspace_id {workspace_id!r} does not match FABRIC_WORKSPACE_ID in .env. "
+            "Deployment to workspaces outside the configured scope is not permitted."
+        )
+
+
 def _resolve_fab_command() -> tuple[list[str], bool]:
     """Return (command_prefix, uses_wrapper). Prefers fab-sandbox.ps1 on Windows."""
     wrapper = SCRIPT_ROOT / "tool" / "setup" / "fab-sandbox.ps1"
     if os.name == "nt" and wrapper.exists():
-        powershell = os.environ.get("POWERSHELL_BIN") or "powershell.exe"
-        return [powershell, "-ExecutionPolicy", "Bypass", "-File", str(wrapper)], True
+        ps = next((str(p) for p in _PS_CANDIDATES if p.exists()), None)
+        if ps is None:
+            raise SystemExit(
+                "PowerShell not found at expected system paths "
+                "(System32\\WindowsPowerShell\\v1.0 or Program Files\\PowerShell\\7)."
+            )
+        return [ps, "-ExecutionPolicy", "Bypass", "-File", str(wrapper)], True
     candidate = _user_home() / ".local" / "bin" / "fab"
     if candidate.exists():
         return [str(candidate)], False
@@ -67,22 +105,28 @@ def _load_env(root: Path) -> None:
     env_file = root / ".env"
     if not env_file.exists():
         return
-    for line in env_file.read_text().splitlines():
+    for line in env_file.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, val = line.partition("=")
-        val = val.split("#")[0].strip().strip('"').strip("'")
-        os.environ.setdefault(key.strip(), val)
+        key = key.strip()
+        val = val.strip()
+        if len(val) >= 2 and val[0] in ('"', "'") and val[-1] == val[0]:
+            val = val[1:-1]  # Quoted — preserve # inside (S22)
+        else:
+            val = val.split("#")[0].strip()
+        os.environ.setdefault(key, val)
 
 
 def fab_api(endpoint: str, method: str = "get", body: dict | None = None, show_headers: bool = False) -> dict:
     fab_cmd, uses_wrapper = _resolve_fab_command()
-    sandbox_home = Path(FAB_SANDBOX_HOME).resolve()
+    sandbox_home = _fab_sandbox_dir()
     sandbox_home.mkdir(parents=True, exist_ok=True)
+    if os.name != "nt":
+        sandbox_home.chmod(0o700)
     env = {**os.environ}
     if uses_wrapper:
-        # fab-sandbox.ps1 handles credential isolation itself — don't override HOME
         env.pop("HOME", None)
     else:
         env["HOME"] = str(sandbox_home)
@@ -93,12 +137,8 @@ def fab_api(endpoint: str, method: str = "get", body: dict | None = None, show_h
     cmd = [*fab_cmd, "api", endpoint, "-X", method, "--output_format", "json"]
     if show_headers:
         cmd.append("--show_headers")
-    if body:
-        body_str = json.dumps(body)
-        if uses_wrapper:
-            # PS5.1 strips one level of quote escaping when splatting @args to a native exe
-            body_str = body_str.replace('"', '\\"')
-        cmd += ["-i", body_str]
+    if body is not None:
+        cmd += ["-i", json.dumps(body)]
     result = subprocess.run(cmd, capture_output=True, text=True, env=env)
     try:
         return json.loads(result.stdout)
@@ -292,7 +332,11 @@ def fetch_notebook(workspace_id: str, notebook_name: str) -> None:
         payload = part.get("payload", "")
         if not path or not payload:
             continue
-        dest = notebook_dir / path
+        dest = (notebook_dir / path).resolve()
+        if not dest.is_relative_to(notebook_dir.resolve()):
+            raise SystemExit(
+                f"Unsafe path in notebook definition: {path!r} escapes the notebook directory."
+            )
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(base64.b64decode(payload))
     print(f"-- Fetched {len(parts)} part(s) to {notebook_dir}")
@@ -310,7 +354,7 @@ def trigger_run(workspace_id: str, item_id: str) -> str:
         body={
             "executionData": {
                 "parameters": {
-                    "_inlineInstallationEnabled": {"value": True, "type": "bool"}
+                    "_inlineInstallationEnabled": {"value": False, "type": "bool"}
                 }
             }
         },
@@ -363,6 +407,7 @@ def main() -> None:
         if len(sys.argv) < 4:
             raise SystemExit("Usage: deploy.py deploy <notebook_name> <workspace_id>")
         notebook_name, workspace_id = sys.argv[2], sys.argv[3]
+        _validate_workspace_id(workspace_id)
         notebook_dir = _find_notebook_dir(notebook_name)
         topic = _topic_from_notebook_dir(notebook_dir)
         folder_id = get_or_create_folder(workspace_id, topic) if topic else None
@@ -372,6 +417,7 @@ def main() -> None:
         if len(sys.argv) < 4:
             raise SystemExit("Usage: deploy.py run <notebook_name> <workspace_id>")
         notebook_name, workspace_id = sys.argv[2], sys.argv[3]
+        _validate_workspace_id(workspace_id)
         notebook_dir = _find_notebook_dir(notebook_name)
         topic = _topic_from_notebook_dir(notebook_dir)
         folder_id = get_or_create_folder(workspace_id, topic) if topic else None
@@ -384,6 +430,7 @@ def main() -> None:
         if len(sys.argv) < 4:
             raise SystemExit("Usage: deploy.py exec <notebook_name> <workspace_id>")
         notebook_name, workspace_id = sys.argv[2], sys.argv[3]
+        _validate_workspace_id(workspace_id)
         item_id = get_existing_notebook_id(workspace_id, notebook_name)
         if not item_id:
             raise SystemExit(
@@ -397,12 +444,14 @@ def main() -> None:
         if len(sys.argv) < 4:
             raise SystemExit("Usage: deploy.py fetch <notebook_name> <workspace_id>")
         notebook_name, workspace_id = sys.argv[2], sys.argv[3]
+        _validate_workspace_id(workspace_id)
         fetch_notebook(workspace_id, notebook_name)
 
     elif command == "monitor":
         if len(sys.argv) < 5:
             raise SystemExit("Usage: deploy.py monitor <workspace_id> <item_id> <job_instance_id>")
         workspace_id, item_id, job_instance_id = sys.argv[2], sys.argv[3], sys.argv[4]
+        _validate_workspace_id(workspace_id)
         monitor_run(workspace_id, item_id, job_instance_id)
 
     else:

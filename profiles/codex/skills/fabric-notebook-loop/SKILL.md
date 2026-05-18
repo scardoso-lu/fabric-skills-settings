@@ -9,7 +9,7 @@ description: Develop Fabric notebooks using a local closed-loop cycle — author
 
 - Use `# %%` cell markers in local `.py` files
 - Build notebooks with `python tool/notebook/build.py`
-- Deploy and run via `tool/notebook/deploy.py` — NOT `fab import` or `fab job run` (both require an interactive Windows console and fail in Git Bash / sandboxed environments)
+- Deploy and run via `tool/notebook/deploy.py` — NOT `fab import` or `fab job run` (both require an interactive Windows console and fail in Git Bash / non-interactive environments)
 - Monitor via `tool/notebook/deploy.py monitor` or by checking job instance status through the Fabric REST API
 - After a successful run, `deploy.py run` automatically fetches the notebook definition back from Fabric into `workspace/<topic>/<name>.Notebook/` (synced with Fabric UI)
 - After fetch, report to orchestrator and stop — the human commits via the Fabric UI Git integration

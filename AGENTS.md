@@ -28,7 +28,7 @@ The installer copies `profiles/shared/project-layout/tool/` into target reposito
 | Target path | Purpose |
 |---|---|
 | `tool/setup/` | Human one-time setup, Fabric CLI sandbox wrappers, and read-only inventory helpers. |
-| `tool/data/` | Deterministic synthetic CSV generator for sandbox topics; `--schema` or `--schema-file` always required. |
+| `tool/data/` | Deterministic synthetic CSV generator for staged topics. |
 | `tool/notebook/` | Notebook build, deploy, smoke-test, fetch, run, and monitor helpers. |
 | `tool/pipeline/` | Data Factory pipeline create, update, run, status, list, and test helper. |
 | `tool/lakehouse/` | Lakehouse table and schema inspection helper. |
@@ -73,4 +73,4 @@ python bin/install-fabric-agent --profile all --target <target-repo> --check
 
 ## Commit / PR Handoff
 
-Summarize what changed, which validations were run, whether a target-repo smoke test was performed, and any environment-limited validation failures.
+Summarize what changed, which validations were run, whether a target-repo smoke test was performed, and any validation failures or limitations encountered.

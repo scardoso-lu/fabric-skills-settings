@@ -1,6 +1,6 @@
 # Fabric Platform Rules
 
-Microsoft Fabric-specific technical patterns and constraints. These encode hard-won knowledge about how Fabric actually behaves.
+Microsoft Fabric-specific technical patterns and constraints.
 
 ## FP-01: Async API Pattern (202 + Poll)
 
@@ -39,7 +39,7 @@ Use this when `fab api` fails on non-JSON endpoints (text/plain responses).
 - Build to `.Notebook` format with `python tool/notebook/build.py`
 - Deploy via REST API: `python tool/notebook/deploy.py deploy <name> <workspace_id>`
 - Full loop: `tool/notebook/smoke-test.sh --notebook <name>` (reads `FABRIC_WORKSPACE_ID` from `.env`)
-- `fab import` and `fab job run` require an interactive Windows console — do not use in automated or sandboxed environments
+- `fab import` and `fab job run` require an interactive Windows console — do not use in automated or non-interactive environments
 - `tags` metadata is stripped by the REST API — do not rely on tags for parameter injection
 - Notebook cells must end with `\n` to prevent visual merge issues
 
@@ -53,7 +53,7 @@ python tool/notebook/deploy.py monitor <workspace_id> <item_id> <job_instance_id
 
 For detailed error traces, open the Fabric portal: Activities → Notebook runs → select the failed run.
 
-`fab job run-status` and `nbmon status` require an interactive Windows console — do not use them in Git Bash or sandboxed environments.
+`fab job run-status` and `nbmon status` require an interactive Windows console — do not use them in Git Bash or non-interactive environments.
 
 ## FP-05: Spark vs SQL Endpoint
 

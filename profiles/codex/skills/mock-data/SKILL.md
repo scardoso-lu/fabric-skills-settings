@@ -8,7 +8,7 @@ description: Generate deterministic synthetic CSV files under data/sandbox/ usin
 ## When to use
 
 - A new topic has no real source file yet and you need something to ingest
-- A demo or sandbox environment needs repeatable, PII-free data
+- A demo needs repeatable, PII-free staged data
 - You are writing or testing a Bronze notebook and need a staged CSV with a specific shape
 
 Do not use real source extracts. Always generate synthetic data and run it through the normal masking and DQ pipeline.

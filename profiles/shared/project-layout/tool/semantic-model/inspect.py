@@ -38,20 +38,51 @@ def _load_env(root: Path) -> None:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, val = line.partition("=")
-        val = val.split("#")[0].strip().strip('"').strip("'")
-        os.environ.setdefault(key.strip(), val)
+        key = key.strip()
+        val = val.strip()
+        if len(val) >= 2 and val[0] in ('"', "'") and val[-1] == val[0]:
+            val = val[1:-1]
+        else:
+            val = val.split("#")[0].strip()
+        os.environ.setdefault(key, val)
 
 
 def _setup_azure_auth() -> None:
-    """Map FABRIC_* credentials to AZURE_* so DefaultAzureCredential finds them."""
-    mapping = {
-        "FABRIC_TENANT_ID": "AZURE_TENANT_ID",
-        "FABRIC_CLIENT_ID": "AZURE_CLIENT_ID",
-        "FABRIC_CLIENT_SECRET": "AZURE_CLIENT_SECRET",
-    }
-    for src, dst in mapping.items():
+    """
+    Configure azure-identity for sempy.fabric authentication.
+
+    Propagating FABRIC_CLIENT_SECRET into AZURE_CLIENT_SECRET (and therefore into all
+    child process environments) would violate the principle of least privilege and could
+    expose the secret to subprocesses that don't need it (S15).  Instead, we construct a
+    ClientSecretCredential directly if a service-principal triple is present and install
+    it as the ambient DefaultAzureCredential via the AZURE_* env vars *only when no
+    AZURE_* value is already set*.  The secret is read once from the current process
+    environment and never re-exported.
+    """
+    tenant = os.environ.get("FABRIC_TENANT_ID", "").strip()
+    client_id = os.environ.get("FABRIC_CLIENT_ID", "").strip()
+    client_secret = os.environ.get("FABRIC_CLIENT_SECRET", "").strip()
+
+    # Only set non-sensitive env vars (tenant/client_id); never propagate the secret.
+    for src, dst in (("FABRIC_TENANT_ID", "AZURE_TENANT_ID"), ("FABRIC_CLIENT_ID", "AZURE_CLIENT_ID")):
         if not os.environ.get(dst) and os.environ.get(src):
             os.environ[dst] = os.environ[src]
+
+    # If a full SP triple is available and azure-identity is installed, patch the
+    # DefaultAzureCredential factory to return a ClientSecretCredential directly
+    # so the secret stays in-process and is never written to any environment variable.
+    if tenant and client_id and client_secret:
+        try:
+            from azure.identity import ClientSecretCredential
+            _credential = ClientSecretCredential(tenant, client_id, client_secret)
+            try:
+                import sempy.fabric as _sf
+                if hasattr(_sf, "_token_provider"):
+                    _sf._token_provider = lambda resource: _credential.get_token(resource + "/.default").token
+            except Exception:
+                pass
+        except ImportError:
+            pass
 
 
 def _require_sempy():
@@ -136,9 +167,19 @@ def _fetch_detail(fabric, model_name: str, workspace_id: str) -> dict:
     }
 
 
-def _print_model(model_name: str, model_id: str, detail: dict) -> None:
+def _print_model(
+    model_name: str,
+    model_id: str,
+    detail: dict,
+    include_hidden: bool = False,
+    include_expressions: bool = False,
+) -> None:
     print(f"Semantic Model : {model_name}")
     print(f"ID             : {model_id}")
+    if not include_hidden:
+        print("Note: hidden columns/tables omitted. Use --include-hidden to show them.")
+    if not include_expressions:
+        print("Note: DAX expressions hidden. Use --include-expressions to show them.")
     print()
 
     tables    = detail["tables"]
@@ -146,45 +187,62 @@ def _print_model(model_name: str, model_id: str, detail: dict) -> None:
     measures  = detail["measures"]
     rels      = detail["relationships"]
 
-    tname_col  = _col(tables,  "Name",       "name")
-    thidden_col = _col(tables, "Hidden",     "isHidden")
+    tname_col   = _col(tables,  "Name",       "name")
+    thidden_col = _col(tables,  "Hidden",     "isHidden")
 
-    col_tbl  = _col(columns, "Table Name",  "tableName")
-    col_name = _col(columns, "Column Name", "name")
-    col_type = _col(columns, "Data Type",   "dataType")
-    col_hide = _col(columns, "Hidden",      "isHidden")
-    col_ctype = _col(columns, "Column Type","columnType")
-    col_expr = _col(columns, "Expression",  "expression")
+    col_tbl   = _col(columns, "Table Name",  "tableName")
+    col_name  = _col(columns, "Column Name", "name")
+    col_type  = _col(columns, "Data Type",   "dataType")
+    col_hide  = _col(columns, "Hidden",      "isHidden")
+    col_ctype = _col(columns, "Column Type", "columnType")
+    col_expr  = _col(columns, "Expression",  "expression")
 
-    mea_tbl  = _col(measures, "Table Name",        "tableName")
-    mea_name = _col(measures, "Measure Name",       "name")
-    mea_expr = _col(measures, "Measure Expression", "expression")
+    mea_tbl  = _col(measures, "Table Name",           "tableName")
+    mea_name = _col(measures, "Measure Name",          "name")
+    mea_expr = _col(measures, "Measure Expression",    "expression")
     mea_fmt  = _col(measures, "Measure Format String", "formatString")
     mea_desc = _col(measures, "Measure Description",   "description")
+    mea_hide = _col(measures, "Hidden",                "isHidden")
 
     for _, trow in tables.iterrows():
+        is_hidden_table = trow.name in thidden_col.index and thidden_col[trow.name]
+        if is_hidden_table and not include_hidden:
+            continue
         tname  = _str(tname_col[trow.name])
-        hidden = "  [hidden]" if trow.name in thidden_col.index and thidden_col[trow.name] else ""
+        hidden = "  [hidden]" if is_hidden_table else ""
         print(f"  Table: {tname}{hidden}")
 
         tcols = columns[col_tbl == tname]
         for _, crow in tcols.iterrows():
             if _str(col_ctype[crow.name]) == "RowNumber":
                 continue
+            is_hidden_col = bool(col_hide[crow.name])
+            if is_hidden_col and not include_hidden:
+                continue
             cname  = _str(col_name[crow.name])
             dtype  = _str(col_type[crow.name])
-            chide  = " [hidden]" if col_hide[crow.name] else ""
+            chide  = " [hidden]" if is_hidden_col else ""
             ccalc  = " [calc]"  if _str(col_ctype[crow.name]) == "Calculated" else ""
-            expr   = _str(col_expr[crow.name])
-            suffix = f" = {expr.strip()}" if expr else ""
+            if include_expressions:
+                expr = _str(col_expr[crow.name])
+                suffix = f" = {expr.strip()}" if expr else ""
+            else:
+                expr = _str(col_expr[crow.name])
+                suffix = " = [expression hidden]" if expr else ""
             print(f"    col  {cname:<38}  {dtype:<15}{chide}{ccalc}{suffix}")
 
         tmeas = measures[mea_tbl == tname]
         for _, mrow in tmeas.iterrows():
+            is_hidden_mea = bool(mea_hide[mrow.name]) if mrow.name in mea_hide.index else False
+            if is_hidden_mea and not include_hidden:
+                continue
             mname = _str(mea_name[mrow.name])
-            expr  = " ".join(_str(mea_expr[mrow.name]).split())[:100]
-            fmt   = f"  [{_str(mea_fmt[mrow.name])}]" if _str(mea_fmt[mrow.name]) else ""
-            desc  = f"  // {_str(mea_desc[mrow.name])}" if _str(mea_desc[mrow.name]) else ""
+            if include_expressions:
+                expr = " ".join(_str(mea_expr[mrow.name]).split())[:100]
+            else:
+                expr = "[expression hidden]"
+            fmt  = f"  [{_str(mea_fmt[mrow.name])}]" if _str(mea_fmt[mrow.name]) else ""
+            desc = f"  // {_str(mea_desc[mrow.name])}" if _str(mea_desc[mrow.name]) else ""
             print(f"    mea  {mname:<38}  {expr}{fmt}{desc}")
         print()
 
@@ -221,6 +279,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     show_p.add_argument("model", help="Semantic model display name or ID")
     show_p.add_argument("--json", action="store_true", dest="as_json", help="Output raw JSON")
+    show_p.add_argument(
+        "--include-hidden", action="store_true", dest="include_hidden",
+        help="Include hidden tables, columns, and measures in output (S16: off by default for data minimisation)",
+    )
+    show_p.add_argument(
+        "--include-expressions", action="store_true", dest="include_expressions",
+        help="Include DAX measure and calculated-column expressions (S16: off by default — may contain sensitive business logic)",
+    )
 
     args = ap.parse_args(argv)
     _load_env(SCRIPT_ROOT)
@@ -242,20 +308,42 @@ def main(argv: list[str] | None = None) -> int:
     model_name, model_id = _resolve_model(models, args.model)
     detail = _fetch_detail(fabric, model_name, workspace_id)
 
+    include_hidden = getattr(args, "include_hidden", False)
+    include_expressions = getattr(args, "include_expressions", False)
+
     if args.as_json:
+        tables_dict = detail["tables"].to_dict(orient="records")
+        columns_dict = detail["columns"].to_dict(orient="records")
+        measures_dict = detail["measures"].to_dict(orient="records")
+
+        if not include_hidden:
+            tables_dict = [t for t in tables_dict if not t.get("isHidden") and not t.get("Hidden")]
+            columns_dict = [c for c in columns_dict if not c.get("isHidden") and not c.get("Hidden")]
+            measures_dict = [m for m in measures_dict if not m.get("isHidden") and not m.get("Hidden")]
+
+        if not include_expressions:
+            for rec in columns_dict:
+                if rec.get("expression") or rec.get("Expression"):
+                    rec["expression"] = "[expression hidden]"
+                    rec["Expression"] = "[expression hidden]"
+            for rec in measures_dict:
+                if rec.get("expression") or rec.get("Measure Expression"):
+                    rec["expression"] = "[expression hidden]"
+                    rec["Measure Expression"] = "[expression hidden]"
+
         print(json.dumps(
             {
                 "model": {"name": model_name, "id": model_id},
-                "tables":        detail["tables"].to_dict(orient="records"),
-                "columns":       detail["columns"].to_dict(orient="records"),
-                "measures":      detail["measures"].to_dict(orient="records"),
+                "tables":        tables_dict,
+                "columns":       columns_dict,
+                "measures":      measures_dict,
                 "relationships": detail["relationships"].to_dict(orient="records"),
             },
             indent=2, default=str,
         ))
         return 0
 
-    _print_model(model_name, model_id, detail)
+    _print_model(model_name, model_id, detail, include_hidden=include_hidden, include_expressions=include_expressions)
     return 0
 
 

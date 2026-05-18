@@ -20,6 +20,10 @@ REQUIRED_SKILLS = {
     "fabric-pipeline",
     "semantic-model",
     "mock-data",
+    "prd",
+    "grill-me",
+    "git-commit",
+    "caveman",
 }
 REQUIRED_AGENTS = {"orchestrator", "developer", "tester", "operator"}
 FORBIDDEN_ROOT_RUNTIME = [
@@ -93,6 +97,28 @@ def validate_profiles(errors: list[str]) -> None:
         errors.append(f"Claude agent set mismatch: {sorted(claude_agents)}")
     if codex_agents != claude_agents:
         errors.append("Codex and Claude profile agents differ")
+
+    settings = ROOT / "profiles" / "claude" / "settings.json"
+    if settings.exists():
+        text = settings.read_text(errors="ignore")
+        forbidden_permissions = [
+            "Bash(fab *)",
+            "Bash(rtk *)",
+            "mcp__fabric__fabric_api_get",
+        ]
+        for phrase in forbidden_permissions:
+            if phrase in text:
+                errors.append(
+                    f"{rel(settings)} must not allow {phrase!r}; agents consume only the safe sandbox workspace"
+                )
+
+    for path in [ROOT / "profiles" / "codex" / "AGENTS.md", ROOT / "profiles" / "claude" / "CLAUDE.md"]:
+        if not path.exists():
+            continue
+        text = path.read_text(errors="ignore")
+        for skill in REQUIRED_SKILLS:
+            if f"`{skill}`" not in text:
+                errors.append(f"{rel(path)} must list installed skill `{skill}`")
 
 
 def validate_setup_guidance(errors: list[str]) -> None:

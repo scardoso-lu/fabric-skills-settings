@@ -53,7 +53,7 @@ names and types are still listed without schema.
 ## Daily Checks
 
 ```bash
-# List items in the sandbox workspace (shows notebooks, lakehouses, etc.)
+# List items in the workspace (shows notebooks, lakehouses, etc.)
 fab api "workspaces/$FABRIC_WORKSPACE_ID/items" --output_format json
 
 # Check recent job runs for a specific notebook item
@@ -95,7 +95,7 @@ mkdir -p workspace data/sandbox logs
 
 # Copy environment template
 cp .env.example .env
-# Fill only FABRIC_WORKSPACE_ID for the common sandbox loop.
+# Fill FABRIC_WORKSPACE_ID.
 
 # Install Fabric CLI
 uv tool install ms-fabric-cli

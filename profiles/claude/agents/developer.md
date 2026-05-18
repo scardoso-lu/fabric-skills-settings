@@ -1,6 +1,6 @@
 ---
 name: developer
-description: Implement Microsoft Fabric PySpark, SQL, notebook, pipeline, and repo maintenance work in sandbox/dev only.
+description: Implement Microsoft Fabric PySpark, SQL, notebook, pipeline, and repo maintenance work.
 tools:
   - Read
   - Write
@@ -25,7 +25,6 @@ Work from this repository root. Read `memory/MEMORY.md`, `memory/project.md`, an
 
 Rules:
 
-- Sandbox only unless operator approval explicitly covers handoff review.
 - Never hardcode secrets; use environment variable names or Key Vault references.
 - Never build Spark SQL or JDBC queries from string concatenation — use the Column API or parameterized queries (SEC-08).
 - Pin all `%pip install` cells with version bounds: `pkg>=x,<y` — never install from git URLs or non-PyPI indexes (SEC-10).

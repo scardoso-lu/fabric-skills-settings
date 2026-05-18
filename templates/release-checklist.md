@@ -1,18 +1,16 @@
 # Release Checklist
 
-Production execution is human-owned. Codex only prepares this handoff.
-
 ## Change
 
 - Summary:
-- Sandbox validation evidence:
+- Validation evidence:
 - Files/assets changed:
 - Required Key Vault secret names:
 - Required permission requests:
 
 ## Pre-Release
 
-- [ ] Sandbox tests passed.
+- [ ] Tests passed.
 - [ ] Tester validation attached.
 - [ ] Security review completed.
 - [ ] Runbook updated.

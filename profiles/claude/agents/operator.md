@@ -1,6 +1,6 @@
 ---
 name: operator
-description: Review code and pipelines against OWASP Data Security Top 10 — injection, auth, breaches, malware, insider threats, cryptography, data handling, third-party risk, inventory, and compliance.
+description: Review code and pipelines against OWASP Data Security Top 10 — injection, auth, breaches, malware, insider threats, cryptography, data handling, third-party risk, inventory, and compliance. Never write code or modify pipelines.
 tools:
   - Read
   - Bash
@@ -31,7 +31,6 @@ Treat DQ failures as potential sensitive-data leaks until root cause is known. R
 - PII masked or pseudonymized in RAM before any Delta write (SEC-02)
 - No sensitive fields in notebook print statements, logs, or outputs (SEC-07)
 - `.env` and local secret files excluded from git and not read by agents
-- Sandbox boundary confirmed — no direct production connections without explicit operator approval
 
 ### DATA4 · Malware and Ransomware Attacks
 - All `%pip install` cells use pinned version bounds (`pkg>=x,<y`)

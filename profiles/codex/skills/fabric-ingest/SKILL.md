@@ -1,6 +1,6 @@
 ---
 name: fabric-ingest
-description: Ingest local sandbox files (CSV, Parquet, JSON, Excel) into a Microsoft Fabric Lakehouse as Bronze Delta tables. Use when loading data from the target repo's data/sandbox/ into the Bronze layer. Handles sanitization, lineage envelope injection, and idempotent partition overwrite. Production connections to live systems are configured in Fabric Linked Services — not by agents.
+description: Ingest local staged files (CSV, Parquet, JSON, Excel) into a Microsoft Fabric Lakehouse as Bronze Delta tables. Use when loading data from the target repo's data/sandbox/ into the Bronze layer. Handles sanitization, lineage envelope injection, and idempotent partition overwrite.
 ---
 
 # fabric-ingest
@@ -157,7 +157,7 @@ print(f"     batch_id={BATCH_ID}  ingest_date={INGEST_DATE}")
 print(f"     table={CONTRACT.bronze_table}")
 ```
 
-## Supported Sandbox Sources
+## Supported Sources
 
 | Format | How to read |
 |---|---|

@@ -12,7 +12,21 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PROFILES = ROOT / "profiles"
-SKILLS = {"fabric-ingest", "fabric-transform", "fabric-model", "fabric-validate", "fabric-notebook-loop", "fabric-ops", "fabric-pipeline", "semantic-model", "mock-data"}
+SKILLS = {
+    "fabric-ingest",
+    "fabric-transform",
+    "fabric-model",
+    "fabric-validate",
+    "fabric-notebook-loop",
+    "fabric-ops",
+    "fabric-pipeline",
+    "semantic-model",
+    "mock-data",
+    "prd",
+    "grill-me",
+    "git-commit",
+    "caveman",
+}
 AGENTS = {"orchestrator", "developer", "tester", "operator"}
 MIRRORED_HELPERS = [
     "data/mock-data-generator.py",
@@ -123,6 +137,18 @@ def validate_forbidden_text(errors: list[str]) -> None:
             error(f"Unexpected TARGET_REPO_PATH usage in {rel}", errors)
 
 
+def validate_safe_datalake_controls(errors: list[str]) -> None:
+    settings = PROFILES / "claude" / "settings.json"
+    if settings.exists():
+        text = settings.read_text(errors="ignore")
+        for phrase in ("Bash(fab *)", "Bash(rtk *)", "mcp__fabric__fabric_api_get"):
+            if phrase in text:
+                error(
+                    f"Unsafe agent permission {phrase!r} in {settings.relative_to(ROOT)}",
+                    errors,
+                )
+
+
 def validate_env_example(errors: list[str]) -> None:
     env_text = (PROFILES / "shared" / ".env.example").read_text(errors="ignore")
     suspicious_patterns = [
@@ -218,6 +244,7 @@ def main() -> int:
     errors: list[str] = []
     validate_required(errors)
     validate_forbidden_text(errors)
+    validate_safe_datalake_controls(errors)
     validate_env_example(errors)
     validate_shared_scope(errors)
     validate_root_helper_mirrors(errors)

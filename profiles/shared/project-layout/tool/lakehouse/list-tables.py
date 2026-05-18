@@ -23,11 +23,23 @@ import subprocess
 import sys
 import tempfile
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
 SCRIPT_ROOT = Path(__file__).resolve().parents[2]
-FAB_SANDBOX_HOME = os.environ.get("FAB_SANDBOX_HOME") or str(Path(tempfile.gettempdir()) / "fabric-fab-home")
+
+
+def _fab_sandbox_dir() -> Path:
+    if os.name == "nt":
+        localappdata = os.environ.get("LOCALAPPDATA", "")
+        base = Path(localappdata) if localappdata else Path.home()
+    else:
+        base = Path.home() / ".cache"
+    return base / "fabric-fab-home"
+
+
+FAB_SANDBOX_HOME = str(_fab_sandbox_dir())
 ONELAKE_DFS = "https://onelake.dfs.fabric.microsoft.com"
 
 
@@ -51,14 +63,30 @@ def _load_env(root: Path) -> None:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, val = line.partition("=")
-        val = val.split("#")[0].strip().strip('"').strip("'")
-        os.environ.setdefault(key.strip(), val)
+        key = key.strip()
+        val = val.strip()
+        if len(val) >= 2 and val[0] in ('"', "'") and val[-1] == val[0]:
+            val = val[1:-1]
+        else:
+            val = val.split("#")[0].strip()
+        os.environ.setdefault(key, val)
+
+
+_PS_CANDIDATES = [
+    Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe",
+    Path(r"C:\Program Files\PowerShell\7\pwsh.exe"),
+]
 
 
 def _resolve_fab_command() -> tuple[list[str], bool]:
     wrapper = SCRIPT_ROOT / "tool" / "setup" / "fab-sandbox.ps1"
     if os.name == "nt" and wrapper.exists():
-        ps = os.environ.get("POWERSHELL_BIN") or "powershell.exe"
+        ps = next((str(p) for p in _PS_CANDIDATES if p.exists()), None)
+        if ps is None:
+            raise SystemExit(
+                "PowerShell not found at expected system paths "
+                "(System32\\WindowsPowerShell\\v1.0 or Program Files\\PowerShell\\7)."
+            )
         return [ps, "-ExecutionPolicy", "Bypass", "-File", str(wrapper)], True
     candidate = _user_home() / ".local" / "bin" / "fab"
     if candidate.exists():
@@ -68,10 +96,12 @@ def _resolve_fab_command() -> tuple[list[str], bool]:
 
 def _fab_env(uses_wrapper: bool) -> dict[str, str]:
     env = {**os.environ}
-    sandbox = str(Path(FAB_SANDBOX_HOME).resolve())
-    Path(sandbox).mkdir(parents=True, exist_ok=True)
+    sandbox = _fab_sandbox_dir()
+    sandbox.mkdir(parents=True, exist_ok=True)
+    if os.name != "nt":
+        sandbox.chmod(0o700)
     if not uses_wrapper:
-        env["HOME"] = sandbox
+        env["HOME"] = str(sandbox)
     return env
 
 
@@ -113,7 +143,7 @@ def _paginate(endpoint: str) -> list[dict]:
     items: list[dict] = []
     continuation: str | None = None
     while True:
-        url = endpoint + (f"?continuationToken={continuation}" if continuation else "")
+        url = endpoint + (f"?continuationToken={urllib.parse.quote(continuation, safe='')}" if continuation else "")
         page = _fab_api(url)
         items.extend(page.get("data") or page.get("value") or [])
         continuation = page.get("continuationToken")

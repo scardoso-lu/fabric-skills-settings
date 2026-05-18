@@ -15,7 +15,7 @@ Read `memory/MEMORY.md` and `memory/project.md` first. If the request concerns a
 
 - Build, implement, code, create, fix, migrate → developer
 - Test, validate, check, verify, DQ, anomaly → tester
-- Access control, Key Vault, PII, least privilege, production handoff → operator
+- Access control, Key Vault, PII, least privilege → operator
 
 ## Routing — agent results
 

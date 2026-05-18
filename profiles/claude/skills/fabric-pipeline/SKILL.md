@@ -25,7 +25,6 @@ description: Create, deploy, and test a Fabric Data Factory pipeline that chains
 
 - Creating a pipeline before all its notebooks are deployed in Fabric
 - Re-running on failure without human approval
-- Running against a production workspace without explicit operator approval
 
 ## Commands
 

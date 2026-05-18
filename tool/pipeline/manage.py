@@ -54,13 +54,23 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 import time
 import uuid
 from pathlib import Path
 
 SCRIPT_ROOT = Path(__file__).resolve().parents[2]
-FAB_SANDBOX_HOME = os.environ.get("FAB_SANDBOX_HOME") or str(Path(tempfile.gettempdir()) / "fabric-fab-home")
+
+
+def _fab_sandbox_dir() -> Path:
+    if os.name == "nt":
+        localappdata = os.environ.get("LOCALAPPDATA", "")
+        base = Path(localappdata) if localappdata else Path.home()
+    else:
+        base = Path.home() / ".cache"
+    return base / "fabric-fab-home"
+
+
+FAB_SANDBOX_HOME = str(_fab_sandbox_dir())
 _POLL_INTERVAL = 10
 
 # Namespace UUID for deterministic logical IDs — must match build.py so IDs are consistent.
@@ -101,14 +111,55 @@ def _load_env(root: Path) -> None:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, val = line.partition("=")
-        val = val.split("#")[0].strip().strip('"').strip("'")
-        os.environ.setdefault(key.strip(), val)
+        key = key.strip()
+        val = val.strip()
+        if len(val) >= 2 and val[0] in ('"', "'") and val[-1] == val[0]:
+            val = val[1:-1]
+        else:
+            val = val.split("#")[0].strip()
+        os.environ.setdefault(key, val)
+
+
+import re as _re
+
+_PS_CANDIDATES = [
+    Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe",
+    Path(r"C:\Program Files\PowerShell\7\pwsh.exe"),
+]
+_TOPIC_RE = _re.compile(r"^[a-zA-Z0-9_\-]+$")
+_PARAM_KEY_RE = _re.compile(r"^[a-zA-Z0-9_]+$")
+_PARAM_VALUE_FORBIDDEN = _re.compile(r"[@{}\[\]<>|&;`$\\]")
+
+
+def _validate_topic(topic: str) -> None:
+    if not _TOPIC_RE.match(topic):
+        raise SystemExit(
+            f"Invalid topic name {topic!r}. Only alphanumeric characters, hyphens, and underscores are allowed."
+        )
+
+
+def _validate_params(params: dict[str, str]) -> None:
+    for k, v in params.items():
+        if not _PARAM_KEY_RE.match(k):
+            raise SystemExit(
+                f"Invalid parameter key {k!r}. Only alphanumeric characters and underscores are allowed."
+            )
+        if _PARAM_VALUE_FORBIDDEN.search(v):
+            raise SystemExit(
+                f"Parameter value for {k!r} contains a forbidden character. "
+                "Values must not contain @, {, }, [, ], <, >, |, &, ;, `, $, or \\."
+            )
 
 
 def _resolve_fab_command() -> tuple[list[str], bool]:
     wrapper = SCRIPT_ROOT / "tool" / "setup" / "fab-sandbox.ps1"
     if os.name == "nt" and wrapper.exists():
-        ps = os.environ.get("POWERSHELL_BIN") or "powershell.exe"
+        ps = next((str(p) for p in _PS_CANDIDATES if p.exists()), None)
+        if ps is None:
+            raise SystemExit(
+                "PowerShell not found at expected system paths "
+                "(System32\\WindowsPowerShell\\v1.0 or Program Files\\PowerShell\\7)."
+            )
         return [ps, "-ExecutionPolicy", "Bypass", "-File", str(wrapper)], True
     candidate = _user_home() / ".local" / "bin" / "fab"
     if candidate.exists():
@@ -118,14 +169,16 @@ def _resolve_fab_command() -> tuple[list[str], bool]:
 
 def _fab_env(uses_wrapper: bool) -> dict[str, str]:
     env = {**os.environ}
-    sandbox = str(Path(FAB_SANDBOX_HOME).resolve())
-    Path(sandbox).mkdir(parents=True, exist_ok=True)
+    sandbox = _fab_sandbox_dir()
+    sandbox.mkdir(parents=True, exist_ok=True)
+    if os.name != "nt":
+        sandbox.chmod(0o700)
     if not uses_wrapper:
-        env["HOME"] = sandbox
-        env["USERPROFILE"] = sandbox
+        env["HOME"] = str(sandbox)
+        env["USERPROFILE"] = str(sandbox)
         if os.name == "nt":
-            env["HOMEDRIVE"] = Path(sandbox).drive
-            env["HOMEPATH"] = sandbox.removeprefix(Path(sandbox).drive)
+            env["HOMEDRIVE"] = sandbox.drive
+            env["HOMEPATH"] = str(sandbox).removeprefix(sandbox.drive)
     return env
 
 
@@ -140,10 +193,7 @@ def fab_api(
     if show_headers:
         cmd.append("--show_headers")
     if body is not None:
-        body_str = json.dumps(body)
-        if uses_wrapper:
-            body_str = body_str.replace('"', '\\"')
-        cmd += ["-i", body_str]
+        cmd += ["-i", json.dumps(body)]
     result = subprocess.run(cmd, capture_output=True, text=True, env=_fab_env(uses_wrapper))
     try:
         return json.loads(result.stdout)
@@ -538,8 +588,11 @@ def main() -> int:
         cmd_list(workspace_id)
 
     elif args.command == "create":
+        _validate_topic(args.topic)
         explicit = [n.strip() for n in args.notebooks.split(",")] if args.notebooks else None
         params = {**_read_topic_params(args.topic), **_parse_params(getattr(args, "params", None))}
+        if params:
+            _validate_params(params)
         cmd_create(workspace_id, args.topic, explicit, params or None)
 
     elif args.command == "run":
@@ -559,8 +612,11 @@ def main() -> int:
             return 1
 
     elif args.command == "test":
+        _validate_topic(args.topic)
         explicit = [n.strip() for n in args.notebooks.split(",")] if args.notebooks else None
         params = {**_read_topic_params(args.topic), **_parse_params(getattr(args, "params", None))}
+        if params:
+            _validate_params(params)
         pipeline_id = cmd_create(workspace_id, args.topic, explicit, params or None)
         pipeline_name = f"pipeline_{args.topic}"
         _, job_id = cmd_run(workspace_id, pipeline_name)

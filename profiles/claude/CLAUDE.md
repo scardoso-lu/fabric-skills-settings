@@ -15,7 +15,7 @@ This repository is the runtime workspace. Work from this repo root; do not use a
    | `FABRIC_WORKSPACE_ID` set | non-empty in `.env` | Edit `.env` → set `FABRIC_WORKSPACE_ID=<uuid>`, then rerun setup |
    | `FABRIC_WAREHOUSE_HOST` set | non-empty in `.env` (if project uses a Data Warehouse) | Fabric UI → Data Warehouse → Settings → Connection strings → SQL connection string |
    | `fab` reachable | Windows: `tool\setup\fab-sandbox.ps1 --version` exits 0 · Linux/Mac: `bash tool/setup/fab-sandbox --version` exits 0 | Run setup script; it installs `ms-fabric-cli` via `uv tool install ms-fabric-cli` |
-   | `fab` authenticated | Windows: `tool\setup\fab-sandbox.ps1 api workspaces --output_format json` exits 0 · Linux/Mac: `bash tool/setup/fab-sandbox api workspaces --output_format json` exits 0 | Windows: `tool\setup\fab-sandbox.ps1 auth login` · Linux/Mac: `bash tool/setup/fab-sandbox auth login` · If the check fails due to network restriction (sandbox/firewall), escalate and request network access before retrying — do not treat a network block as a permanent auth failure |
+   | `fab` authenticated | Windows: `tool\setup\fab-sandbox.ps1 api workspaces --output_format json` exits 0 · Linux/Mac: `bash tool/setup/fab-sandbox api workspaces --output_format json` exits 0 | Windows: `tool\setup\fab-sandbox.ps1 auth login` · Linux/Mac: `bash tool/setup/fab-sandbox auth login` · If the check fails due to network restriction (firewall), escalate and request network access before retrying — do not treat a network block as a permanent auth failure |
 
    Do **not** read `.env` contents. Check only that the file exists and that `FABRIC_WORKSPACE_ID` is present (use Windows: `Select-String -Path .env -Pattern FABRIC_WORKSPACE_ID -Quiet` · Linux/Mac: `grep -q FABRIC_WORKSPACE_ID .env`).
 
@@ -61,7 +61,7 @@ The smoke test never deploys. It triggers a job on whatever is already in Fabric
 | Directory | Invoked by | Purpose |
 |---|---|---|
 | `tool/setup/` | Human (once) | `setup.ps1/sh` environment check · `fab-sandbox` authenticated Fabric CLI wrapper · `fabric-inventory-readonly` read-only workspace/item lookup |
-| `tool/data/` | Developer agent | `mock-data-generator.py` creates deterministic synthetic CSV files under `data/sandbox/` when no real source is available; optional engines support Faker, Mimesis, and sklearn |
+| `tool/data/` | Developer agent | `mock-data-generator.py` creates deterministic synthetic CSV files under `data/sandbox/` when no real source is available; optional engines support Faker, Mimesis, and sklearn. |
 | `tool/notebook/` | Developer agent | `build.py` compile `.py` → `.Notebook` · `deploy.py` deploy/exec/fetch via REST · `smoke-test.ps1/sh` trigger and monitor |
 | `tool/lakehouse/` | Developer agent | `list-tables.py` list all lakehouse tables with column names and types |
 | `tool/semantic-model/` | Developer agent | `inspect.py` list and inspect semantic models — tables, columns, DAX measures, relationships |
@@ -91,12 +91,28 @@ Use project subagents in `.claude/agents/`:
 - `orchestrator` scopes and routes.
 - `developer` implements.
 - `tester` validates independently.
-- `operator` reviews security, PII, access, and production handoff.
+- `operator` reviews security, PII, and access.
 
 ## Skills
 
-Use project skills in `.claude/skills/` for Fabric ingestion, transformation, modeling, validation, notebook iteration, and operations.
+Use project skills in `.claude/skills/`:
+
+- `fabric-ingest` for source-to-Bronze ingestion.
+- `fabric-transform` for Silver transformations and MERGE patterns.
+- `fabric-model` for Gold facts, dimensions, KPIs, and semantic models.
+- `fabric-validate` for independent DQ checks.
+- `fabric-notebook-loop` for local `.py` to Fabric notebook iteration.
+- `fabric-ops` for orchestration, VACUUM, inventory, and platform operations.
+- `fabric-pipeline` for creating, deploying, and testing the Data Factory pipeline that chains all topic notebooks end-to-end.
+- `mock-data` for generating deterministic synthetic sandbox CSV files when no real source exists.
+- `semantic-model` for listing and inspecting Fabric Semantic Models (tables, DAX measures, relationships) before writing DAX or mapping Gold outputs to KPIs.
+- `prd` for turning product or feature ideas into implementation-ready requirements documents.
+- `grill-me` for stress-testing a plan or design through one-question-at-a-time interrogation.
+- `git-commit` for preparing focused conventional commits from the current diff.
+- `caveman` for ultra-compressed responses when the user asks for caveman mode or lower token usage.
 
 ## Safety
 
-Never ask for, echo, store, or commit credentials, tokens, connection strings, source data extracts, local `.env` files, `fabric_notebooks/` build artifacts, logs, or real Fabric IDs. Humans must create the Fabric **workspace** and any **lakehouses** first and provide their names/IDs in `.env`. Agents may create or update **notebook items and workspace folders** automatically via `tool/notebook/deploy.py`.
+Never ask for, echo, store, or commit credentials, tokens, connection strings, source data extracts, local `.env` files, `fabric_notebooks/` build artifacts, logs, or real Fabric IDs.
+
+Humans must create the Fabric **workspace** and any **lakehouses** first and provide their names/IDs in `.env`. Agents may create or update **notebook items and workspace folders** automatically via `tool/notebook/deploy.py`.

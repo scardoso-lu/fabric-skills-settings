@@ -2,7 +2,7 @@
 
 ## Request
 
-- Environment: sandbox / production-bound handoff
+- Environment:
 - Request date:
 - Requester:
 - Identity/group:
@@ -19,7 +19,7 @@
 - [ ] Group or managed identity preferred over direct user grant.
 - [ ] RLS/OLS/view filtering considered.
 - [ ] Sensitive data classification reviewed.
-- [ ] Production action, if any, is human executed.
+- [ ] Manual action, if any, is human executed.
 
 ## Decision
 

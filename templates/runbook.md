@@ -8,7 +8,7 @@
 
 - **Item**:
 - **Workspace**:
-- **Environment**: sandbox | dev | prod
+- **Environment**:
 - **Schedule**: manual | cron/trigger details
 - **Owner**:
 - **Run command**:

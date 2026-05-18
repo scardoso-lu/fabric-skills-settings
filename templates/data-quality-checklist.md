@@ -1,6 +1,6 @@
 # Data Quality Checklist
 
-Environment: sandbox
+Environment:
 
 ## Required Checks
 

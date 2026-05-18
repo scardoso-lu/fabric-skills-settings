@@ -102,9 +102,11 @@ def test_setup_azure_auth_maps_fabric_vars(monkeypatch):
 
     mod._setup_azure_auth()
 
-    assert os.environ["AZURE_TENANT_ID"]     == "tenant-x"
-    assert os.environ["AZURE_CLIENT_ID"]     == "client-x"
-    assert os.environ["AZURE_CLIENT_SECRET"] == "secret-x"
+    # Non-sensitive IDs are mapped to AZURE_* so DefaultAzureCredential can find them.
+    assert os.environ["AZURE_TENANT_ID"] == "tenant-x"
+    assert os.environ["AZURE_CLIENT_ID"] == "client-x"
+    # The client secret must NOT be propagated into the environment (S15).
+    assert "AZURE_CLIENT_SECRET" not in os.environ
 
 
 def test_setup_azure_auth_does_not_overwrite_existing(monkeypatch):
@@ -207,7 +209,8 @@ def test_print_model_shows_tables_columns_measures_relationships(capsys):
         "measures":      _measures_df(),
         "relationships": _relationships_df(),
     }
-    mod._print_model("Sales Model", "aaa-111", detail)
+    # S16: include_hidden=True and include_expressions=True to verify full output
+    mod._print_model("Sales Model", "aaa-111", detail, include_hidden=True, include_expressions=True)
     out = capsys.readouterr().out
 
     assert "Sales Model"    in out

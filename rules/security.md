@@ -1,16 +1,16 @@
 # Security Rules
 
-These rules apply to all agents and all pipelines. They are non-negotiable.
+These rules apply to all agents and all pipelines.
 
 OWASP Data Security Top 10 (2025) mapping:
 
 | OWASP | Rule(s) |
 |---|---|
 | DATA1 Injection Attacks | SEC-08 |
-| DATA2 Broken Auth & Access Control | SEC-01, SEC-04 |
+| DATA2 Broken Auth & Access Control | SEC-01 |
 | DATA3 Data Breaches | SEC-02, SEC-03, SEC-07 |
 | DATA4 Malware & Ransomware | SEC-10, SEC-12 |
-| DATA5 Insider Threats | SEC-04, SEC-06 |
+| DATA5 Insider Threats | SEC-06 |
 | DATA6 Weak Cryptography | SEC-01, SEC-09 |
 | DATA7 Insecure Data Handling | SEC-02, SEC-03, SEC-05 |
 | DATA8 Inadequate Third-Party Security | SEC-10, SEC-12 |
@@ -86,13 +86,6 @@ Writing raw sensitive data to disk (including /tmp) is a Severity 1 incident.
 | API tokens | Redact | `Bearer *****` |
 | Names / emails / IDs | Classify and document | Apply masking or pseudonymization per data contract |
 
-## SEC-04: Sandbox Boundary
-
-All agent work happens in sandbox/dev workspace. Production connections require:
-- Explicit operator approval
-- Service principal authentication (no personal credentials)
-- Runbook documenting the change
-
 ## SEC-05: Right to be Forgotten
 
 GDPR/CCPA deletion path must exist for any table storing personal data:
@@ -114,7 +107,7 @@ Every record must carry:
 Never log full payloads or DataFrames. Prohibited:
 ```python
 print(payload)      # forbidden
-df.show()           # forbidden in production
+df.show()           # forbidden
 logging.info(row)   # forbidden if row contains PII
 ```
 

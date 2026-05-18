@@ -1,6 +1,6 @@
 # Data Engineering Rules
 
-Fundamental principles that apply across all data engineering work, regardless of architecture pattern.
+Fundamental principles that apply across all data engineering work.
 
 ## DE-01: Idempotency
 
