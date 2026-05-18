@@ -1,20 +1,11 @@
 # Deployment Pipeline
 
-End-to-end flow from AI-assisted development to production.
+End-to-end flow from AI-assisted development to production. Data privacy controls (anonymization pipeline, GDPR boundaries, publisher identity) are documented separately in [GDPR_PATH.md](GDPR_PATH.md). The sandbox receives a safe dataset from that layer — agents never touch raw or PII data.
 
 ```mermaid
 flowchart TD
 
-    %% ── DATA PRIVACY LAYER ──────────────────────────────────────────────────
-    subgraph DATA["Data Privacy Layer  (always-on · GDPR)"]
-        direction LR
-        PD["Production Data\nraw · PII"]
-        AP["Daily Anonymization Pipeline\ntrusted identity · DPO-approved\nprivacy + DQ checks"]
-        SD["Safe Dataset\nanonymized · synthetic · aggregated"]
-        PD -->|publisher pipeline| AP
-        AP -->|pass → publish| SD
-        AP -->|fail → block| AP
-    end
+    SD["Safe Dataset\n(anonymized · synthetic · aggregated)\nsee GDPR_PATH.md"]
 
     %% ── SANDBOX ─────────────────────────────────────────────────────────────
     subgraph SBX["SANDBOX  ·  Full agent access"]
@@ -80,8 +71,7 @@ flowchart TD
     end
 
     %% ── CROSS-STAGE FLOWS ───────────────────────────────────────────────────
-    SD -->|safe dataset| SBX_IN
-    PD -. "agent access denied\nFabric IAM hard boundary" .-> SBX_IN
+    SD -->|"safe dataset → agent reads"| SBX_IN
 
     SBX_OP -->|"APPROVED\noperator clears DQ + security"| FDB_WS
     SBX_SYNTH -->|"synthetic data carried over\n(no new data source in feature-dev)"| FDB_DATA
@@ -113,7 +103,6 @@ flowchart TD
 
 ## Key Boundaries
 
-- **Data privacy wall**: the anonymization pipeline runs under a trusted non-agent identity and blocks publication if checks fail. The agent never touches raw or PII data.
 - **Synthetic data carries across the sandbox/feature-dev boundary**: mock data generated in sandbox (`data/sandbox/<topic>/`) is the only data the agent uses when deploying and smoke-testing in the feature-dev-branch. No live or anonymized data enters that stage — the data separation is explicit and intentional.
 - **Feature-dev-branch deploy-only gate**: the agent can deploy and smoke-test but cannot push to git. Developers receive the packaged notebooks and contracts, not raw agent git history.
 - **Operator review**: the `operator` agent runs a read-only security and PII review inside sandbox before any handoff to feature-dev-branch. A BLOCKED result loops back to the developer.
