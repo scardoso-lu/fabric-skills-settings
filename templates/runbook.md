@@ -74,7 +74,7 @@ WHERE _ingest_timestamp IS NULL
 | Symptom | Likely Cause | Resolution |
 |---|---|---|
 | AnalysisException: table not found | Notebook not attached to expected Lakehouse or table not created | Check notebook Lakehouse attachment and table name |
-| 401 Unauthorized | Token expired | Run `fab auth login` |
+| 401 Unauthorized | Token expired | Human runs `tool/setup/fab-sandbox auth login` or `tool\setup\fab-sandbox.ps1 auth login` |
 | DQ notebook FAIL | Schema change, unexpected nulls, or sensitive data issue | Escalate to developer with failed GX expectation and batch ID |
 
 ### Recovery Steps

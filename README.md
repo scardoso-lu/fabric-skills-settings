@@ -167,12 +167,12 @@ git init -q "$tmp"
 
 | Profile | Installed into target repo |
 |---|---|
-| Codex | `AGENTS.md`, `.agents/skills/*/SKILL.md`, `.codex/agents/*.toml`, `.codex/config.toml` |
+| Codex | `AGENTS.md`, `.agents/skills/*/SKILL.md` copied from `profiles/skills/`, `.codex/agents/*.toml`, `.codex/config.toml` |
 | Claude | `CLAUDE.md`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `.claude/settings.json` |
-| Shared | `memory/`, placeholder `.env.example`, managed `.gitignore` block, `workspace/`, `data/sandbox/`, `contracts/`, `runbooks/`, `tool/` |
+| Shared | `memory/` including `memory/rules/`, placeholder `.env.example`, managed `.gitignore` block, `workspace/`, `data/sandbox/`, `contracts/`, `runbooks/`, `tool/` |
 
 
-The only shared runtime state between vendor profiles is `memory/`. Runtime Codex assets stay under `profiles/codex/`; runtime Claude assets stay under `profiles/claude/`.
+The only shared runtime state between vendor profiles is `memory/`. Runtime Codex assets stay under `profiles/codex/`; runtime Claude assets stay under `profiles/claude/`. Skill source is intentionally single-source under `profiles/skills/` and is copied to both runtime skill paths during installation.
 
 
 ## Why use it?

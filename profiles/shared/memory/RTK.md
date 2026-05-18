@@ -15,7 +15,7 @@ Prefix every shell command with `rtk`. RTK applies its filter if one exists; oth
 |---|---|
 | Git | `rtk git status` · `rtk git log` · `rtk git diff` |
 | Python / ruff | `rtk pytest` · `rtk ruff check` · `rtk pip` |
-| Fabric CLI | `rtk fab` |
+| Fabric CLI | `rtk bash tool/setup/fab-sandbox ...` or `rtk powershell -File tool/setup/fab-sandbox.ps1 ...` |
 | Files | `rtk ls` · `rtk find` · `rtk grep` |
 | Build | `rtk tsc` · `rtk cargo build` |
 

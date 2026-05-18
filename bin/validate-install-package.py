@@ -47,7 +47,6 @@ MIRRORED_HELPERS = [
     "setup/setup.ps1",
     "setup/setup.sh",
     "validate/pipeline-lineage.py",
-    "validate/source-contract.py",
 ]
 FORBIDDEN = [
     "wrapper repo",
@@ -88,6 +87,9 @@ def validate_required(errors: list[str]) -> None:
     require(PROFILES / "shared" / ".env.example", errors)
     require(PROFILES / "shared" / ".gitignore.fragment", errors)
     require(PROFILES / "shared" / "project-layout" / ".mcp.json", errors)
+    require(PROFILES / "shared" / "project-layout" / "memory" / "rules" / "data-engineering.md", errors)
+    require(PROFILES / "shared" / "project-layout" / "memory" / "rules" / "fabric-platform.md", errors)
+    require(PROFILES / "shared" / "project-layout" / "memory" / "rules" / "security.md", errors)
     require(PROFILES / "shared" / "project-layout" / "tool" / "mcp" / "server.py", errors)
     require(PROFILES / "shared" / "project-layout" / "tool" / "notebook" / "build.py", errors)
     require(PROFILES / "shared" / "project-layout" / "tool" / "notebook" / "deploy.py", errors)
@@ -106,16 +108,16 @@ def validate_required(errors: list[str]) -> None:
     require(PROFILES / "shared" / "project-layout" / "tool" / "data" / "mock-data-generator.py", errors)
     require(PROFILES / "shared" / "project-layout" / "tool" / "pipeline" / "manage.py", errors)
     require(PROFILES / "shared" / "project-layout" / "tool" / "validate" / "pipeline-lineage.py", errors)
-    require(PROFILES / "shared" / "project-layout" / "tool" / "validate" / "source-contract.py", errors)
 
-    codex_skills = skill_names(PROFILES / "codex" / "skills")
-    claude_skills = skill_names(PROFILES / "claude" / "skills")
-    if codex_skills != SKILLS:
-        error(f"Codex skills mismatch: expected {sorted(SKILLS)}, found {sorted(codex_skills)}", errors)
-    if claude_skills != SKILLS:
-        error(f"Claude skills mismatch: expected {sorted(SKILLS)}, found {sorted(claude_skills)}", errors)
-    if codex_skills != claude_skills:
-        error("Codex and Claude skill names differ", errors)
+    shared_skills = skill_names(PROFILES / "skills")
+    codex_skills_dir = PROFILES / "codex" / "skills"
+    claude_skills_dir = PROFILES / "claude" / "skills"
+    if codex_skills_dir.exists():
+        error("profiles/codex/skills must not exist; installer copies profiles/skills into .agents/skills")
+    if claude_skills_dir.exists():
+        error("profiles/claude/skills must not exist; installer copies profiles/skills into .claude/skills")
+    if shared_skills != SKILLS:
+        error(f"Shared skills mismatch: expected {sorted(SKILLS)}, found {sorted(shared_skills)}", errors)
 
     codex_agents = agent_names(PROFILES / "codex" / "agents", ".toml")
     claude_agents = agent_names(PROFILES / "claude" / "agents", ".md")
@@ -183,6 +185,35 @@ def validate_root_helper_mirrors(errors: list[str]) -> None:
             error(f"Root helper mirror differs from install profile: tool/{name}", errors)
 
 
+def validate_rule_mirrors(errors: list[str]) -> None:
+    for name in ("data-engineering.md", "fabric-platform.md", "security.md"):
+        source = ROOT / "rules" / name
+        installed = PROFILES / "shared" / "project-layout" / "memory" / "rules" / name
+        if not source.exists():
+            error(f"Missing source rule file: rules/{name}", errors)
+            continue
+        if not installed.exists():
+            error(f"Missing installed rule file: profiles/shared/project-layout/memory/rules/{name}", errors)
+            continue
+        if source.read_text(errors="ignore") != installed.read_text(errors="ignore"):
+            error(f"Installed rule mirror differs from source: memory/rules/{name}", errors)
+
+    platform = ROOT / "rules" / "fabric-platform.md"
+    if platform.exists():
+        text = platform.read_text(errors="ignore")
+        forbidden = [
+            "fab auth login",
+            "fab auth token",
+            "fab api ",
+        ]
+        for phrase in forbidden:
+            if phrase in text:
+                error(
+                    f"rules/fabric-platform.md must use tool/setup/fab-sandbox instead of raw {phrase!r}",
+                    errors,
+                )
+
+
 def validate_ps1_syntax(errors: list[str]) -> None:
     """Smoke-test.ps1 must not use PS7-only null-conditional ?. operator."""
     for location in [
@@ -248,6 +279,7 @@ def main() -> int:
     validate_env_example(errors)
     validate_shared_scope(errors)
     validate_root_helper_mirrors(errors)
+    validate_rule_mirrors(errors)
     validate_ps1_syntax(errors)
     validate_load_env_strips_comments(errors)
     validate_gitignore_fragment(errors)

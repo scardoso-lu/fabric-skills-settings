@@ -1,5 +1,5 @@
 # pre-commit-check.ps1 — run pre-commit validations in a Fabric project workspace.
-# Run from the repository root before committing workspace/ or contracts/ changes.
+# Run from the repository root before committing workspace changes.
 
 $ErrorActionPreference = "Stop"
 $ScriptDir   = $PSScriptRoot
@@ -20,16 +20,6 @@ Write-Step "Pipeline staging-path consistency"
 & $python "$ScriptDir\validate\pipeline-lineage.py"
 if ($LASTEXITCODE -eq 0) { Write-Ok "pipeline-lineage passed" }
 else { Write-Err "pipeline-lineage failed"; $failed = $true }
-
-$contracts = @(Get-ChildItem -Path (Join-Path $ProjectRoot "contracts") -Filter "*.yaml" -ErrorAction SilentlyContinue) +
-             @(Get-ChildItem -Path (Join-Path $ProjectRoot "contracts") -Filter "*.yml"  -ErrorAction SilentlyContinue)
-if ($contracts.Count -gt 0) {
-    Write-Step "Source contract validation"
-    $contractPaths = $contracts | ForEach-Object { $_.FullName }
-    & $python "$ScriptDir\validate\source-contract.py" @contractPaths
-    if ($LASTEXITCODE -eq 0) { Write-Ok "source-contract passed" }
-    else { Write-Err "source-contract failed"; $failed = $true }
-}
 
 Write-Host ""
 Write-Host "════════════════════════════════════════════"

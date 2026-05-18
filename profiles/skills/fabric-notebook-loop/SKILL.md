@@ -66,6 +66,9 @@ python tool/notebook/deploy.py deploy my_notebook "$FABRIC_WORKSPACE_ID"
 # 5. After PASS — fetch the Fabric bundle and report. Do NOT commit.
 #    The human commits via the Fabric UI Git integration.
 python tool/notebook/deploy.py fetch my_notebook "$FABRIC_WORKSPACE_ID"
+# Before reporting complete, run pre-commit validation:
+# Windows:   tool\pre-commit-check.ps1
+# Linux/Mac: bash tool/pre-commit-check.sh
 # Report to orchestrator: fetch complete. Human commits via Fabric UI.
 ```
 

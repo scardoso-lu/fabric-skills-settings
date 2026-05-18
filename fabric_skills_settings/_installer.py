@@ -36,7 +36,6 @@ REFRESHABLE_SCAFFOLD_MARKERS = {
     Path("tool/setup/setup.ps1"):                         "setup.ps1 - idempotent target repository setup for Fabric agent projects",
     Path("tool/setup/setup.sh"):                          "setup.sh - idempotent target repository setup for Fabric agent projects",
     Path("tool/validate/pipeline-lineage.py"):            "Verify staging-path consistency across notebooks in the same pipeline topic",
-    Path("tool/validate/source-contract.py"):             "Validate Fabric Codex source-contract YAML shape without external dependencies",
 }
 PLACEHOLDER_VALUES = {
     "",
@@ -86,14 +85,14 @@ def collect_files(profile: str) -> list[tuple[Path, Path, bool]]:
     if profile == "codex":
         entries.append((PROFILES / "codex" / "AGENTS.md", Path("AGENTS.md"), True))
         entries.append((PROFILES / "codex" / "config.toml", Path(".codex/config.toml"), False))
-        for src in sorted((PROFILES / "codex" / "skills").glob("*/SKILL.md")):
+        for src in sorted((PROFILES / "skills").glob("*/SKILL.md")):
             entries.append((src, Path(".agents/skills") / src.parent.name / "SKILL.md", True))
         for src in sorted((PROFILES / "codex" / "agents").glob("*.toml")):
             entries.append((src, Path(".codex/agents") / src.name, False))
     elif profile == "claude":
         entries.append((PROFILES / "claude" / "CLAUDE.md", Path("CLAUDE.md"), True))
         entries.append((PROFILES / "claude" / "settings.json", Path(".claude/settings.json"), False))
-        for src in sorted((PROFILES / "claude" / "skills").glob("*/SKILL.md")):
+        for src in sorted((PROFILES / "skills").glob("*/SKILL.md")):
             entries.append((src, Path(".claude/skills") / src.parent.name / "SKILL.md", True))
         for src in sorted((PROFILES / "claude" / "agents").glob("*.md")):
             entries.append((src, Path(".claude/agents") / src.name, True))

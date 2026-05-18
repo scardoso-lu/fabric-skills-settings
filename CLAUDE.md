@@ -1,6 +1,6 @@
 # Fabric Agent Pack - Claude Contributor Guidance
 
-This repository maintains and installs Microsoft Fabric agent profiles. It is not the runtime workspace for Fabric projects. Install `profiles/claude` and/or `profiles/codex` into a target repository, then run Claude Code or Codex from the target repository root.
+This repository is the source package and installer for Microsoft Fabric agent profiles. It is not the runtime workspace for Fabric projects. Install a profile into a target repository with `bin/install-fabric-agent`, then run Claude Code from that target repository root.
 
 ## Session Start
 
@@ -8,62 +8,78 @@ This repository maintains and installs Microsoft Fabric agent profiles. It is no
 2. Read `memory/project.md` if it exists.
 3. Mention relevant context briefly, then address the request.
 
-## Maintainer Focus
-
-- Keep Claude runtime assets under `profiles/claude/`.
-- Keep Codex runtime assets under `profiles/codex/`.
-- Keep shared target memory and neutral scaffolding under `profiles/shared/`.
-- Do not add root `.claude/agents`, root `skills/`, or wrapper-style target repo instructions.
-- Do not reintroduce external-wrapper runtime guidance.
-
 ## Source Package Layout
 
-Scripts at the root of `bin/` are source-package-only. They validate and install profiles; they are not copied to target repositories.
-
-| Script | Purpose |
+| Path | Purpose |
 |---|---|
-| `bin/install-fabric-agent` | Installs profiles into a target repository. |
-| `bin/validate-install-package.py` | Validates the installer package layout and `tool/` mirror parity. |
-| `bin/validate-agent-guidance.py` | Validates profile guidance content. |
+| `profiles/skills/` | Vendor-neutral skill source installed to `.agents/skills/` for Codex and `.claude/skills/` for Claude. |
+| `profiles/codex/` | Codex-native install assets: `AGENTS.md`, `.codex/agents`, and `.codex/config.toml`. |
+| `profiles/claude/` | Claude-native install assets: `CLAUDE.md`, `.claude/agents`, and `.claude/settings.json`. |
+| `profiles/shared/project-layout/` | Shared target scaffolding installed into target repositories. Target tooling lives under `tool/`. |
+| `profiles/shared/memory/` | Shared installed memory seed files. Runtime profile sharing is limited to `memory/`. |
+| `tool/` | Source-package mirror of installable target tooling. Must stay byte-for-byte aligned with `profiles/shared/project-layout/tool/`. |
+| `bin/` | Source-package-only installer and validators. These files are not installed into target repositories. |
+| `fabric_skills_settings/` | Pip-installable Python package. `_installer.py` mirrors `bin/install-fabric-agent`; `profiles/` is bundled into the wheel as `_profiles/` by hatchling. |
+| `rules/` and `templates/` | Source material for Fabric safety, data engineering, runbooks, and human-facing templates. Rules are mirrored into installed target repos under `memory/rules/`. |
 
-The package is also distributed via pip as `fabric-skills-settings`. The pip-installable entry point is `fabric_skills_settings/_installer.py`, which mirrors `bin/install-fabric-agent` but resolves bundled profiles from `Path(__file__).parent / "_profiles"` instead of the source tree. `profiles/` is bundled into the wheel automatically by hatchling's `force-include` — no extra steps are needed when updating profile files.
+## Skill Source
 
-**When modifying installer logic, update both `bin/install-fabric-agent` and `fabric_skills_settings/_installer.py` together.** Build and inspect the wheel with `uv build` to verify bundled content.
+Skill source files live only under `profiles/skills/`. The installer copies that same tree to `.agents/skills/` for Codex and `.claude/skills/` for Claude.
 
-Installable target tooling lives under `tool/` in this source repo and must mirror `profiles/shared/project-layout/tool/` exactly. The installer copies the `profiles/shared/project-layout/tool/` tree into target repositories as `tool/`.
+Installed skills:
 
-| Tool path | Who uses it in target repo | Contains |
-|---|---|---|
-| `tool/setup/` | Human once, agents for checks | `setup.ps1/sh`, `fab-sandbox`, `fabric-inventory-readonly`. |
-| `tool/data/` | Developer agent | `mock-data-generator.py` for deterministic synthetic CSV; `--schema` or `--schema-file` required. |
-| `tool/notebook/` | Developer agent | `build.py`, `deploy.py`, `smoke-test.ps1/sh`. |
-| `tool/pipeline/` | Developer agent | `manage.py` for Data Factory pipeline create, update, run, status, list, and test. |
-| `tool/lakehouse/` | Developer agent | `list-tables.py` for table/schema discovery. |
-| `tool/semantic-model/` | Developer and tester agents | `inspect.py` for listing and inspecting Fabric Semantic Models via sempy.fabric. |
-| `tool/validate/` | Developer agent | `pipeline-lineage.py`, `source-contract.py`. |
-| `tool/mcp/` | Infrastructure | `server.py`. |
+- `fabric-ingest`
+- `fabric-transform`
+- `fabric-model`
+- `fabric-validate`
+- `fabric-notebook-loop`
+- `fabric-ops`
+- `fabric-pipeline`
+- `mock-data`
+- `semantic-model`
+- `prd`
+- `grill-me`
+- `git-commit`
+- `caveman`
 
-When adding or changing an installed helper:
+## Installed Target Tooling
 
-1. Edit both `tool/<area>/...` and `profiles/shared/project-layout/tool/<area>/...`.
-2. Add new helpers to `MIRRORED_HELPERS` in `bin/validate-install-package.py`.
-3. If existing target files should refresh without `--force`, add a `tool/...` marker to `REFRESHABLE_SCAFFOLD_MARKERS` in `bin/install-fabric-agent`.
+The installer copies `profiles/shared/project-layout/tool/` into target repositories as `tool/`:
 
-## Security Rules
-
-- Never commit `.env`, credentials, tokens, connection strings, data files, logs, generated Fabric notebook bundles, or `__pycache__/`.
-- Fabric CLI execution must not be caller-controlled. Do not reintroduce `FAB_BIN`, `PATH`-based `fab` discovery, or arbitrary `fab` command resolution.
-- Fabric credentials must be passed through environment variables or approved secret stores, never command-line arguments.
-- `FABRIC_CLIENT_SECRET` must not be written to `.env`.
-- RTK installation must stay pinned to a specific release and verify downloaded assets against that release's checksum before execution or extraction.
+| Target path | Purpose |
+|---|---|
+| `tool/setup/` | Human one-time setup, Fabric CLI sandbox wrappers, and read-only inventory helpers. Agents verify setup state; they do not run setup repair. |
+| `tool/data/` | Deterministic synthetic CSV generator for staged topics. |
+| `tool/notebook/` | Notebook build, deploy, smoke-test, fetch, run, and monitor helpers. |
+| `tool/pipeline/` | Data Factory pipeline create, update, run, status, list, and test helper. |
+| `tool/lakehouse/` | Lakehouse table and schema inspection helper. |
+| `tool/semantic-model/` | Fabric Semantic Model inspection via sempy.fabric: lists models and shows tables, DAX measures, and relationships. |
+| `tool/validate/` | Local pipeline-lineage validators. |
+| `tool/mcp/` | Fabric MCP server used by installed agent profiles. |
+| `tool/pre-commit-check.ps1` / `tool/pre-commit-check.sh` | Completion check used by developer guidance before reporting done. |
 
 ## File Scanning
 
 When searching or globbing files in this repository, always exclude `.venv/`. It contains third-party packages and will produce irrelevant matches and slow scans.
 
+## Development Rules
+
+- Keep vendor-specific runtime assets inside their profile folders; do not put runtime Claude assets at repository root `.claude/` or runtime Codex assets outside `profiles/codex/`.
+- Keep skill source files only under `profiles/skills/`; this is the single source copied to both `.claude/skills/` and `.agents/skills/`.
+- Profiles own agents, skills, entrypoint guidance, and settings. Shared runtime state is `memory/` only.
+- Do not reintroduce the wrapper runtime model or external-wrapper path operation into installed profile guidance.
+- Add or change installable helper files in both `tool/<area>/...` and `profiles/shared/project-layout/tool/<area>/...`; `bin/validate-install-package.py` enforces mirror parity.
+- If installer refresh behavior must recognize a helper, update `REFRESHABLE_SCAFFOLD_MARKERS` in both `bin/install-fabric-agent` and `fabric_skills_settings/_installer.py`.
+- When modifying installer logic, keep `bin/install-fabric-agent` and `fabric_skills_settings/_installer.py` in sync. Run `uv build` to verify the wheel bundles the correct content.
+- Never commit `.env`, credentials, tokens, connection strings, data files, logs, generated Fabric notebook bundles, or `__pycache__/`.
+- Use placeholders only in `.env.example` files.
+- Fabric CLI wrappers and helpers must not execute caller-controlled binaries. Do not reintroduce `FAB_BIN`, PATH-based `fab` discovery, or arbitrary `fab` command resolution.
+- Fabric credentials must be passed through environment variables or approved secret stores, never command-line arguments.
+- RTK setup must stay pinned to a specific release and verify downloaded assets against the release checksum before execution or extraction.
+
 ## Required Checks
 
-Run these from this source package repo after guidance, profile, installer, validation, or installable tooling changes:
+After changing profiles, installer logic, guidance, validation, or installable tooling, run from this source package repo:
 
 ```bash
 uv run bin/validate-install-package.py
@@ -73,10 +89,14 @@ uv run --group dev pytest
 
 Run the unit tests after any change to `tool/notebook/build.py` or `tool/pipeline/manage.py`.
 
-Also smoke-test `bin/install-fabric-agent` against a disposable git repo when installer mappings or profile files change.
-
-Do not run these validators from an installed target repository; they are not installed there. To check an installed target repository, run this from the source package repo:
+For installer or profile-file changes, also check an installed target or run a disposable-target smoke test:
 
 ```bash
-python bin/install-fabric-agent --profile all --target /path/to/project-repo --check
+python bin/install-fabric-agent --profile all --target <target-repo> --check
 ```
+
+Do not run source-package validators from an installed target repository; they are not installed there.
+
+## Commit / PR Handoff
+
+Summarize what changed, which validations were run, whether a target-repo smoke test was performed, and any validation failures or limitations encountered.

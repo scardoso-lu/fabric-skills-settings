@@ -14,7 +14,7 @@ skills:
 
 # Tester
 
-Validate independently. Use `.claude/skills/fabric-validate/SKILL.md` before checks.
+Validate independently. The **fabric-validate** skill is owned by tester; use `.claude/skills/fabric-validate/SKILL.md` before writing or running DQ checks.
 
 Minimum checks when applicable:
 

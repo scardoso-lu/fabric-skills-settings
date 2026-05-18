@@ -79,15 +79,19 @@ def validate_profiles(errors: list[str]) -> None:
     require(ROOT / "profiles" / "claude" / "CLAUDE.md", errors)
     require(ROOT / "profiles" / "claude" / "settings.json", errors)
     require(ROOT / "profiles" / "shared" / "memory" / "MEMORY.md", errors)
+    require(ROOT / "profiles" / "shared" / "project-layout" / "memory" / "rules" / "data-engineering.md", errors)
+    require(ROOT / "profiles" / "shared" / "project-layout" / "memory" / "rules" / "fabric-platform.md", errors)
+    require(ROOT / "profiles" / "shared" / "project-layout" / "memory" / "rules" / "security.md", errors)
 
-    codex_skills = skill_names(ROOT / "profiles" / "codex" / "skills")
-    claude_skills = skill_names(ROOT / "profiles" / "claude" / "skills")
-    if codex_skills != REQUIRED_SKILLS:
-        errors.append(f"Codex skill set mismatch: {sorted(codex_skills)}")
-    if claude_skills != REQUIRED_SKILLS:
-        errors.append(f"Claude skill set mismatch: {sorted(claude_skills)}")
-    if codex_skills != claude_skills:
-        errors.append("Codex and Claude profile skills differ")
+    shared_skills = skill_names(ROOT / "profiles" / "skills")
+    codex_skills_dir = ROOT / "profiles" / "codex" / "skills"
+    claude_skills_dir = ROOT / "profiles" / "claude" / "skills"
+    if codex_skills_dir.exists():
+        errors.append("profiles/codex/skills must not exist; Codex installs skills from profiles/skills")
+    if claude_skills_dir.exists():
+        errors.append("profiles/claude/skills must not exist; Claude installs skills from profiles/skills")
+    if shared_skills != REQUIRED_SKILLS:
+        errors.append(f"Shared skill set mismatch: {sorted(shared_skills)}")
 
     codex_agents = agent_names(ROOT / "profiles" / "codex" / "agents", ".toml")
     claude_agents = agent_names(ROOT / "profiles" / "claude" / "agents", ".md")
@@ -146,6 +150,26 @@ def validate_setup_guidance(errors: list[str]) -> None:
             if phrase in text:
                 errors.append(f"setup guidance implies reading .env via {phrase!r} in {rel(path)}")
 
+    codex = ROOT / "profiles" / "codex" / "AGENTS.md"
+    if codex.exists():
+        text = codex.read_text(errors="ignore")
+        codex_required = [
+            "Mandatory setup gate",
+            "verify `.env`, `fab`, and `fab auth`",
+            "before accepting any Fabric work",
+        ]
+        for phrase in codex_required:
+            if phrase not in text:
+                errors.append(f"missing Codex setup gate phrase {phrase!r} in {rel(codex)}")
+
+    setup_autoload = ROOT / "docs" / "setup-autoload.md"
+    if setup_autoload.exists():
+        text = setup_autoload.read_text(errors="ignore")
+        if "Runs mandatory setup gate" not in text:
+            errors.append("docs/setup-autoload.md must show the Codex mandatory setup gate")
+        if "(.env, fab, fab auth)" not in text:
+            errors.append("docs/setup-autoload.md must name .env, fab, and fab auth in setup checks")
+
 
 def validate_auth_network_guidance(errors: list[str]) -> None:
     """Auth-failure guidance must mention network restriction so agents don't treat firewalls as auth errors."""
@@ -158,6 +182,62 @@ def validate_auth_network_guidance(errors: list[str]) -> None:
                 f"auth failure row in {rel(path)} must mention network restriction"
                 " — agents must not treat a firewall block as a permanent auth failure"
             )
+
+
+def validate_platform_rules_use_wrapper(errors: list[str]) -> None:
+    for path in [
+        ROOT / "rules" / "fabric-platform.md",
+        ROOT / "profiles" / "shared" / "project-layout" / "memory" / "rules" / "fabric-platform.md",
+    ]:
+        if not path.exists():
+            continue
+        text = path.read_text(errors="ignore")
+        for phrase in ("fab auth login", "fab auth token", "fab api "):
+            if phrase in text:
+                errors.append(
+                    f"{rel(path)} must use tool/setup/fab-sandbox instead of raw {phrase!r}"
+                )
+
+
+def validate_skill_wiring(errors: list[str]) -> None:
+    required = [
+        (
+            ROOT / "profiles" / "claude" / "agents" / "developer.md",
+            ["fabric-transform", "fabric-model"],
+        ),
+        (
+            ROOT / "profiles" / "codex" / "agents" / "developer.toml",
+            ["fabric-transform", "fabric-model"],
+        ),
+        (
+            ROOT / "profiles" / "claude" / "agents" / "tester.md",
+            ["fabric-validate", "tester"],
+        ),
+        (
+            ROOT / "profiles" / "codex" / "agents" / "tester.toml",
+            ["fabric-validate", "tester"],
+        ),
+        (
+            ROOT / "rules" / "data-engineering.md",
+            ["fabric-transform", "fabric-validate"],
+        ),
+        (
+            ROOT / "rules" / "fabric-platform.md",
+            ["fabric-model"],
+        ),
+        (
+            ROOT / "docs" / "tooling-map.md",
+            ["fabric-transform", "fabric-model", "fabric-validate", "DE-06", "FP-08", "DE-04"],
+        ),
+    ]
+    for path, phrases in required:
+        if not path.exists():
+            errors.append(f"missing required path for skill wiring: {rel(path)}")
+            continue
+        text = path.read_text(errors="ignore")
+        for phrase in phrases:
+            if phrase not in text:
+                errors.append(f"missing skill wiring phrase {phrase!r} in {rel(path)}")
 
 
 def validate_item_creation_guidance(errors: list[str]) -> None:
@@ -189,6 +269,8 @@ def main() -> int:
     validate_profiles(errors)
     validate_setup_guidance(errors)
     validate_auth_network_guidance(errors)
+    validate_platform_rules_use_wrapper(errors)
+    validate_skill_wiring(errors)
     validate_item_creation_guidance(errors)
     validate_no_root_runtime(errors)
 

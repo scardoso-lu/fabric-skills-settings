@@ -5,6 +5,9 @@ tools:
   - Read
   - Glob
   - Grep
+skills:
+  - prd
+  - grill-me
 ---
 
 # Orchestrator

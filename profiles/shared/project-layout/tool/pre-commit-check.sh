@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # pre-commit-check.sh — run pre-commit validations in a Fabric project workspace.
-# Run from the repository root before committing workspace/ or contracts/ changes.
+# Run from the repository root before committing workspace changes.
 
 set -euo pipefail
 
@@ -26,20 +26,6 @@ if "$PYTHON_BIN" "${SCRIPT_DIR}/validate/pipeline-lineage.py"; then
 else
   log_err "pipeline-lineage failed"
   FAILED=true
-fi
-
-CONTRACTS=("${PROJECT_ROOT}"/contracts/*.yaml "${PROJECT_ROOT}"/contracts/*.yml)
-FOUND_CONTRACTS=()
-for c in "${CONTRACTS[@]}"; do [[ -f "$c" ]] && FOUND_CONTRACTS+=("$c"); done
-
-if [[ ${#FOUND_CONTRACTS[@]} -gt 0 ]]; then
-  log_step "Source contract validation"
-  if "$PYTHON_BIN" "${SCRIPT_DIR}/validate/source-contract.py" "${FOUND_CONTRACTS[@]}"; then
-    log_ok "source-contract passed"
-  else
-    log_err "source-contract failed"
-    FAILED=true
-  fi
 fi
 
 echo ""

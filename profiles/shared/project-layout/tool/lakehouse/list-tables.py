@@ -240,7 +240,7 @@ def _print_results(
 ) -> None:
     if not schema_available:
         print(
-            "Note: column schema unavailable (fab auth token not accessible).\n"
+            "Note: column schema unavailable (Fabric auth token not accessible through sandbox wrapper).\n"
             "      Run DESCRIBE TABLE EXTENDED <table> in the SQL Analytics Endpoint.\n"
         )
     for lh in lakehouses:

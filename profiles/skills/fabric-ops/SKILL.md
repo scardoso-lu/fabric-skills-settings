@@ -14,7 +14,7 @@ description: Operate and maintain a Fabric data platform — orchestrate pipelin
 
 ## PREFER
 
-- `fab` CLI over REST API for item management
+- `tool/setup/fab-sandbox` or `tool/setup/fab-sandbox.ps1` over direct `fab` calls for item management
 - Idempotent setup scripts (running twice causes no harm)
 - Runbooks in `templates/runbook.md` format
 
@@ -47,17 +47,17 @@ python tool/lakehouse/list-tables.py --json
 ```
 
 Column schema is read from each table's Delta transaction log via the OneLake DFS
-endpoint using the `fab auth token` credential. If the token is unavailable, table
+endpoint using the sandbox-wrapper Fabric credential. If the token is unavailable, table
 names and types are still listed without schema.
 
 ## Daily Checks
 
 ```bash
 # List items in the workspace (shows notebooks, lakehouses, etc.)
-fab api "workspaces/$FABRIC_WORKSPACE_ID/items" --output_format json
+tool/setup/fab-sandbox api "workspaces/$FABRIC_WORKSPACE_ID/items" --output_format json
 
 # Check recent job runs for a specific notebook item
-fab api "workspaces/$FABRIC_WORKSPACE_ID/items/<item_id>/jobs/instances" --output_format json
+tool/setup/fab-sandbox api "workspaces/$FABRIC_WORKSPACE_ID/items/<item_id>/jobs/instances" --output_format json
 
 # Monitor a specific job instance
 python tool/notebook/deploy.py monitor "$FABRIC_WORKSPACE_ID" <item_id> <job_instance_id>
@@ -101,7 +101,7 @@ cp .env.example .env
 uv tool install ms-fabric-cli
 
 # Authenticate
-fab auth login
+tool/setup/fab-sandbox auth login
 ```
 
 ## Platform Inventory Update

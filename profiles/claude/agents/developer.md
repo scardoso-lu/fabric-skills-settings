@@ -15,6 +15,7 @@ skills:
   - fabric-notebook-loop
   - fabric-ops
   - fabric-pipeline
+  - git-commit
   - mock-data
   - semantic-model
 ---
@@ -34,10 +35,13 @@ Rules:
 - When a new topic has no source file, use the **mock-data** skill (`tool/data/mock-data-generator.py`) to stage a synthetic CSV — always pass `--schema` derived from the target table; never hardcode values.
 - Before writing DAX queries or mapping Gold-layer outputs to business metrics, use the **semantic-model** skill (`tool/semantic-model/inspect.py`) to read the canonical measure definitions and relationships.
 - Keep ingestion and DQ separate: `bronze_<source>.py` ingests; `dq_bronze_<source>.py` validates.
-- After any staging-path constant change, run `python bin/validate/pipeline-lineage.py` before building — do not build or deploy if it fails.
+- After any staging-path constant change, run `python tool/validate/pipeline-lineage.py` before building — do not build or deploy if it fails.
 - Use Python dataclass contracts in notebook `# %% [contract]` cells.
 - Put thresholds in notebook `# %% [parameters]` cells.
+- Use the **fabric-transform** skill when implementing Silver or Gold Spark transformations, especially Delta MERGE and idempotent upsert logic.
+- Use the **fabric-model** skill when implementing Gold facts, dimensions, KPIs, or semantic-model-aligned outputs.
 - Never commit `.env`, data files, logs, generated notebook bundles, or credentials.
+- Before reporting complete to orchestrator, run `tool/pre-commit-check.ps1` on Windows or `bash tool/pre-commit-check.sh` on Linux/Mac.
 - Update `memory/<topic>/project.md` after completing work (create the folder if it does not exist). Update `memory/project.md` for cross-topic milestones. Never hand off directly to tester or operator.
 - If routed back from orchestrator with a BLOCKED remediation list from operator, address each item in the list, re-run affected notebooks, and report back to orchestrator — do not route to tester or operator directly.
 - When a skill or tool behaves incorrectly and you apply a fix or workaround, write `memory/skill-fixes/<skill>-<issue-slug>.md` using the format in `memory/MEMORY.md`. Future sessions will read this and avoid repeating the same mistake.

@@ -34,15 +34,17 @@ The package installs two kinds of things:
 |---|---|
 | `AGENTS.md` / `CLAUDE.md` | Tells the agent how to behave in a Fabric project. |
 | `.agents/skills` or `.claude/skills` | Gives task-specific playbooks for ingestion, validation, operations, modeling, mock data, and semantic model inspection. |
-| `memory/` | Keeps project state and lessons available across sessions. |
+| `memory/` | Keeps project state, installed rules, and lessons available across sessions. |
 | `tool/setup/` | Helps humans configure local Fabric access safely. |
 | `tool/data/` | Generates deterministic synthetic sandbox files when a topic needs mock source data. Schema-driven; always pass `--schema` or `--schema-file`. |
 | `tool/notebook/` | Builds, deploys, runs, monitors, and fetches notebooks. |
 | `tool/pipeline/` | Creates and runs Data Factory pipelines from deployed notebooks. |
 | `tool/lakehouse/` | Lists lakehouse tables and column schemas so agents can inspect the target table before authoring notebooks or generating mock data. |
 | `tool/semantic-model/` | Lists and inspects Fabric Semantic Models — tables, DAX measures, relationships — before writing DAX queries or mapping Gold-layer outputs to KPIs. |
-| `tool/validate/` | Catches path, contract, and lineage mistakes before deploy. |
+| `tool/validate/` | Catches staging-path and lineage mistakes before deploy. |
 | `tool/mcp/` | Gives agents safe Fabric discovery through MCP. |
+
+Skill source files live once under `profiles/skills/` in this package. During installation, that same source tree is copied to `.agents/skills/` for Codex, `.claude/skills/` for Claude, or both when `--profile all` is used. Rule source files live under `rules/` and are installed as `memory/rules/` so every agent reads the same DE/FP/SEC rule corpus through `memory/MEMORY.md`.
 
 ## Why This Pattern
 
@@ -323,13 +325,13 @@ flowchart TD
 
         P["operator<br/>security and production handoff review<br/>secrets · PII · least privilege · RLS/OLS<br/>never modifies code"]
 
-        M[("memory/<br/>MEMORY.md<br/>project.md<br/>&lt;topic&gt;/project.md<br/>sbom.md")]
+        M[("memory/<br/>MEMORY.md<br/>rules/*.md<br/>project.md<br/>&lt;topic&gt;/project.md<br/>sbom.md")]
 
         SETUP["tool/setup/<br/>setup.ps1 · setup.sh<br/>fab-sandbox<br/>fabric-inventory-readonly"]
         DATA["tool/data/<br/>mock-data-generator.py<br/>--schema required"]
         NOTEBOOK["tool/notebook/<br/>build.py<br/>deploy.py deploy / exec / run / fetch / monitor<br/>smoke-test.ps1/sh"]
         PIPELINE["tool/pipeline/<br/>manage.py<br/>create · run · status · list · test"]
-        VALIDATE["tool/validate/<br/>pipeline-lineage.py<br/>source-contract.py"]
+        VALIDATE["tool/validate/<br/>pipeline-lineage.py"]
         LAKEHOUSE["tool/lakehouse/<br/>list-tables.py"]
         SEMMODEL["tool/semantic-model/<br/>inspect.py<br/>list · show · --json"]
         MCP["tool/mcp/<br/>Fabric MCP discovery"]

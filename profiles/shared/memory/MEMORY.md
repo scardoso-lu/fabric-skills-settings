@@ -5,6 +5,9 @@ This is shared, vendor-neutral project memory for Fabric work in this repository
 ## Global files (read every session)
 
 - `memory/notebook-authoring.md` — mandatory notebook authoring rules: file paths, packages, pipeline structure, mssparkutils detection.
+- `memory/rules/fabric-platform.md` — Fabric API, auth wrapper, notebook, lakehouse, warehouse, and Delta maintenance rules.
+- `memory/rules/data-engineering.md` — pipeline idempotency, lineage, schema evolution, quality, and DAG rules.
+- `memory/rules/security.md` — credential, PII, logging, dependency, inventory, and compliance rules.
 - `memory/RTK.md` — mandatory project init rule: any file that needs to be read, must use this proxy
 
 ## Per-topic files (read when working on a specific topic)

@@ -2,7 +2,7 @@
 
 Shows which **agents** are bound to which **rules** and **templates**, and which **rules** each **template** formalises.
 
-> **Scope**: source-package relationships. Neither `rules/` nor `templates/` are installed to target repos. Rule codes (SEC-*, DE-*, DATA*) are embedded inline in agent and skill guidance. Templates are human-facing artefacts referenced by format, not by file-read at runtime.
+> **Scope**: source-package relationships. Rules live under `rules/` in this package and are installed into target repos as `memory/rules/`, then loaded through `memory/MEMORY.md`. Templates remain source-only human-facing artefacts referenced by format, not by file-read at runtime.
 
 ```mermaid
 flowchart LR
@@ -13,7 +13,7 @@ flowchart LR
     a_op["operator"]
   end
 
-  subgraph R["Rules — rules/ ⚠ source-only"]
+  subgraph R["Rules — rules/ source → memory/rules/ target"]
     r_de["data-engineering.md"]
     r_fp["fabric-platform.md"]
     r_sec["security.md"]
@@ -32,9 +32,13 @@ flowchart LR
   %% Agents → Rules  (inline rule codes in agent guidance)
   a_dev -- "SEC-08 injection\nSEC-10 pin deps\nSEC-12 SBOM" --> r_sec
   a_dev -- "DE-01 idempotency\nDE-02 lineage\nDE-09 testing\nDE-10 quality" --> r_de
+  a_dev -- "FP-01 async APIs\nFP-03/04 notebook loop\nFP-07 ingestion\nFP-10 maintenance" --> r_fp
   a_test -- "DE-04 quality gates\nDE-02 lineage envelope" --> r_de
   a_test -- "DATA3 PII masking\nDATA7 data handling" --> r_sec
+  a_test -- "FP-03/04 smoke + monitor\nFP-05 Spark vs SQL" --> r_fp
   a_op -- "DATA1–DATA10\nA03:2025 supply chain" --> r_sec
+  a_op -- "FP-02 auth\nFP-06 lakehouse boundaries\nFP-10 maintenance review" --> r_fp
+  a_orch -- "FP scope routing\nnotebook/pipeline handoff" --> r_fp
 
   %% Agents → Templates  (confirmed explicit reference)
   a_dev -- "via fabric-ops skill\n(runbook format)" --> tp_run
@@ -58,10 +62,12 @@ flowchart LR
 
 | Agent | Skills available | Rules embedded inline |
 |---|---|---|
-| `developer` | fabric-ingest, fabric-transform, fabric-model, fabric-notebook-loop, fabric-ops, fabric-pipeline, mock-data, semantic-model | SEC-08, SEC-10, SEC-12, DE-01, DE-02, DE-09, DE-10 |
-| `tester` | fabric-validate, fabric-ops, semantic-model | DE-04, DE-02, DATA3, DATA7 |
-| `operator` | *(none — review only, no writes)* | DATA1–DATA10, A03:2025 (full OWASP checklist embedded) |
-| `orchestrator` | *(none — routing only)* | *(none)* |
+| `developer` | fabric-ingest, fabric-transform, fabric-model, fabric-notebook-loop, fabric-ops, fabric-pipeline, git-commit, mock-data, semantic-model | SEC-08, SEC-10, SEC-12, DE-01, DE-02, DE-09, DE-10, FP-01, FP-03, FP-04, FP-07, FP-10 |
+| `tester` | fabric-validate, fabric-ops, semantic-model | DE-04, DE-02, DATA3, DATA7, FP-03, FP-04, FP-05 |
+| `operator` | *(none — review only, no writes)* | DATA1–DATA10, A03:2025, FP-02, FP-06, FP-10 |
+| `orchestrator` | prd, grill-me | FP routing and handoff boundaries |
+
+`fabric-transform` and `fabric-model` are developer-owned authoring skills. `fabric-validate` is the tester-owned validation skill. Their direct rule anchors are DE-06, FP-08, and DE-04 respectively.
 
 ## Template coverage by rule domain
 

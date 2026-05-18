@@ -3,7 +3,7 @@
 # The notebook must already be deployed in the workspace.
 # Run from the repository root. Never targets production.
 #
-# Requires: python (>=3.10), fab authenticated (fab auth login), FABRIC_WORKSPACE_ID in .env
+# Requires: python (>=3.10), fab authenticated (tool/setup/fab-sandbox auth login), FABRIC_WORKSPACE_ID in .env
 
 set -euo pipefail
 

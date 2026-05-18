@@ -25,6 +25,7 @@ Treat DQ failures as potential sensitive-data leaks until root cause is known. R
 - Secrets referenced via `os.environ` or Key Vault only
 - Service principal auth for all automation; no personal credentials in pipelines
 - Least privilege confirmed on Lakehouse and Warehouse — no wildcard grants
+- Use `tool/setup/fabric-inventory-readonly` to enumerate workspace items and confirm access scope.
 - RLS/OLS configured for any multi-tenant Gold data
 
 ### DATA3 · Data Breaches
@@ -67,6 +68,7 @@ Treat DQ failures as potential sensitive-data leaks until root cause is known. R
 
 ### DATA9 · Data Inventory and Management
 - `memory/platform.md` lists every lakehouse, table, and source system for this pipeline
+- Use `tool/setup/fabric-inventory-readonly` to enumerate workspace items before confirming inventory completeness.
 - Sensitivity classification documented for all tables containing personal or financial data
 - Schema contract present and current for each Bronze table
 
