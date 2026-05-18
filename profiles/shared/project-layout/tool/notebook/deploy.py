@@ -31,7 +31,6 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 import time
 from pathlib import Path
 
@@ -138,29 +137,9 @@ def fab_api(endpoint: str, method: str = "get", body: dict | None = None, show_h
     cmd = [*fab_cmd, "api", endpoint, "-X", method, "--output_format", "json"]
     if show_headers:
         cmd.append("--show_headers")
-    body_file: str | None = None
     if body is not None:
-        body_str = json.dumps(body)
-        if uses_wrapper:
-            # S18: write body to a temp file and use PS Get-Content to avoid shell injection.
-            # Passing JSON as a CLI arg allows backtick/`$()` injection in PowerShell.
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".json", delete=False, encoding="utf-8", prefix="fab-body-"
-            ) as tf:
-                tf.write(body_str)
-                body_file = tf.name
-            escaped = body_file.replace("'", "''")
-            cmd += ["-i", f"$(Get-Content -Raw -LiteralPath '{escaped}')"]
-        else:
-            cmd += ["-i", body_str]
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, env=env)
-    finally:
-        if body_file:
-            try:
-                os.unlink(body_file)
-            except OSError:
-                pass
+        cmd += ["-i", json.dumps(body)]
+    result = subprocess.run(cmd, capture_output=True, text=True, env=env)
     try:
         return json.loads(result.stdout)
     except json.JSONDecodeError:

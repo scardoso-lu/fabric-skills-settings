@@ -9,21 +9,15 @@ It does not store or emit credentials.
 from __future__ import annotations
 
 import hashlib
-import hmac
 import json
 import logging
 import os
-import secrets
 import subprocess
 import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
-# Session token issued during initialize and validated on every tools/call.
-# None only before the first initialize request.
-_session_token: str | None = None
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -292,14 +286,10 @@ TOOLS = [
 
 
 def handle(message: dict[str, Any]) -> dict[str, Any] | None:  # noqa: C901
-    global _session_token
     method = message.get("method")
     request_id = message.get("id")
 
     if method == "initialize":
-        # Issue a fresh session token on every initialize.  The caller must echo
-        # it back as params._sessionToken on every subsequent tools/call request.
-        _session_token = secrets.token_hex(32)
         return response(
             request_id,
             {
@@ -308,7 +298,6 @@ def handle(message: dict[str, Any]) -> dict[str, Any] | None:  # noqa: C901
                 "serverInfo": {
                     "name": "fabric-cli-wrapper",
                     "version": "0.2.0",
-                    "sessionToken": _session_token,
                 },
             },
         )
@@ -318,16 +307,6 @@ def handle(message: dict[str, Any]) -> dict[str, Any] | None:  # noqa: C901
         return response(request_id, {"tools": TOOLS})
     if method == "tools/call":
         params = message.get("params", {})
-        # Validate session token on every tools/call to prevent anonymous callers.
-        # hmac.compare_digest prevents timing-based token leakage.
-        provided = params.get("_sessionToken", "")
-        if _session_token is not None and not hmac.compare_digest(provided, _session_token):
-            return error_response(
-                request_id,
-                -32001,
-                "Invalid or missing session token. "
-                "Pass the sessionToken from the initialize response as params._sessionToken.",
-            )
         try:
             result = handle_tool_call(params.get("name", ""), params.get("arguments", {}) or {})
             return response(request_id, result)

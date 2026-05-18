@@ -54,7 +54,6 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 import time
 import uuid
 from pathlib import Path
@@ -193,29 +192,9 @@ def fab_api(
     cmd = [*fab_cmd, "api", endpoint, "-X", method, "--output_format", "json"]
     if show_headers:
         cmd.append("--show_headers")
-    body_file: str | None = None
     if body is not None:
-        body_str = json.dumps(body)
-        if uses_wrapper:
-            # S18: temp file avoids PS backtick/`$()` injection via command-line body arg
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".json", delete=False, encoding="utf-8", prefix="fab-body-"
-            ) as tf:
-                tf.write(body_str)
-                body_file = tf.name
-            escaped = body_file.replace("'", "''")
-            cmd += ["-i", f"$(Get-Content -Raw -LiteralPath '{escaped}')"]
-        else:
-            cmd += ["-i", body_str]
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, env=_fab_env(uses_wrapper))
-    finally:
-        if body_file:
-            try:
-                import os as _os
-                _os.unlink(body_file)
-            except OSError:
-                pass
+        cmd += ["-i", json.dumps(body)]
+    result = subprocess.run(cmd, capture_output=True, text=True, env=_fab_env(uses_wrapper))
     try:
         return json.loads(result.stdout)
     except json.JSONDecodeError:
