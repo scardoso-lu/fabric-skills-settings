@@ -26,6 +26,10 @@ Scripts at the root of `bin/` are source-package-only. They validate and install
 | `bin/validate-install-package.py` | Validates the installer package layout and `tool/` mirror parity. |
 | `bin/validate-agent-guidance.py` | Validates profile guidance content. |
 
+The package is also distributed via pip as `fabric-skills-settings`. The pip-installable entry point is `fabric_skills_settings/_installer.py`, which mirrors `bin/install-fabric-agent` but resolves bundled profiles from `Path(__file__).parent / "_profiles"` instead of the source tree. `profiles/` is bundled into the wheel automatically by hatchling's `force-include` — no extra steps are needed when updating profile files.
+
+**When modifying installer logic, update both `bin/install-fabric-agent` and `fabric_skills_settings/_installer.py` together.** Build and inspect the wheel with `uv build` to verify bundled content.
+
 Installable target tooling lives under `tool/` in this source repo and must mirror `profiles/shared/project-layout/tool/` exactly. The installer copies the `profiles/shared/project-layout/tool/` tree into target repositories as `tool/`.
 
 | Tool path | Who uses it in target repo | Contains |

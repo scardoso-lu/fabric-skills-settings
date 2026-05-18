@@ -18,6 +18,7 @@ This repository is the source package and installer for Microsoft Fabric agent p
 | `profiles/shared/memory/` | Shared installed memory seed files. Runtime profile sharing is limited to `memory/`. |
 | `tool/` | Source-package mirror of installable target tooling. Must stay byte-for-byte aligned with `profiles/shared/project-layout/tool/`. |
 | `bin/` | Source-package-only installer and validators. These files are not installed into target repositories. |
+| `fabric_skills_settings/` | Pip-installable Python package. `_installer.py` is the pip entry point and mirrors `bin/install-fabric-agent`; `profiles/` is bundled into the wheel as `_profiles/` by hatchling. |
 | `rules/` and `templates/` | Source material for Fabric safety, data engineering, runbooks, and human-facing templates. |
 
 ## Installed Target Tooling
@@ -45,7 +46,8 @@ When searching or globbing files in this repository, always exclude `.venv/`. It
 - Profiles own agents, skills, entrypoint guidance, and settings. Shared runtime state is `memory/` only.
 - Do not reintroduce the wrapper runtime model or external-wrapper path operation into installed profile guidance.
 - Add or change installable helper files in both `tool/<area>/...` and `profiles/shared/project-layout/tool/<area>/...`; `bin/validate-install-package.py` enforces mirror parity.
-- If installer refresh behavior must recognize a helper, update `REFRESHABLE_SCAFFOLD_MARKERS` in `bin/install-fabric-agent` with the `tool/...` target path.
+- If installer refresh behavior must recognize a helper, update `REFRESHABLE_SCAFFOLD_MARKERS` in both `bin/install-fabric-agent` and `fabric_skills_settings/_installer.py`.
+- When modifying installer logic, keep `bin/install-fabric-agent` and `fabric_skills_settings/_installer.py` in sync. Run `uv build` to verify the wheel bundles the correct content.
 - Never commit `.env`, credentials, tokens, connection strings, data files, logs, generated Fabric notebook bundles, or `__pycache__/`.
 - Use placeholders only in `.env.example` files.
 - Fabric CLI wrappers and helpers must not execute caller-controlled binaries. Do not reintroduce `FAB_BIN`, `PATH`-based `fab` discovery, or arbitrary `fab` command resolution. Use the expected user-local Fabric CLI path and keep credentials out of command-line arguments.
