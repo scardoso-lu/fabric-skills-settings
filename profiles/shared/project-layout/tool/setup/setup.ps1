@@ -8,7 +8,10 @@ $ErrorActionPreference = "Stop"
 $ScriptDir   = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = Resolve-Path (Join-Path $ScriptDir "../..")
 $EnvFile     = Join-Path $ProjectRoot ".env"
+$VenvDir     = Join-Path $ProjectRoot ".venv"
+$VenvPython  = Join-Path $VenvDir "Scripts\python.exe"
 $Actions     = [System.Collections.Generic.List[string]]::new()
+$SecretWasInEnvironment = $false
 
 function Read-DotEnv ([string]$Path) {
     foreach ($line in Get-Content -LiteralPath $Path) {
@@ -104,48 +107,17 @@ if ($fabOk) {
 
 # ── Mock-data libraries ───────────────────────────────────────────────────────
 Write-Host ""
-Write-Host "-- Optional: mock-data libraries (tool/data/mock-data-generator.py)"
-& python -c "import faker, mimesis" *>$null
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "  Faker and Mimesis already installed"
-    $Actions.Add("Faker and Mimesis: already installed")
+Write-Host "-- Project Python environment (.venv)"
+if (-not (Test-Path -LiteralPath $VenvDir)) {
+    uv venv $VenvDir
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    uv pip install --python $VenvPython "Faker>=26" "mimesis>=18" "scikit-learn>=1.5" "semantic-link>=0.9" "pandas>=2"
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    $Actions.Add(".venv created")
+    $Actions.Add("Python helper libraries installed in .venv")
 } else {
-    $ans = Read-Host "  Install Faker and Mimesis for realistic dummy names, emails, addresses? [y/N]"
-    if ($ans -match "^[yY]") {
-        python -m pip install "Faker>=26" "mimesis>=18"
-        if ($LASTEXITCODE -eq 0) { $Actions.Add("Faker and Mimesis: installed") }
-        else { Write-Warning "Install failed — run manually: pip install Faker mimesis" }
-    } else {
-        $Actions.Add("Faker and Mimesis: skipped")
-    }
-}
-& python -c "import sklearn" *>$null
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "  scikit-learn already installed"
-    $Actions.Add("scikit-learn: already installed")
-} else {
-    $ans = Read-Host "  Install scikit-learn for ML classification fixtures? [y/N]"
-    if ($ans -match "^[yY]") {
-        python -m pip install "scikit-learn>=1.5"
-        if ($LASTEXITCODE -eq 0) { $Actions.Add("scikit-learn: installed") }
-        else { Write-Warning "Install failed — run manually: pip install scikit-learn" }
-    } else {
-        $Actions.Add("scikit-learn: skipped")
-    }
-}
-& python -c "import sempy.fabric" *>$null
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "  semantic-link already installed"
-    $Actions.Add("semantic-link: already installed")
-} else {
-    $ans = Read-Host "  Install semantic-link (sempy.fabric) for semantic model inspection? [y/N]"
-    if ($ans -match "^[yY]") {
-        python -m pip install "semantic-link>=0.9"
-        if ($LASTEXITCODE -eq 0) { $Actions.Add("semantic-link: installed") }
-        else { Write-Warning "Install failed — run manually: pip install semantic-link" }
-    } else {
-        $Actions.Add("semantic-link: skipped")
-    }
+    $Actions.Add(".venv already exists")
+    $Actions.Add("Python helper libraries: skipped because .venv already exists")
 }
 
 # ── Load existing .env ────────────────────────────────────────────────────────
@@ -154,16 +126,6 @@ if (Test-Path -LiteralPath $EnvFile) { Read-DotEnv -Path $EnvFile }
 # ── Credentials ───────────────────────────────────────────────────────────────
 Write-Host ""
 Write-Host "-- Credentials"
-
-if ($env:FABRIC_WORKSPACE_ID) {
-    Write-Host "  FABRIC_WORKSPACE_ID already set -skipping"
-} else {
-    $wsId = Read-Host "  FABRIC_WORKSPACE_ID (Fabric workspace GUID)"
-    if (-not $wsId) { Write-Error "FABRIC_WORKSPACE_ID is required."; exit 1 }
-    Write-EnvKey -Key "FABRIC_WORKSPACE_ID" -Value $wsId
-    $env:FABRIC_WORKSPACE_ID = $wsId
-    $Actions.Add("FABRIC_WORKSPACE_ID written to .env")
-}
 
 if ($env:FABRIC_TENANT_ID) {
     Write-Host "  FABRIC_TENANT_ID already set -skipping"
@@ -187,12 +149,14 @@ if ($env:FABRIC_CLIENT_ID) {
 
 if ($env:FABRIC_CLIENT_SECRET) {
     Write-Host "  FABRIC_CLIENT_SECRET already in OS environment -skipping"
+    $SecretWasInEnvironment = $true
 } else {
     $ss     = Read-Host "  FABRIC_CLIENT_SECRET (input hidden; persisted to OS user environment, not .env)" -AsSecureString
     $secret = [System.Net.NetworkCredential]::new("", $ss).Password
     if (-not $secret) { Write-Error "FABRIC_CLIENT_SECRET is required."; exit 1 }
     [System.Environment]::SetEnvironmentVariable("FABRIC_CLIENT_SECRET", $secret, "User")
     $env:FABRIC_CLIENT_SECRET = $secret
+    $SecretWasInEnvironment = $true
     $Actions.Add("FABRIC_CLIENT_SECRET persisted to OS user environment (registry)")
 }
 
@@ -201,10 +165,37 @@ Write-Host ""
 Write-Host "-- Authenticate"
 & $FabSandbox api workspaces --output_format json *> $null
 if ($LASTEXITCODE -ne 0) {
+    if ($SecretWasInEnvironment) {
+        Write-Host "  To clear the saved FABRIC_CLIENT_SECRET, run:"
+        Write-Host "  [Environment]::SetEnvironmentVariable('FABRIC_CLIENT_SECRET', `$null, 'User'); Remove-Item Env:FABRIC_CLIENT_SECRET -ErrorAction SilentlyContinue"
+    }
     Write-Error "Authentication failed. Verify FABRIC_TENANT_ID, FABRIC_CLIENT_ID, and FABRIC_CLIENT_SECRET."
     exit 1
 }
 $Actions.Add("SPN auth verified")
+
+# Workspace registry is the only source for workspace/resource IDs.
+Write-Host ""
+Write-Host "-- Workspace registry"
+$WorkspaceInit = Join-Path $ProjectRoot "tool\workspace\init.py"
+& $VenvPython $WorkspaceInit
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+$Actions.Add("workspaces.json refreshed from Fabric API")
+
+$RegistryFile = Join-Path $ProjectRoot "workspaces.json"
+try {
+    $Registry = Get-Content -LiteralPath $RegistryFile -Raw | ConvertFrom-Json
+    if ($Registry.active) {
+        Write-Host "  Active workspace: $($Registry.active)"
+        $Actions.Add("active workspace preserved from registry")
+    } else {
+        Write-Host "  No active workspace set. Run: python tool/workspace/switch.py list"
+        Write-Host "  Then run: python tool/workspace/switch.py <displayName>"
+        $Actions.Add("active workspace not set; choose one with tool/workspace/switch.py")
+    }
+} catch {
+    Write-Warning "Could not read workspaces.json after refresh: $_"
+}
 
 Write-Host ""
 Write-Host "Setup complete."

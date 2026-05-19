@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 *.local.json
+!profiles/claude/settings.local.json
 
 # Local Claude Code overrides
 .claude/settings.local.json

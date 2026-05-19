@@ -94,7 +94,7 @@ def collect_files(profile: str) -> list[tuple[Path, Path, bool]]:
             entries.append((src, Path(".codex/agents") / src.name, False))
     elif profile == "claude":
         entries.append((PROFILES / "claude" / "CLAUDE.md", Path("CLAUDE.md"), True))
-        entries.append((PROFILES / "claude" / "settings.json", Path(".claude/settings.json"), False))
+        entries.append((PROFILES / "claude" / "settings.local.json", Path(".claude/settings.local.json"), False))
         for src in sorted((PROFILES / "skills").glob("*/SKILL.md")):
             entries.append((src, Path(".claude/skills") / src.parent.name / "SKILL.md", True))
         for src in sorted((PROFILES / "claude" / "agents").glob("*.md")):
@@ -283,6 +283,33 @@ def merge_gitignore(target: Path, profiles: list[str], args: argparse.Namespace)
     return action
 
 
+def remove_obsolete_profile_files(target: Path, profiles: list[str], args: argparse.Namespace) -> list[str]:
+    operations: list[str] = []
+    if "claude" not in profiles:
+        return operations
+
+    old = target / ".claude" / "settings.json"
+    if not old.exists():
+        return operations
+
+    expected = render_content(PROFILES / "claude" / "settings.local.json", False)
+    current = old.read_text(encoding="utf-8", errors="ignore")
+    if current != expected:
+        operations.append(f"KEEP custom obsolete path {old}")
+        return operations
+
+    if args.check:
+        operations.append(f"OBSOLETE {old}")
+        return operations
+    if args.dry_run:
+        operations.append(f"DELETE {old}")
+        return operations
+
+    old.unlink()
+    operations.append(f"DELETE {old}")
+    return operations
+
+
 def main() -> int:
     args = parse_args()
     target = Path(args.target).expanduser().resolve()
@@ -293,8 +320,9 @@ def main() -> int:
     if target == _PACKAGE_DIR and not args.self_test:
         raise SystemExit("Refusing to install into the package directory without --self-test")
 
+    profiles = planned_profiles(args.profile)
     operations: list[str] = []
-    for profile in planned_profiles(args.profile):
+    for profile in profiles:
         for src, rel, managed in collect_files(profile):
             operations.append(write_file(src, target / rel, managed, args, rel))
     for src, rel, managed in collect_shared_files():
@@ -303,11 +331,12 @@ def main() -> int:
             operations.append(f"KEEP existing {dest}")
             continue
         operations.append(write_file(src, dest, managed, args, rel))
-    operations.append(merge_gitignore(target, planned_profiles(args.profile), args))
+    operations.extend(remove_obsolete_profile_files(target, profiles, args))
+    operations.append(merge_gitignore(target, profiles, args))
 
     for operation in operations:
         print(operation)
-    if args.check and any(op.startswith(("MISSING", "DIFF")) for op in operations):
+    if args.check and any(op.startswith(("MISSING", "DIFF", "OBSOLETE")) for op in operations):
         return 1
     return 0
 

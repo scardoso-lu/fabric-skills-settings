@@ -101,14 +101,15 @@ After installing the profile, the human runs one setup command from the target r
 bash tool/setup/setup.sh
 ```
 
-Setup checks local tools, installs `ms-fabric-cli` if needed, initializes RTK when possible, prompts for Fabric service-principal settings, and verifies that Fabric API access works. It also offers optional mock-data library installation — Faker, Mimesis, scikit-learn, and semantic-link — each prompted interactively with a default of No. These are only needed if the agent will generate synthetic data or inspect semantic models.
+Setup checks local tools, installs `ms-fabric-cli` if needed, initializes RTK when possible, creates `.venv`, installs Faker, Mimesis, scikit-learn, semantic-link, and pandas into that venv, prompts for Fabric service-principal settings, verifies that Fabric API access works, and refreshes `workspaces.json`.
 
 | Value | Stored where |
 |---|---|
-| `FABRIC_WORKSPACE_ID` | `.env` |
 | `FABRIC_TENANT_ID` | `.env` |
 | `FABRIC_CLIENT_ID` | `.env` |
 | `FABRIC_CLIENT_SECRET` | OS user environment, never `.env` |
+
+Workspace and resource IDs come from `workspaces.json`. Use `python tool/workspace/switch.py list` and `python tool/workspace/switch.py <displayName>` to write the selected workspace into the auto-generated `.env` block.
 
 Agents should not inspect secrets. Runtime helpers load `.env` inside their own process when they need configuration.
 

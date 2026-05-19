@@ -20,23 +20,30 @@ From the target repository root, run the installed setup script:
 bash tool/setup/setup.sh
 ```
 
-Setup checks local tools, installs `ms-fabric-cli` when needed, initializes RTK when possible, asks for Fabric service-principal settings, and verifies that the Fabric API is reachable.
+Setup checks local tools, installs `ms-fabric-cli` when needed, initializes RTK when possible, creates a local `.venv`, installs the Python helper libraries there, asks for Fabric service-principal settings, verifies that the Fabric API is reachable, and refreshes `workspaces.json`.
 
 | Value | Stored where | Why |
 |---|---|---|
-| `FABRIC_WORKSPACE_ID` | `.env` | Selects the Fabric workspace. |
 | `FABRIC_TENANT_ID` | `.env` | Identifies the Azure tenant. |
 | `FABRIC_CLIENT_ID` | `.env` | Identifies the service principal. |
 | `FABRIC_CLIENT_SECRET` | OS user environment | Authenticates the service principal without writing secrets to `.env`. |
+
+Workspace identity and Fabric resource IDs come from the registry. Do not type workspace GUIDs into setup:
+
+```bash
+python tool/workspace/switch.py list
+python tool/workspace/switch.py <displayName>
+```
+
+`switch.py` writes `FABRIC_WORKSPACE_ID`, lakehouse IDs, warehouse IDs, and warehouse host values into the auto-generated `.env` block.
 
 Agents should not read `.env` secrets directly. The installed helper scripts load `.env` inside their own process when they need configuration.
 
 ## The `.env` Contract
 
-The installer creates `.env.example`. Setup creates or updates `.env`. Start with workspace and service-principal values, then add item selectors only when notebooks need them.
+The installer creates `.env.example`. Setup creates or updates `.env`. Credentials live above the auto-generated block; workspace and item selectors are generated from `workspaces.json`.
 
 ```dotenv
-FABRIC_WORKSPACE_ID=<workspace-uuid>
 FABRIC_TENANT_ID=<tenant-uuid>
 FABRIC_CLIENT_ID=<app-client-uuid>
 ```
@@ -57,7 +64,7 @@ FABRIC_LAKEHOUSE_BRONZE=<lakehouse-uuid>
 
 The suffix after `FABRIC_LAKEHOUSE_` is the sentinel name uppercased, with spaces and hyphens converted to underscores. For example, `# FABRIC_LAKEHOUSE: Data Lake` maps to `FABRIC_LAKEHOUSE_DATA_LAKE`.
 
-Find the lakehouse UUID in the Fabric portal URL for the lakehouse: `/lakehouses/<uuid>`.
+Run `python tool/workspace/init.py` to refresh the registry, then `python tool/workspace/switch.py <displayName>` to write lakehouse IDs from the registry.
 
 ### Warehouses
 
@@ -72,7 +79,7 @@ FABRIC_WAREHOUSE_DATA_WAREHOUSE=<warehouse-uuid>
 FABRIC_WAREHOUSE_HOST=<prefix>.datawarehouse.fabric.microsoft.com
 ```
 
-`FABRIC_WAREHOUSE_HOST` cannot be derived from the workspace or warehouse ID. Copy the server portion from Fabric portal -> Data Warehouse -> Settings -> Connection strings -> SQL connection string.
+`FABRIC_WAREHOUSE_HOST` comes from the warehouse properties captured in `workspaces.json` and written by `switch.py`.
 
 ### Legacy Fallbacks
 
@@ -232,7 +239,8 @@ Use `--notebooks name1,name2` when a topic needs a custom order.
 Before asking an agent to run Fabric work in a target repository, check:
 
 - `.env` exists.
-- `FABRIC_WORKSPACE_ID`, `FABRIC_TENANT_ID`, and `FABRIC_CLIENT_ID` are configured.
+- `FABRIC_TENANT_ID` and `FABRIC_CLIENT_ID` are configured.
+- `workspaces.json` exists and has an active workspace selected with `tool/workspace/switch.py`.
 - `FABRIC_CLIENT_SECRET` exists in the OS user environment.
 - Lakehouse and warehouse IDs exist for any notebook sentinels.
 - `FABRIC_WAREHOUSE_HOST` is configured for warehouse/dbt notebooks.

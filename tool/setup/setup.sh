@@ -6,6 +6,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 ENV_FILE="${PROJECT_ROOT}/.env"
+VENV_DIR="${PROJECT_ROOT}/.venv"
+VENV_PY="${VENV_DIR}/bin/python"
 
 actions=()
 
@@ -146,44 +148,17 @@ else
   actions+=("ms-fabric-cli installed")
 fi
 
-# ── Mock-data libraries ───────────────────────────────────────────────────────
+# ── Project Python environment ────────────────────────────────────────────────
 echo ""
-echo "-- Optional: mock-data libraries (tool/data/mock-data-generator.py)"
-if python -c "import faker, mimesis" 2>/dev/null; then
-  echo "  Faker and Mimesis already installed"
-  actions+=("Faker and Mimesis: already installed")
+echo "-- Project Python environment (.venv)"
+if [[ ! -d "${VENV_DIR}" ]]; then
+  uv venv "${VENV_DIR}"
+  uv pip install --python "${VENV_PY}" "Faker>=26" "mimesis>=18" "scikit-learn>=1.5" "semantic-link>=0.9" "pandas>=2"
+  actions+=(".venv created")
+  actions+=("Python helper libraries installed in .venv")
 else
-  read -rp "  Install Faker and Mimesis for realistic dummy names, emails, addresses? [y/N] " _mock_ans
-  if [[ "${_mock_ans,,}" == "y" ]]; then
-    python -m pip install "Faker>=26" "mimesis>=18"
-    actions+=("Faker and Mimesis: installed")
-  else
-    actions+=("Faker and Mimesis: skipped")
-  fi
-fi
-if python -c "import sklearn" 2>/dev/null; then
-  echo "  scikit-learn already installed"
-  actions+=("scikit-learn: already installed")
-else
-  read -rp "  Install scikit-learn for ML classification fixtures? [y/N] " _sklearn_ans
-  if [[ "${_sklearn_ans,,}" == "y" ]]; then
-    python -m pip install "scikit-learn>=1.5"
-    actions+=("scikit-learn: installed")
-  else
-    actions+=("scikit-learn: skipped")
-  fi
-fi
-if python -c "import sempy.fabric" 2>/dev/null; then
-  echo "  semantic-link already installed"
-  actions+=("semantic-link: already installed")
-else
-  read -rp "  Install semantic-link (sempy.fabric) for semantic model inspection? [y/N] " _sempy_ans
-  if [[ "${_sempy_ans,,}" == "y" ]]; then
-    python -m pip install "semantic-link>=0.9"
-    actions+=("semantic-link: installed")
-  else
-    actions+=("semantic-link: skipped")
-  fi
+  actions+=(".venv already exists")
+  actions+=("Python helper libraries: skipped because .venv already exists")
 fi
 
 # ── Load existing .env ────────────────────────────────────────────────────────
@@ -194,16 +169,6 @@ fi
 # ── Credentials ───────────────────────────────────────────────────────────────
 echo ""
 echo "-- Credentials"
-
-if [[ -n "${FABRIC_WORKSPACE_ID:-}" ]]; then
-  echo "  FABRIC_WORKSPACE_ID already set — skipping"
-else
-  read -rp "  FABRIC_WORKSPACE_ID (Fabric workspace GUID): " ws_id
-  [[ -z "$ws_id" ]] && { echo "FABRIC_WORKSPACE_ID is required." >&2; exit 1; }
-  write_env_key "FABRIC_WORKSPACE_ID" "$ws_id"
-  export FABRIC_WORKSPACE_ID="$ws_id"
-  actions+=("FABRIC_WORKSPACE_ID written to .env")
-fi
 
 if [[ -n "${FABRIC_TENANT_ID:-}" ]]; then
   echo "  FABRIC_TENANT_ID already set — skipping"
@@ -244,6 +209,30 @@ if ! "${SCRIPT_DIR}/fab-sandbox" api workspaces --output_format json >/dev/null 
   exit 1
 fi
 actions+=("SPN auth verified")
+
+# Workspace registry is the only source for workspace/resource IDs.
+echo ""
+echo "-- Workspace registry"
+"${VENV_PY}" "${PROJECT_ROOT}/tool/workspace/init.py"
+actions+=("workspaces.json refreshed from Fabric API")
+
+if "${VENV_PY}" - <<'PY'
+import json
+from pathlib import Path
+
+registry = json.loads(Path("workspaces.json").read_text(encoding="utf-8"))
+active = registry.get("active")
+if active:
+    print(f"  Active workspace: {active}")
+else:
+    print("  No active workspace set. Run: python tool/workspace/switch.py list")
+    print("  Then run: python tool/workspace/switch.py <displayName>")
+PY
+then
+  actions+=("workspace registry checked")
+else
+  echo "Could not read workspaces.json after refresh." >&2
+fi
 
 echo ""
 echo "Setup complete."

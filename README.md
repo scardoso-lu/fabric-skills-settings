@@ -72,7 +72,7 @@ codex   # or: claude
 
 ### 2. Configure Fabric access in the target repository
 
-Minimum required Fabric workspace role: **Contributor**. Run the setup script — it will prompt for everything interactively. You do not need to edit `.env` manually.
+Minimum required Fabric workspace role: **Contributor**. Run the setup script to create the local `.venv`, install the Python helper libraries, authenticate Fabric access, and refresh the workspace registry. You do not need to edit `.env` manually.
 
 ```powershell
 # Windows
@@ -83,11 +83,10 @@ Minimum required Fabric workspace role: **Contributor**. Run the setup script �
 bash tool/setup/setup.sh
 ```
 
-The script prompts for four values in order, then authenticates immediately:
+The script prompts for service-principal credentials only:
 
 | Prompt | Stored where |
 |---|---|
-| `FABRIC_WORKSPACE_ID` | `.env` |
 | `FABRIC_TENANT_ID` | `.env` |
 | `FABRIC_CLIENT_ID` | `.env` |
 | `FABRIC_CLIENT_SECRET` | OS environment only — never `.env` |
@@ -168,7 +167,7 @@ git init -q "$tmp"
 | Profile | Installed into target repo |
 |---|---|
 | Codex | `AGENTS.md`, `.agents/skills/*/SKILL.md` copied from `profiles/skills/`, `.codex/agents/*.toml`, `.codex/config.toml` |
-| Claude | `CLAUDE.md`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `.claude/settings.json` |
+| Claude | `CLAUDE.md`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `.claude/settings.local.json` |
 | Shared | `memory/` including `memory/rules/`, placeholder `.env.example`, managed `.gitignore` block, `workspace/`, `data/sandbox/`, `contracts/`, `runbooks/`, `tool/` |
 
 

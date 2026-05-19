@@ -14,7 +14,7 @@ This repository is the source package and installer for Microsoft Fabric agent p
 |---|---|
 | `profiles/skills/` | Vendor-neutral skill source installed to `.agents/skills/` for Codex and `.claude/skills/` for Claude. |
 | `profiles/codex/` | Codex-native install assets: `AGENTS.md`, `.codex/agents`, and `.codex/config.toml`. |
-| `profiles/claude/` | Claude-native install assets: `CLAUDE.md`, `.claude/agents`, and `.claude/settings.json`. |
+| `profiles/claude/` | Claude-native install assets: `CLAUDE.md`, `.claude/agents`, and `.claude/settings.local.json`. |
 | `profiles/shared/project-layout/` | Shared target scaffolding installed into target repositories. Target tooling lives under `tool/`. |
 | `profiles/shared/memory/` | Shared installed memory seed files. Runtime profile sharing is limited to `memory/`. |
 | `tool/` | Source-package mirror of installable target tooling. Must stay byte-for-byte aligned with `profiles/shared/project-layout/tool/`. |

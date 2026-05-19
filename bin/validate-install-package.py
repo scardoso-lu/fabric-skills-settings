@@ -82,7 +82,9 @@ def validate_required(errors: list[str]) -> None:
     require(PROFILES / "codex" / "AGENTS.md", errors)
     require(PROFILES / "codex" / "config.toml", errors)
     require(PROFILES / "claude" / "CLAUDE.md", errors)
-    require(PROFILES / "claude" / "settings.json", errors)
+    require(PROFILES / "claude" / "settings.local.json", errors)
+    if (PROFILES / "claude" / "settings.json").exists():
+        error("profiles/claude/settings.json must not exist; Claude local installs use settings.local.json", errors)
     require(PROFILES / "shared" / "memory" / "MEMORY.md", errors)
     require(PROFILES / "shared" / ".env.example", errors)
     require(PROFILES / "shared" / ".gitignore.fragment", errors)
@@ -140,7 +142,7 @@ def validate_forbidden_text(errors: list[str]) -> None:
 
 
 def validate_safe_datalake_controls(errors: list[str]) -> None:
-    settings = PROFILES / "claude" / "settings.json"
+    settings = PROFILES / "claude" / "settings.local.json"
     if settings.exists():
         text = settings.read_text(errors="ignore")
         for phrase in ("Bash(fab *)", "Bash(rtk *)", "mcp__fabric__fabric_api_get"):
@@ -271,6 +273,28 @@ def validate_gitignore_fragment(errors: list[str]) -> None:
         )
 
 
+def validate_setup_registry_contract(errors: list[str]) -> None:
+    """Setup must derive workspace IDs from workspaces.json, not credential prompts."""
+    for location in [
+        ROOT / "tool" / "setup" / "setup.ps1",
+        ROOT / "tool" / "setup" / "setup.sh",
+        PROFILES / "shared" / "project-layout" / "tool" / "setup" / "setup.ps1",
+        PROFILES / "shared" / "project-layout" / "tool" / "setup" / "setup.sh",
+    ]:
+        if not location.exists():
+            continue
+        text = location.read_text(errors="ignore")
+        rel_path = location.relative_to(ROOT)
+        if "Fabric workspace GUID" in text:
+            errors.append(
+                f"{rel_path} must not prompt for FABRIC_WORKSPACE_ID; use tool/workspace/init.py and switch.py"
+            )
+        normalized = text.replace("\\", "/")
+        for phrase in (".venv", "semantic-link", "Faker", "tool/workspace/init.py"):
+            if phrase not in normalized:
+                errors.append(f"{rel_path} missing setup contract phrase {phrase!r}")
+
+
 def main() -> int:
     errors: list[str] = []
     validate_required(errors)
@@ -283,6 +307,7 @@ def main() -> int:
     validate_ps1_syntax(errors)
     validate_load_env_strips_comments(errors)
     validate_gitignore_fragment(errors)
+    validate_setup_registry_contract(errors)
 
     if errors:
         print("FAIL: install package validation failed")

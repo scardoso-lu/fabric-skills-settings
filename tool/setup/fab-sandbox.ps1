@@ -79,8 +79,14 @@ try {
         $env:FAB_TENANT_ID         = $env:FABRIC_TENANT_ID
     }
 
-    & $fab @args
-    $exitCode = $LASTEXITCODE
+    $savedErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & $fab @args
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $savedErrorActionPreference
+    }
 } finally {
     $env:USERPROFILE         = $savedUserProfile
     $env:HOMEDRIVE           = $savedHomeDrive

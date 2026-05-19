@@ -77,7 +77,9 @@ def validate_profiles(errors: list[str]) -> None:
     require(ROOT / "profiles" / "codex" / "AGENTS.md", errors)
     require(ROOT / "profiles" / "codex" / "config.toml", errors)
     require(ROOT / "profiles" / "claude" / "CLAUDE.md", errors)
-    require(ROOT / "profiles" / "claude" / "settings.json", errors)
+    require(ROOT / "profiles" / "claude" / "settings.local.json", errors)
+    if (ROOT / "profiles" / "claude" / "settings.json").exists():
+        errors.append("profiles/claude/settings.json must not exist; Claude local installs use settings.local.json")
     require(ROOT / "profiles" / "shared" / "memory" / "MEMORY.md", errors)
     require(ROOT / "profiles" / "shared" / "project-layout" / "memory" / "rules" / "data-engineering.md", errors)
     require(ROOT / "profiles" / "shared" / "project-layout" / "memory" / "rules" / "fabric-platform.md", errors)
@@ -102,7 +104,7 @@ def validate_profiles(errors: list[str]) -> None:
     if codex_agents != claude_agents:
         errors.append("Codex and Claude profile agents differ")
 
-    settings = ROOT / "profiles" / "claude" / "settings.json"
+    settings = ROOT / "profiles" / "claude" / "settings.local.json"
     if settings.exists():
         text = settings.read_text(errors="ignore")
         forbidden_permissions = [

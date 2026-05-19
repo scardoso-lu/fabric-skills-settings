@@ -95,7 +95,11 @@ mkdir -p workspace data/sandbox logs
 
 # Copy environment template
 cp .env.example .env
-# Fill FABRIC_WORKSPACE_ID.
+
+# Discover and select workspace/resource IDs from the registry
+python tool/workspace/init.py
+python tool/workspace/switch.py list
+python tool/workspace/switch.py <displayName>
 
 # Install Fabric CLI
 uv tool install ms-fabric-cli

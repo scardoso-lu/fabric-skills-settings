@@ -7,7 +7,7 @@ What each runtime loads automatically when started in a target repository (after
 | Source path | Claude target | Codex target |
 |---|---|---|
 | `profiles/claude/CLAUDE.md` | `CLAUDE.md` | — |
-| `profiles/claude/settings.json` | `.claude/settings.json` | — |
+| `profiles/claude/settings.local.json` | `.claude/settings.local.json` | — |
 | `profiles/skills/*/SKILL.md` | `.claude/skills/<skill>/SKILL.md` | `.agents/skills/<skill>/SKILL.md` |
 | `profiles/claude/agents/*.md` | `.claude/agents/<name>.md` | — |
 | `profiles/codex/AGENTS.md` | — | `AGENTS.md` |
@@ -24,7 +24,7 @@ The table shows all possible targets. `--profile claude` installs only the Claud
 ```mermaid
 flowchart TD
   A["Claude Code starts in target repo"] --> B["Auto-loads CLAUDE.md"]
-  B --> C["Auto-loads .claude/settings.json\n(permissions, hooks, MCP servers)"]
+B --> C["Auto-loads .claude/settings.local.json\n(permissions, hooks, MCP servers)"]
   C --> D["Reads .mcp.json → registers MCP tools"]
   B --> E["CLAUDE.md Session Start procedure\n(agent executes these steps)"]
   E --> F["Reads memory/MEMORY.md"]
@@ -64,7 +64,7 @@ flowchart TD
 | Concern | Claude Code | Codex |
 |---|---|---|
 | Primary guidance file | `CLAUDE.md` (root) | `AGENTS.md` (root) |
-| Runtime config | `.claude/settings.json` | `.codex/config.toml` |
+| Runtime config | `.claude/settings.local.json` | `.codex/config.toml` |
 | Agent definitions | `.claude/agents/*.md` | `.codex/agents/*.toml` |
 | Skills path | `.claude/skills/<skill>/SKILL.md` | `.agents/skills/<skill>/SKILL.md` |
 | MCP config | `.mcp.json` | `.mcp.json` |
