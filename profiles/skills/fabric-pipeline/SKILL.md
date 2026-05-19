@@ -29,6 +29,13 @@ description: Create, deploy, and test a Fabric Data Factory pipeline that chains
 ## Commands
 
 ```bash
+# 0. Confirm active workspace (every session, before any pipeline action)
+python tool/workspace/switch.py list
+# Stop. Ask: "Active workspace is '<displayName>'. Confirm to proceed?"
+# Do not run manage.py until the human confirms.
+# To deploy to a different workspace instead, use transfer.py:
+#   python tool/workspace/transfer.py --pipeline <topic> --to <displayName>
+
 # Full cycle: auto-discover notebooks, create/update pipeline, run, and monitor
 python tool/pipeline/manage.py test --topic lux_energy_price
 

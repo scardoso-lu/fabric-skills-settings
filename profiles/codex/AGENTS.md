@@ -4,17 +4,20 @@ This repository is the runtime workspace. Work from this repository root; do not
 
 ## Session Start - Run Every Session, In Order
 
-0. **Mandatory setup gate - before accepting any Fabric work, verify `.env`, `fab`, and `fab auth`:**
+0. **Mandatory setup gate - before accepting any Fabric work, verify `.env`, `fab`, and `fab auth`, and confirm the active workspace:**
 
    | Check | Pass | Fail - stop and show this |
    |---|---|---|
    | `.env` exists | file present | Human runs setup: Windows `.\tool\setup\setup.ps1` or Linux/Mac `bash tool/setup/setup.sh` |
-   | `FABRIC_WORKSPACE_ID` set | key present in `.env` | Human edits `.env`, sets `FABRIC_WORKSPACE_ID=<uuid>`, then reruns setup |
-   | `FABRIC_WAREHOUSE_HOST` set | key present in `.env` if project uses a Data Warehouse | Human gets it from Fabric UI, Data Warehouse, Settings, Connection strings, SQL connection string |
    | `fab` reachable | Windows: `tool\setup\fab-sandbox.ps1 --version` exits 0; Linux/Mac: `bash tool/setup/fab-sandbox --version` exits 0 | Human runs setup; it installs `ms-fabric-cli` via `uv tool install ms-fabric-cli` |
    | `fab` authenticated | Windows: `tool\setup\fab-sandbox.ps1 api workspaces --output_format json` exits 0; Linux/Mac: `bash tool/setup/fab-sandbox api workspaces --output_format json` exits 0 | Windows: `tool\setup\fab-sandbox.ps1 auth login`; Linux/Mac: `bash tool/setup/fab-sandbox auth login`. If the check fails due to network restriction, escalate and request network access before retrying. |
+   | Workspace registry | `workspaces.json` present in project root | Run `python tool/workspace/init.py` — queries the Fabric API and writes the complete workspace and resource registry |
+   | Active workspace set | `workspaces.json` has `"active"` field that is not null | Run `python tool/workspace/switch.py list`, then `python tool/workspace/switch.py <displayName>` |
+   | Active workspace confirmed | Human has confirmed the active workspace this session | Show `workspaces.json["active"]` value; **stop and ask**: "Active workspace is `<displayName>`. Proceed with this workspace?" — do not start any build, deploy, or pipeline action until confirmed |
 
-   Do **not** read `.env` contents or print values. Check only that the file exists and that required variable names are present. For example: Windows `Select-String -Path .env -Pattern FABRIC_WORKSPACE_ID -Quiet`; Linux/Mac `grep -q FABRIC_WORKSPACE_ID .env`.
+   Do **not** read `.env` contents or print values. Check only that the file and key names are present. Do **not** echo workspace IDs or resource IDs — refer to workspaces and resources by `displayName` only.
+
+   A workspace confirmation covers the whole session. Re-confirm only after the human explicitly runs `switch.py`.
 
    If **any check fails**, respond exactly:
    > "Setup incomplete. Fix the item(s) above - I will not start any Fabric task until setup passes."
@@ -62,6 +65,7 @@ The smoke test never deploys. It triggers a job on whatever is already in Fabric
 | Directory | Invoked by | Purpose |
 |---|---|---|
 | `tool/setup/` | Human once, agents verify only | `setup.ps1` / `setup.sh` environment bootstrap; `fab-sandbox` authenticated Fabric CLI wrapper; `fabric-inventory-readonly` read-only workspace/item lookup |
+| `tool/workspace/` | Developer agent, orchestrator | `init.py` discovers all workspaces and resources from the Fabric API; `switch.py` sets the active workspace and writes resource IDs to `.env`; `transfer.py` transfers notebooks and pipelines between workspaces |
 | `tool/data/` | Developer agent | `mock-data-generator.py` creates deterministic synthetic CSV files under `data/sandbox/` when no real source is available |
 | `tool/notebook/` | Developer agent | `build.py` compiles `.py` to `.Notebook`; `deploy.py` deploys, executes, monitors, and fetches through REST; `smoke-test.ps1` / `smoke-test.sh` triggers and monitors |
 | `tool/lakehouse/` | Developer agent, tester agent | `list-tables.py` lists lakehouse tables with column names and types |
@@ -71,11 +75,49 @@ The smoke test never deploys. It triggers a job on whatever is already in Fabric
 | `tool/mcp/` | Infrastructure | MCP server exposing repo-owned Fabric operations through the sandbox wrapper |
 | `tool/pre-commit-check.ps1` / `tool/pre-commit-check.sh` | Developer agent | Runs completion validators before reporting done |
 
+## Workspace Management
+
+All workspace and resource IDs come exclusively from `workspaces.json` — never from manually entered values or `.env` edits.
+
+### Discovery (once per session, after auth)
+
+```bash
+python tool/workspace/init.py
+```
+
+Queries the Fabric API for every accessible workspace and its Lakehouses, Warehouses, Notebooks, and DataPipelines. Writes the full API response to `workspaces.json`. Run this if `workspaces.json` is missing or stale.
+
+### Listing and switching
+
+```bash
+python tool/workspace/switch.py list           # show all discovered workspaces; marks active
+python tool/workspace/switch.py <displayName>  # set active workspace; writes resource IDs to .env
+```
+
+`switch.py` writes `FABRIC_WORKSPACE_ID`, `FABRIC_LAKEHOUSE_<NAME>`, `FABRIC_WAREHOUSE_<NAME>`, and `FABRIC_WAREHOUSE_HOST` into the auto-generated section of `.env`. Do not edit these values manually.
+
+After switching, remind the human to reload their Claude Code session — the MCP server reads `.env` only at startup.
+
+### Transferring artifacts between workspaces
+
+Transfer does **not** change the active workspace. Lakehouses and warehouses are matched by `displayName` (e.g. "Bronze", "Silver", "Gold", "DataWarehouse"). If a name is not found in the target workspace, the tool prompts the user for the ID — never abort silently.
+
+```bash
+# Transfer a single notebook to another workspace
+python tool/workspace/transfer.py --notebook <name>  --to <displayName>
+
+# Transfer all notebooks for a topic
+python tool/workspace/transfer.py --topic    <topic> --to <displayName>
+
+# Transfer a pipeline (notebooks must already be deployed in the target workspace)
+python tool/workspace/transfer.py --pipeline <topic> --to <displayName>
+```
+
 ## Operating Rules
 
 - Never ask for, echo, store, or commit credentials, tokens, connection strings, or real Fabric IDs.
-- Never commit `.env`, data files, logs, `fabric_notebooks/`, or generated build intermediates.
-- Humans must create the Fabric workspace and any lakehouses first and provide their names/IDs in `.env`.
+- Never commit `.env`, `workspaces.json`, data files, logs, `fabric_notebooks/`, or generated build intermediates.
+- Humans must create the Fabric workspace and any lakehouses first. Resource IDs are discovered automatically via `python tool/workspace/init.py`.
 - Agents may create or update notebook items and workspace folders automatically via `tool/notebook/deploy.py`.
 - Agents must not run `tool/setup/setup.ps1` or `tool/setup/setup.sh`; they verify setup state and report blockers.
 - All Fabric CLI/API access must route through `tool/setup/fab-sandbox.ps1` on Windows or `bash tool/setup/fab-sandbox` on Linux/Mac, or through a repo helper that uses that wrapper.

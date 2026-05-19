@@ -1,6 +1,7 @@
 # Fabric agent local/runtime files
 .env
 .env.*
+workspaces.json
 logs/
 fabric_notebooks/
 _delta_log/

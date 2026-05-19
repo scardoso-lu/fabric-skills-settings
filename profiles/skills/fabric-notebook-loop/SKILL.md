@@ -45,6 +45,13 @@ description: Develop Fabric notebooks using a local closed-loop cycle — author
 Deploy and smoke test are **separate steps**. The smoke test never deploys.
 
 ```bash
+# 0. Confirm active workspace (every session, before any build or deploy)
+python tool/workspace/switch.py list
+# Stop. Ask: "Active workspace is '<displayName>'. Confirm to proceed?"
+# Do not run build.py or deploy.py until the human confirms.
+# To deploy to a different workspace instead, use transfer.py:
+#   python tool/workspace/transfer.py --notebook <name> --to <displayName>
+
 # 1. Author locally
 # Edit workspace/<topic>/my_notebook.py with # %% markers.
 

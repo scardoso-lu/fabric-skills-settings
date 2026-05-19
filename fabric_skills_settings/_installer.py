@@ -36,6 +36,9 @@ REFRESHABLE_SCAFFOLD_MARKERS = {
     Path("tool/setup/setup.ps1"):                         "setup.ps1 - idempotent target repository setup for Fabric agent projects",
     Path("tool/setup/setup.sh"):                          "setup.sh - idempotent target repository setup for Fabric agent projects",
     Path("tool/validate/pipeline-lineage.py"):            "Verify staging-path consistency across notebooks in the same pipeline topic",
+    Path("tool/workspace/init.py"):                       "Discover all Fabric workspaces and resources from the API into workspaces.json",
+    Path("tool/workspace/switch.py"):                     "Switch the active Fabric workspace and write resource IDs to .env",
+    Path("tool/workspace/transfer.py"):                   "Transfer notebooks and pipelines across Fabric workspaces by name-matching",
 }
 PLACEHOLDER_VALUES = {
     "",
