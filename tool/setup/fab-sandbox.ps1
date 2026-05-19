@@ -82,8 +82,29 @@ try {
     $savedErrorActionPreference = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
     try {
-        & $fab @args
-        $exitCode = $LASTEXITCODE
+        # PS5.1 @args splatting strips embedded " when passing to native commands (known bug).
+        # Use ProcessStartInfo with explicit Windows arg quoting to avoid mangled JSON bodies.
+        function ConvertTo-WinArg([string]$s) {
+            $s = $s -replace '(\\*)"', '$1$1\"'  # double backslashes before each " then escape "
+            $s = $s -replace '(\\+)$', '$1$1'    # double trailing backslashes
+            '"' + $s + '"'
+        }
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $fab
+        $psi.Arguments = ($args | ForEach-Object { ConvertTo-WinArg $_ }) -join ' '
+        $psi.UseShellExecute = $false
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $proc = [System.Diagnostics.Process]::Start($psi)
+        # Start async reads before WaitForExit to prevent stdout/stderr buffer deadlocks
+        $stdoutTask = $proc.StandardOutput.ReadToEndAsync()
+        $stderrTask = $proc.StandardError.ReadToEndAsync()
+        $proc.WaitForExit()
+        $stdoutText = $stdoutTask.Result
+        $stderrText = $stderrTask.Result
+        if ($stdoutText) { [Console]::Out.Write($stdoutText) }
+        if ($stderrText) { [Console]::Error.Write($stderrText) }
+        $exitCode = $proc.ExitCode
     } finally {
         $ErrorActionPreference = $savedErrorActionPreference
     }
