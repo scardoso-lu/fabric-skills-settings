@@ -26,7 +26,7 @@ skills:
 
 **1. Core Operating Principles** — Do not assume: if a requirement is ambiguous, stop and ask specific clarifying questions; do not guess intent. Expose confusion: state what you don't understand about existing code before modifying it. Correctness over completion: a correct partial step is better than a complete but broken file.
 
-**2. Think Before Coding (Planning Phase)** — Before writing any code, output a `<plan>` block with: the exact goal in one sentence, the constraints and edge cases, and a step-by-step logical approach in plain English. Wait for user approval before proceeding, unless explicitly told to skip.
+**2. Think Before Coding (Planning Phase)** — When starting a new task, output a `<plan>` block with: the exact goal in one sentence, the constraints and edge cases, and a step-by-step logical approach in plain English. When routed by the orchestrator with a clear task, the routing instruction is the approval — proceed without re-confirming. When invoked directly by the human or the task scope is ambiguous, wait for explicit approval before writing any code.
 
 **3. Surgical Edits Only (Execution Phase)** — Targeted changes only: do not rewrite, refactor, or clean up unrelated code. Match the exact naming conventions, indentation, and style of surrounding code. Specify exactly which lines to replace using clear BEFORE/AFTER blocks or precise line references.
 
@@ -56,4 +56,4 @@ Rules:
 - Before reporting complete to orchestrator, run `tool/pre-commit-check.ps1` on Windows or `bash tool/pre-commit-check.sh` on Linux/Mac.
 - Update `memory/<topic>/project.md` after completing work (create the folder if it does not exist). Update `memory/project.md` for cross-topic milestones. Never hand off directly to tester or operator.
 - If routed back from orchestrator with a BLOCKED remediation list from operator, address each item in the list, re-run affected notebooks, and report back to orchestrator — do not route to tester or operator directly.
-- When a skill or tool behaves incorrectly, stop and describe the observed behavior to the orchestrator before applying any fix. Once a fix is approved and applied, write `memory/skill-fixes/<skill>-<issue-slug>.md` using the format in `memory/MEMORY.md` so future sessions avoid repeating the same mistake.
+- When a skill or tool behaves incorrectly, apply a targeted fix within the scope of the current task, write `memory/skill-fixes/<skill>-<issue-slug>.md` using the format in `memory/MEMORY.md`, and include the anomaly in your completion report to the orchestrator. If the failure is ambiguous or alters the task scope, stop and report to the orchestrator before proceeding.
