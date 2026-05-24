@@ -53,8 +53,34 @@ _KIND_PATH_TEMPLATES: dict[str, str] = {
 }
 
 
+def _validate_id_segments(node_id: str) -> None:
+    normalized = node_id.replace("\\", "/")
+    if normalized != node_id:
+        raise ValueError(f"node id contains invalid path separator: {node_id!r}")
+    if normalized.startswith("/") or ":" in normalized:
+        raise ValueError(f"node id must be repo-relative: {node_id!r}")
+    parts = normalized.split("/")
+    if any(part in {"", ".", ".."} for part in parts):
+        raise ValueError(f"node id contains invalid path segment: {node_id!r}")
+
+
+def _resolve_graph_path(root: Path, rel_path: str) -> Path:
+    normalized = rel_path.replace("\\", "/")
+    path = Path(normalized)
+    if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+        raise ValueError(f"path must be a safe repo-relative path: {rel_path!r}")
+    if id_from_path(normalized) is None:
+        raise ValueError(f"path is not in an indexed graph location: {rel_path!r}")
+    resolved_root = root.resolve()
+    target = (resolved_root / normalized).resolve()
+    if not target.is_relative_to(resolved_root):
+        raise ValueError(f"path escapes repository root: {rel_path!r}")
+    return target
+
+
 def default_path_for_id(node_id: str) -> str:
     """Map a node id to its canonical repo-relative path in a target repo."""
+    _validate_id_segments(node_id)
     prefix, _, rest = node_id.partition("/")
     if prefix in _KIND_PATH_TEMPLATES:
         template = _KIND_PATH_TEMPLATES[prefix]
@@ -173,11 +199,11 @@ def create_node(
             if store.has_node(node_id):
                 raise ValueError(f"node id already exists: {node_id}")
         rel_path = path or default_path_for_id(node_id)
+        target = _resolve_graph_path(root, rel_path)
         if id_from_path(rel_path) != node_id:
             raise ValueError(
                 f"path {rel_path!r} does not map to node id {node_id!r}"
             )
-        target = root / rel_path
         if target.exists():
             raise ValueError(f"file already exists: {rel_path}")
         fm = dict(frontmatter or {})
@@ -207,7 +233,7 @@ def update_node(
         if not store.has_node(node_id):
             raise ValueError(f"unknown node: {node_id}")
         rel_path = store.graph.nodes[node_id]["path"]
-        target = root / rel_path
+        target = _resolve_graph_path(root, rel_path)
         existing = target.read_text(encoding="utf-8")
         existing_fm, existing_body = parse_frontmatter(existing)
         new_fm = dict(existing_fm)
@@ -253,7 +279,7 @@ def delete_node(
                 + " (re-run with allow_orphans=True to override)"
             )
         rel_path = store.graph.nodes[node_id]["path"]
-        target = root / rel_path
+        target = _resolve_graph_path(root, rel_path)
         if target.exists():
             target.unlink()
         if allow_orphans:
@@ -317,7 +343,7 @@ def _add_curated_link_to_file(root: Path, store: GraphStore, src: str, dst: str)
     from .schema import parse_frontmatter
 
     rel_path = store.graph.nodes[src]["path"]
-    target = root / rel_path
+    target = _resolve_graph_path(root, rel_path)
     text = target.read_text(encoding="utf-8")
     fm, body = parse_frontmatter(text)
     existing_links = fm.get("links") or []
@@ -336,7 +362,7 @@ def _remove_curated_link_from_file(root: Path, store: GraphStore, src: str, dst:
     from .schema import parse_frontmatter
 
     rel_path = store.graph.nodes[src]["path"]
-    target = root / rel_path
+    target = _resolve_graph_path(root, rel_path)
     text = target.read_text(encoding="utf-8")
     fm, body = parse_frontmatter(text)
     existing_links = fm.get("links") or []

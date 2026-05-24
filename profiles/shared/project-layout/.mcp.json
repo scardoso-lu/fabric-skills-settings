@@ -9,7 +9,7 @@
     },
     "fabric-graph": {
       "type": "stdio",
-      "command": "python",
+      "command": ".venv\\Scripts\\python.exe",
       "args": [
         "tool/mcp/graph-server.py"
       ]

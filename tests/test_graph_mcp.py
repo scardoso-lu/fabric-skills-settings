@@ -159,6 +159,27 @@ def test_create_node_refuses_duplicate(server):
         })
 
 
+def test_create_node_rejects_path_traversal_id(server):
+    with pytest.raises(ValueError, match="invalid path segment"):
+        server._dispatch("graph_create_node", {
+            "id": "rules/../../../../tmp/pwn",
+            "body": "# pwn\n",
+            "frontmatter": {"name": "pwn", "kind": "rule"},
+        })
+    assert not (server.ROOT.parent / "tmp" / "pwn.md").exists()
+
+
+def test_create_node_rejects_path_traversal_path(server):
+    with pytest.raises(ValueError, match="safe repo-relative path"):
+        server._dispatch("graph_create_node", {
+            "id": "rules/pwn",
+            "path": "rules/../../../../tmp/pwn.md",
+            "body": "# pwn\n",
+            "frontmatter": {"name": "pwn", "kind": "rule"},
+        })
+    assert not (server.ROOT.parent / "tmp" / "pwn.md").exists()
+
+
 def test_update_node_replaces_body(server):
     server._dispatch("graph_create_node", {
         "id": "skill-fixes/upd", "body": "# old\nfirst\n",
