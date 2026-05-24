@@ -6,6 +6,10 @@ Fabric Agent Pack turns a normal git repository into a guided Microsoft Fabric p
 
 > This repository is the **source package and installer**, not the day-to-day Fabric project workspace. Install a profile into your actual project repository, then run Codex or Claude Code from that target repository root.
 
+**Overview**
+
+![Fabric Agent Pack](img/overview.png)
+
 ## Quick start
 
 ### Option A — pip install (recommended)
