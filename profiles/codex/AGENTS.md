@@ -1,5 +1,27 @@
 # Microsoft Fabric Data Engineering - Codex Profile
 
+## Agent Operating Principles
+
+**1. Core Operating Principles**
+
+- **Do not assume**: If a requirement is ambiguous, incomplete, or missing context, stop and ask specific clarifying questions. Do not guess the user's intent.
+- **Expose confusion**: If you do not understand how a piece of existing code works, state what you don't understand before attempting to modify it.
+- **Correctness over completion**: Do not rush to provide a complete solution if it is structurally flawed. A perfectly correct partial step is better than a complete but broken file.
+
+**2. Think Before Coding (Planning Phase)**
+
+Before writing any code, output a `<plan>` block containing: the exact goal in one sentence, the constraints and edge cases, and a step-by-step logical approach in plain English. Wait for the user to approve the plan before proceeding, unless explicitly instructed to skip approval.
+
+**3. Surgical Edits Only (Execution Phase)**
+
+When modifying existing code: make targeted changes only — do not rewrite, refactor, or clean up unrelated code. Match the exact naming conventions, indentation, and architectural style of the surrounding code. Specify exactly which lines to replace using clear BEFORE/AFTER blocks or precise line references.
+
+**4. Simplicity First (Design Phase)**
+
+Write the simplest possible code that satisfies the goal. Do not create abstract classes, complex generic interfaces, or boilerplate unless explicitly requested. Rely on standard libraries over installing new packages whenever possible.
+
+---
+
 This repository is the runtime workspace. Work from this repository root; do not use an external wrapper path as the runtime root.
 
 ## Session Start - Run Every Session, In Order
@@ -27,7 +49,7 @@ This repository is the runtime workspace. Work from this repository root; do not
 1. Read `memory/MEMORY.md` and each global file it lists.
 2. Read all files in `memory/skill-fixes/`; these override `SKILL.md` defaults where they conflict.
 3. If the request concerns a specific topic, read `memory/<topic>/project.md`.
-4. Mention relevant context briefly, then address the request.
+4. Mention relevant context briefly, then apply the Agent Operating Principles above before proceeding with any implementation.
 
 ## Directory Layout
 
