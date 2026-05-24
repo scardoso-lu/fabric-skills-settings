@@ -49,6 +49,9 @@ memory/*.md
 memory/runbooks/*.md
 memory/security/*.md
 
+# Knowledge graph build artifacts (rebuilt by bin/build-graph.py at install + refresh)
+memory/.graph/
+
 # OS / IDE
 .DS_Store
 Thumbs.db
