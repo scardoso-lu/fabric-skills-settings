@@ -132,6 +132,113 @@ def test_dispatch_rejects_unknown_tool(server):
         server._dispatch("graph_no_such_tool", {})
 
 
+def test_create_node_writes_file_and_updates_graph(server):
+    body = "# New rule\nSome content.\n"
+    payload = _parse_text(server._dispatch("graph_create_node", {
+        "id": "skill-fixes/test-fix",
+        "body": body,
+        "frontmatter": {"name": "test-fix", "description": "test fix", "kind": "skill-fix"},
+    }))
+    assert payload["action"] == "created"
+    assert payload["path"] == "memory/skill-fixes/test-fix.md"
+    written = (server.ROOT / "memory" / "skill-fixes" / "test-fix.md").read_text(encoding="utf-8")
+    assert "name: test-fix" in written
+    assert "Some content" in written
+
+
+def test_create_node_refuses_duplicate(server):
+    body = "# x\n"
+    server._dispatch("graph_create_node", {
+        "id": "skill-fixes/dup", "body": body,
+        "frontmatter": {"name": "dup", "kind": "skill-fix"},
+    })
+    with pytest.raises(ValueError, match="already exists"):
+        server._dispatch("graph_create_node", {
+            "id": "skill-fixes/dup", "body": body,
+            "frontmatter": {"name": "dup", "kind": "skill-fix"},
+        })
+
+
+def test_update_node_replaces_body(server):
+    server._dispatch("graph_create_node", {
+        "id": "skill-fixes/upd", "body": "# old\nfirst\n",
+        "frontmatter": {"name": "upd", "kind": "skill-fix"},
+    })
+    server._dispatch("graph_update_node", {
+        "id": "skill-fixes/upd", "body": "# old\nsecond\n",
+    })
+    text = (server.ROOT / "memory" / "skill-fixes" / "upd.md").read_text(encoding="utf-8")
+    assert "second" in text
+    assert "first" not in text
+
+
+def test_delete_node_refuses_inbound_curated_link(server):
+    server._dispatch("graph_create_node", {
+        "id": "skill-fixes/leaf",
+        "body": "# leaf\n",
+        "frontmatter": {"name": "leaf", "kind": "skill-fix"},
+    })
+    server._dispatch("graph_add_edge", {"src": "graph-content/entry", "dst": "skill-fixes/leaf"})
+    with pytest.raises(ValueError, match="refusing to delete"):
+        server._dispatch("graph_delete_node", {"id": "skill-fixes/leaf"})
+
+
+def test_delete_node_with_allow_orphans_cascades(server):
+    server._dispatch("graph_create_node", {
+        "id": "skill-fixes/leaf2", "body": "# leaf\n",
+        "frontmatter": {"name": "leaf2", "kind": "skill-fix"},
+    })
+    server._dispatch("graph_add_edge", {"src": "graph-content/entry", "dst": "skill-fixes/leaf2"})
+    server._dispatch("graph_delete_node", {"id": "skill-fixes/leaf2", "allow_orphans": True})
+    assert not (server.ROOT / "memory" / "skill-fixes" / "leaf2.md").exists()
+    entry_text = (server.ROOT / "memory" / "graph-content" / "entry.md").read_text(encoding="utf-8")
+    assert "skill-fixes/leaf2" not in entry_text
+
+
+def test_add_edge_persists_to_src_frontmatter(server):
+    payload = _parse_text(server._dispatch(
+        "graph_add_edge",
+        {"src": "graph-content/entry", "dst": "skills/fabric-transform"},
+    ))
+    assert payload["action"] == "edge-added"
+    text = (server.ROOT / "memory" / "graph-content" / "entry.md").read_text(encoding="utf-8")
+    assert "skills/fabric-transform" in text
+
+
+def test_remove_edge_refuses_auto_edge(server):
+    """Auto-path edges come from prose mentions and cannot be removed via the tool."""
+    # Create a node whose body mentions rules/security.md as inline path —
+    # the builder will register that as an auto-path edge, not curated.
+    server._dispatch("graph_create_node", {
+        "id": "skill-fixes/with-prose-link",
+        "body": "# fix\nSee rules/security.md for context.\n",
+        "frontmatter": {"name": "with-prose-link", "kind": "skill-fix"},
+    })
+    edge = server._load_graph().graph.get_edge_data("skill-fixes/with-prose-link", "rules/security")
+    assert edge["kind"] == "auto-path"
+    with pytest.raises(ValueError, match="auto edges"):
+        server._dispatch("graph_remove_edge", {
+            "src": "skill-fixes/with-prose-link", "dst": "rules/security",
+        })
+
+
+def test_remove_edge_succeeds_for_curated_edge(server):
+    """Curated edges (from `links:` frontmatter) can be removed by the tool."""
+    payload = _parse_text(server._dispatch("graph_remove_edge", {
+        "src": "graph-content/entry", "dst": "rules/security",
+    }))
+    assert payload["action"] == "edge-removed"
+    text = (server.ROOT / "memory" / "graph-content" / "entry.md").read_text(encoding="utf-8")
+    assert "- rules/security" not in text
+
+
+def test_add_edge_rejects_unknown_dst(server):
+    with pytest.raises(ValueError, match="unknown dst"):
+        server._dispatch("graph_add_edge", {
+            "src": "graph-content/entry", "dst": "ghost/node",
+        })
+
+
 def test_get_entry_errors_when_entry_node_missing(tmp_path):
     """If the content tree isn't installed yet, get_entry must fail with a clear message."""
     from graph.schema import Node

@@ -27,6 +27,7 @@ sys.path.insert(0, str(ROOT / "tool"))
 from graph.schema import parse_frontmatter  # noqa: E402
 from graph.search import BM25Index, build_bm25_index, load_index, search  # noqa: E402
 from graph.store import GraphStore  # noqa: E402
+from graph import writes as graph_writes  # noqa: E402
 
 GRAPH_DIR = ROOT / "memory" / ".graph"
 GRAPH_PATH = GRAPH_DIR / "graph.json"
@@ -187,7 +188,89 @@ def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     if name == "graph_list_kinds":
         return _text({"counts": store.kinds(), "total": store.graph.number_of_nodes(), "edges": store.graph.number_of_edges()})
 
+    if name == "graph_create_node":
+        node_id = str(arguments.get("id", "")).strip()
+        body = str(arguments.get("body", ""))
+        if not node_id or not body:
+            raise RuntimeError("graph_create_node requires 'id' and 'body'")
+        fm = arguments.get("frontmatter") or {}
+        if not isinstance(fm, dict):
+            raise RuntimeError("'frontmatter' must be an object")
+        links = arguments.get("links")
+        if links is not None and not isinstance(links, list):
+            raise RuntimeError("'links' must be a list of strings")
+        path = arguments.get("path") or None
+        result = graph_writes.create_node(
+            ROOT, node_id=node_id, body=body, frontmatter=fm,
+            links=list(links) if links else None,
+            path=str(path) if path else None,
+        )
+        _invalidate_caches()
+        return _text(_result_payload(result))
+
+    if name == "graph_update_node":
+        node_id = str(arguments.get("id", "")).strip()
+        if not node_id:
+            raise RuntimeError("graph_update_node requires 'id'")
+        body = arguments.get("body")
+        fm = arguments.get("frontmatter")
+        if body is None and fm is None:
+            raise RuntimeError("graph_update_node requires 'body' or 'frontmatter'")
+        if fm is not None and not isinstance(fm, dict):
+            raise RuntimeError("'frontmatter' must be an object")
+        result = graph_writes.update_node(
+            ROOT, node_id=node_id,
+            body=body if body is None else str(body),
+            frontmatter=fm,
+        )
+        _invalidate_caches()
+        return _text(_result_payload(result))
+
+    if name == "graph_delete_node":
+        node_id = str(arguments.get("id", "")).strip()
+        if not node_id:
+            raise RuntimeError("graph_delete_node requires 'id'")
+        allow_orphans = bool(arguments.get("allow_orphans", False))
+        result = graph_writes.delete_node(ROOT, node_id=node_id, allow_orphans=allow_orphans)
+        _invalidate_caches()
+        return _text(_result_payload(result))
+
+    if name == "graph_add_edge":
+        src = str(arguments.get("src", "")).strip()
+        dst = str(arguments.get("dst", "")).strip()
+        if not src or not dst:
+            raise RuntimeError("graph_add_edge requires 'src' and 'dst'")
+        result = graph_writes.add_edge(ROOT, src=src, dst=dst)
+        _invalidate_caches()
+        return _text(_result_payload(result))
+
+    if name == "graph_remove_edge":
+        src = str(arguments.get("src", "")).strip()
+        dst = str(arguments.get("dst", "")).strip()
+        if not src or not dst:
+            raise RuntimeError("graph_remove_edge requires 'src' and 'dst'")
+        result = graph_writes.remove_edge(ROOT, src=src, dst=dst)
+        _invalidate_caches()
+        return _text(_result_payload(result))
+
     raise RuntimeError(f"unknown tool: {name}")
+
+
+def _invalidate_caches() -> None:
+    global _store, _index, _index_mtime
+    _store = None
+    _index = None
+    _index_mtime = 0.0
+
+
+def _result_payload(result) -> dict[str, Any]:
+    return {
+        "id": result.node_id,
+        "path": result.path,
+        "action": result.action,
+        "nodes": result.nodes,
+        "edges": result.edges,
+    }
 
 
 def _text(payload: Any) -> dict[str, Any]:
@@ -240,6 +323,69 @@ TOOLS = [
         "name": "graph_list_kinds",
         "description": "Return a count of nodes by kind and the total node + edge counts. Useful for understanding the shape of the graph.",
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+    {
+        "name": "graph_create_node",
+        "description": "Author a new node. The underlying .md file is written atomically and the graph is rebuilt. Refuses to overwrite. Use this instead of Write/Edit when authoring knowledge content (e.g. a new skill-fix entry).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string", "description": "Canonical node id (e.g. skill-fixes/silver-do-not-trust-bronze-types)"},
+                "body": {"type": "string", "description": "Markdown body of the node (without frontmatter)."},
+                "frontmatter": {"type": "object", "description": "Top-level frontmatter fields (name, description, kind, metadata.*)."},
+                "links": {"type": "array", "items": {"type": "string"}, "description": "Optional list of node ids to add as curated outbound links."},
+                "path": {"type": "string", "description": "Optional explicit repo-relative path; defaults to the conventional path for the node kind."},
+            },
+            "required": ["id", "body"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "graph_update_node",
+        "description": "Modify an existing node's body and/or frontmatter. Atomic; rebuilds the graph after the write.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string"},
+                "body": {"type": "string", "description": "New markdown body (replaces existing). Omit to leave unchanged."},
+                "frontmatter": {"type": "object", "description": "Frontmatter fields to merge into the existing frontmatter. Omit to leave unchanged."},
+            },
+            "required": ["id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "graph_delete_node",
+        "description": "Delete a node and its file. Refuses if other nodes have curated edges pointing at it unless allow_orphans=true (cascade — also removes the curated links from the linking files).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string"},
+                "allow_orphans": {"type": "boolean", "description": "If true, cascade-remove curated links from other files that point at this node. Default false."},
+            },
+            "required": ["id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "graph_add_edge",
+        "description": "Add a curated edge from src to dst by appending to the src node's `links:` frontmatter. Refuses if either endpoint does not exist or if the edge already exists.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"src": {"type": "string"}, "dst": {"type": "string"}},
+            "required": ["src", "dst"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "graph_remove_edge",
+        "description": "Remove a curated edge from src to dst. Refuses if the edge is auto-extracted (auto edges are removed by editing the prose that mentions the target).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"src": {"type": "string"}, "dst": {"type": "string"}},
+            "required": ["src", "dst"],
+            "additionalProperties": False,
+        },
     },
 ]
 
