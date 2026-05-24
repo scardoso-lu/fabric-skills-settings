@@ -1,3 +1,9 @@
+---
+name: runbook
+description: Per-pipeline operational runbook — schedule, ownership, alerts, restart procedure, and SLOs.
+kind: template
+---
+
 # Runbook: [Pipeline Name]
 
 > Fill Phase 1 before the first run. Fill Phase 2 after the first successful run, when observed runtime, row counts, and failure modes are known.

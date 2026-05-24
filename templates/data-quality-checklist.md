@@ -1,3 +1,9 @@
+---
+name: data-quality-checklist
+description: Per-layer DQ checklist — row counts, null PKs, duplicate PKs, schema match, business-range checks.
+kind: template
+---
+
 # Data Quality Checklist
 
 Environment:

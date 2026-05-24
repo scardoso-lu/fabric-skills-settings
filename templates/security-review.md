@@ -1,3 +1,9 @@
+---
+name: security-review
+description: Security review checklist — credentials, PII handling, dependency CVEs, logging, and external access.
+kind: template
+---
+
 # Security Review
 
 ## Scope

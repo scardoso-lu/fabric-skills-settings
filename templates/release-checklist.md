@@ -1,3 +1,9 @@
+---
+name: release-checklist
+description: Pre-release checklist — DQ green, smoke tests pass, runbook + alerts wired, semantic-model refresh confirmed.
+kind: template
+---
+
 # Release Checklist
 
 ## Change

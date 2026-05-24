@@ -1,3 +1,9 @@
+---
+name: pipeline-brief
+description: Lightweight pipeline-design brief — source, target layers, contracts, thresholds, owner, and stop conditions.
+kind: template
+---
+
 # Pipeline Brief
 
 ## Business Purpose

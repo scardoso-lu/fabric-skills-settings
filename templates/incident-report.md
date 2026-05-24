@@ -1,3 +1,9 @@
+---
+name: incident-report
+description: Post-incident write-up — timeline, impact, root cause, remediation, and action items.
+kind: template
+---
+
 # Incident Report
 
 ## Summary

@@ -1,3 +1,9 @@
+---
+name: access-review
+description: Periodic access-review template — workspace members, service principals, lakehouse permissions, and audit log spot checks.
+kind: template
+---
+
 # Access Review
 
 ## Request
