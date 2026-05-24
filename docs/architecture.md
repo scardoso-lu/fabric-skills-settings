@@ -14,7 +14,7 @@ The installed `CLAUDE.md` / `AGENTS.md` entrypoints are minimal (~30 lines). The
 How knowledge enters the graph, gets indexed, and is served to the agent.
 
 ```mermaid
-flowchart LR
+flowchart TD
   subgraph Sources["Knowledge sources (source package)"]
     direction TB
     GC["profiles/shared/graph-content/**/*.md<br/>(entry, session, workflow, layout,<br/>diagnostics, semantic, indexes,<br/>integrations)"]
@@ -76,7 +76,7 @@ Key properties:
 What the agent reaches for. Skills are vendor-neutral markdown workflows under `profiles/skills/`; they shell out to runtime helpers under `tool/` and to MCP tools.
 
 ```mermaid
-flowchart TB
+flowchart LR
   Agent(["Claude Code / Codex agent"])
 
   subgraph FabricMCP["fabric MCP - tool/mcp/server.py"]
