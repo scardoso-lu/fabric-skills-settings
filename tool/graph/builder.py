@@ -16,6 +16,7 @@ DISCOVER_PATTERNS: tuple[tuple[str, str], ...] = (
     ("profiles/shared/memory/*.md", "memory"),
     ("rules/*.md", "rule"),
     ("templates/*.md", "template"),
+    ("memory/graph-content/**/*.md", "content"),
     ("memory/MEMORY.md", "memory"),
     ("memory/project.md", "memory"),
     ("memory/notebook-authoring.md", "memory"),
@@ -24,6 +25,8 @@ DISCOVER_PATTERNS: tuple[tuple[str, str], ...] = (
     ("memory/skill-fixes/*.md", "skill-fix"),
     ("memory/runbooks/*.md", "runbook"),
     ("memory/security/*.md", "security"),
+    (".claude/skills/*/SKILL.md", "skill"),
+    (".agents/skills/*/SKILL.md", "skill"),
 )
 
 SKIP_NAME_PARTS: frozenset[str] = frozenset(
