@@ -1,6 +1,11 @@
 ---
 name: orchestrator
 description: Scope Microsoft Fabric data engineering requests, route to developer, tester, or operator, and receive all results. Central hub — no agent communicates with another directly.
+links:
+  - agents/developer
+  - agents/tester
+  - agents/operator
+  - graph-content/session/session-start
 tools:
   - Read
   - Glob

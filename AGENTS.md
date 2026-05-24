@@ -18,9 +18,22 @@ This repository is the source package and installer for Microsoft Fabric agent p
 | `profiles/shared/project-layout/` | Shared target scaffolding installed into target repositories. Target tooling lives under `tool/`. |
 | `profiles/shared/memory/` | Shared installed memory seed files. Runtime profile sharing is limited to `memory/`. |
 | `tool/` | Source-package mirror of installable target tooling. Must stay byte-for-byte aligned with `profiles/shared/project-layout/tool/`. |
-| `bin/` | Source-package-only installer and validators. These files are not installed into target repositories. |
+| `bin/` | Source-package-only installer and validators (including `bin/build-graph.py` that builds the knowledge graph artifact). Not installed into target repositories. |
+| `tool/graph/` | networkx-backed knowledge graph package: schema, store, builder, search (BM25 + 1-hop edge-aware), CRUD writes, file lock. Indexed by `mcp__fabric-graph__*` tools. |
+| `profiles/shared/graph-content/` | Installed content tree (entry.md + session/, layout/, workflow/, diagnostics/, semantic/, indexes/, integrations/) that backs the hard-minimal profile. Copied to `memory/graph-content/` at install time. |
+| `profiles/shared/templates/` | Installed templates (runbook, incident-report, security-review, etc.). Mirror of the source-repo `templates/` tree; bundled into the wheel and copied to target `templates/` at install time. |
 | `fabric_skills_settings/` | Pip-installable Python package. `_installer.py` mirrors `bin/install-fabric-agent`; `profiles/` is bundled into the wheel as `_profiles/` by hatchling. |
 | `rules/` and `templates/` | Source material for Fabric safety, data engineering, runbooks, and human-facing templates. Rules are mirrored into installed target repos under `memory/rules/`. |
+
+## Knowledge Graph
+
+Installed target repositories use a graph-driven profile: `CLAUDE.md` and `AGENTS.md` are ~30 lines that only describe how to call `mcp__fabric-graph__*` tools. All operational content (setup gate, pipeline structure, skills, rules, semantic models, memory) is stored as nodes in a networkx graph and discovered by traversal.
+
+- Profile entrypoints (`profiles/claude/CLAUDE.md`, `profiles/codex/AGENTS.md`) must stay ≤ 50 lines and must NOT contain operational section headings. `bin/validate-agent-guidance.py` enforces this.
+- Content nodes live under `profiles/shared/graph-content/<domain>/<slug>.md`. Edges come from frontmatter `links:` (curated) and from raw `path/to/file.md` mentions in prose (auto-extracted).
+- The graph is built by `bin/build-graph.py` and serialized to `memory/.graph/graph.json` plus a BM25 index at `memory/.graph/graph-bm25.pkl` in target repos (gitignored).
+- Long skills (> 150 lines) are split into `profiles/skills/<skill>/sections/<slug>.md` with a thin parent `SKILL.md` index. `tests/test_skill_split_coverage.py` declares the per-skill SPLIT_SKILLS table that gates the split.
+- Two MCP servers ship with the install: `fabric` (existing CLI wrapper, `tool/mcp/server.py`) and `fabric-graph` (new, `tool/mcp/graph-server.py`).
 
 ## Skill Source
 

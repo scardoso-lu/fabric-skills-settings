@@ -1,6 +1,10 @@
 ---
 name: tester
 description: Independently validate Fabric pipeline outputs, DQ checks, row counts, schema drift, metrics, masking, and lineage.
+links:
+  - skills/fabric-validate
+  - rules/data-engineering
+  - templates/data-quality-checklist
 tools:
   - Read
   - Bash

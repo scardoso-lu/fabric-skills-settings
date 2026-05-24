@@ -1,6 +1,14 @@
 ---
 name: developer
 description: Implement Microsoft Fabric PySpark, SQL, notebook, pipeline, and repo maintenance work.
+links:
+  - skills/fabric-ingest
+  - skills/fabric-transform
+  - skills/fabric-model
+  - skills/fabric-notebook-loop
+  - skills/fabric-pipeline
+  - rules/data-engineering
+  - rules/security
 tools:
   - Read
   - Write
