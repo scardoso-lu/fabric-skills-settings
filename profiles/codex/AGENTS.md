@@ -37,6 +37,9 @@ workspace/
     <name>.py            <- transient working source (# %% cells); removed after successful fetch
     <name>.Notebook/     <- canonical git artifact; ready for human commit after every passing run,
                            synced with Fabric UI via Git integration
+    semantic-model/      <- TMDL definitions for any Power BI semantic model exposing topic tables
+      <model>.tmdl       <- table + measure definitions (source of truth)
+      README.md          <- UI creation walkthrough
 
 fabric_notebooks/        <- build intermediates (gitignored), do not commit
   <topic>/
@@ -124,12 +127,15 @@ python tool/workspace/transfer.py --pipeline <topic> --to <displayName>
 - Use `memory/rules/fabric-platform.md`, `memory/rules/data-engineering.md`, and `memory/rules/security.md` as active runtime rules; they are installed from the source package `rules/` folder.
 - Source contracts belong in notebook `# %% [contract]` cells as Python dataclasses, not YAML files.
 - Thresholds belong in notebook `# %% [parameters]` cells so Fabric pipeline parameters can override them.
-- Keep download, ingestion, and data quality separate: `download_<source>.py` fetches, `bronze_<source>.py` ingests only new files, and `dq_bronze_<source>.py` validates.
+- Keep every layer in its own notebook: `download_<source>.py`, `bronze_<source>.py`, `dq_bronze_<source>.py`, then optionally `silver_<source>.py`, `dq_silver_<source>.py`, `features_<source>.py`, `dq_features_<source>.py`, `train_<source>.py`, `predict_<source>.py`. Never collapse two layers into one notebook.
 - If no source files exist for a new or demo topic, use the `mock-data` skill and `python tool/data/mock-data-generator.py`. Always pass `--schema '<json>'` or `--schema-file <path>` derived from the target table.
+- Silver and downstream notebooks must NOT trust bronze column types — bronze tables drift via `mergeSchema=true`. Verify with `DESCRIBE TABLE bronze_<source>` before authoring, and derive computable columns (date, hour, quarter) from authoritative timestamps rather than casting bronze. See `memory/skill-fixes/silver-do-not-trust-bronze-types.md`.
 
 ## Pipeline Structure
 
-Every data source topic starts with exactly three notebooks:
+Every data source topic starts with exactly three notebooks. Topics that proceed to analytics or ML add layers on top — each layer in its own notebook, never collapsed.
+
+### Base layer (always required)
 
 | Notebook | Naming | Responsibility |
 |---|---|---|
@@ -137,7 +143,41 @@ Every data source topic starts with exactly three notebooks:
 | Ingestion | `bronze_<source>.py` | Read sandbox files, compare against Bronze Delta table, process only new files, then MERGE or partition-overwrite. Never full-overwrite. |
 | Data quality | `dq_bronze_<source>.py` | Great Expectations checks for row count, null PKs, duplicate PKs, schema match, and business sanity. Print structured PASS/FAIL per check and raise on any failure. |
 
-A single notebook that downloads, ingests, and overwrites is always wrong. The developer agent may create the DQ notebook scaffold; the tester agent owns independent validation logic and final DQ validation.
+### Silver layer (optional — clean and conformed)
+
+| Notebook | Naming | Responsibility |
+|---|---|---|
+| Silver transform | `silver_<source>.py` | SQL-first MERGE from bronze into `silver_<source>` Delta. Cast all columns explicitly. Dedup by PK keeping latest `_ingest_ts`. Drop null-PK rows with a logged count (never silent). Derive computable columns from authoritative timestamps; do NOT cast bronze columns whose type may have drifted. |
+| Silver DQ | `dq_silver_<source>.py` | Row count, no null PKs, no duplicate PKs, schema match, business range checks. PASS/FAIL with raise. |
+
+### ML layer (optional — forecasting / scoring)
+
+| Notebook | Naming | Responsibility |
+|---|---|---|
+| Features | `features_<source>.py` | Build feature Delta table from silver. Lag columns, rolling stats, calendar attributes. MERGE on PK. |
+| Features DQ | `dq_features_<source>.py` | PK uniqueness, target presence, lag-coverage thresholds, schema match. |
+| Train | `train_<source>.py` | Train model, log params/metrics/artifact to MLflow, register model. **Runs interactively in Fabric UI only** — SPN-triggered runs fail with `MwcTokenValidationException`. See `memory/skill-fixes/fabric-mlflow-spn-blocked.md`. MLflow experiment names: only `[A-Za-z0-9_-]`, must start with letter/digit. See `memory/skill-fixes/fabric-mlflow-experiment-name.md`. |
+| Predict | `predict_<source>.py` | Load registered model from MLflow, score the forecast horizon, write `forecast_<source>` Delta. Also runs interactively when it uses `models:/.../latest`. For closed-loop scoring, switch persistence to `joblib` under `Files/models/`. |
+
+A single notebook that combines two of these responsibilities is always wrong. The developer agent may create DQ notebook scaffolds; the tester agent owns independent validation logic and final DQ validation.
+
+## Smoke-test Diagnostics
+
+`tool/notebook/deploy.py monitor` reports only the generic Spark failure message; it does **not** surface cell-level tracebacks. When a smoke test prints `System cancelled the Spark session due to statement execution failures`, do not guess at fixes — open the failed run in the Fabric UI for the cell traceback, instrument the source `.py` with `try/except` + `traceback.format_exc()`, or bisect by commenting cells. See `memory/skill-fixes/smoke-test-cell-errors.md`.
+
+## Semantic Models
+
+Semantic models (Power BI datasets) live under `workspace/<topic>/semantic-model/` and have two files:
+
+- `<model>.tmdl` — authoritative TMDL definition: column mappings, format strings, hidden columns, DAX measures
+- `README.md` — UI walkthrough to create the Direct Lake model from the underlying lakehouse table and paste the TMDL
+
+Per the `semantic-model` skill, **agents do not create or modify semantic models via REST API**. Author TMDL in the repo as the source of truth; humans create the Direct Lake model in the Fabric UI ("New semantic model" from the lakehouse) and paste the TMDL via the editor's TMDL view. Re-runs of the source predict/transform notebooks update the model via Direct Lake automatically.
+
+Direct Lake limitations to respect when authoring TMDL:
+- No calculated columns — every visible column must come from the underlying Delta table.
+- Measures (pure DAX) are fully supported.
+- Hide engineering/lineage columns (`_ingest_ts`, lag columns, raw tracking fields) via `isHidden`.
 
 ## Skills
 

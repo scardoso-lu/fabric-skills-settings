@@ -11,6 +11,8 @@ description: Transform Bronze data into Silver — clean, deduplicate, enforce s
 - Use Delta MERGE for upserts — never plain APPEND to Silver
 - Preserve lineage envelope columns from Bronze
 - Log rows dropped due to null PKs — never drop silently
+- Verify the bronze schema with `DESCRIBE TABLE bronze_<source>` (or `spark.table(...).schema`) **before** authoring silver — bronze types drift via `mergeSchema=true` and may not match the current `bronze_<source>.py`
+- Derive computable columns (date, hour, quarter, weekday flag) in silver from the authoritative timestamp — do NOT trust a stored `*_date` / `*_hour` column in bronze whose type may have drifted to DOUBLE or STRING
 
 ## PREFER
 
@@ -27,6 +29,8 @@ description: Transform Bronze data into Silver — clean, deduplicate, enforce s
 - `df.show()` or `print(df)` in production notebooks
 - Zero-filling numeric nulls (hides data quality issues from downstream)
 - Any DQ assertion logic — that belongs in the separate `dq_silver_<source>.py` notebook
+- Trusting bronze column types from the latest `bronze_<source>.py` source — earlier runs with a different schema may have permanently mutated the Delta table; only `DESCRIBE TABLE` is authoritative
+- Casting a derivable bronze column (`price_date_lu`, `price_hour_lu`, etc.) directly — re-derive from the authoritative timestamp instead
 
 ---
 
@@ -158,3 +162,41 @@ silver.alias("target").merge(
 ```python
 spark.sql(f"OPTIMIZE delta.`{silver_path}` ZORDER BY (event_date, customer_id)")
 ```
+
+## Bronze Type Drift — Re-derive, Don't Cast
+
+Bronze tables are written with `mergeSchema=true`. An earlier run with a different schema permanently mutates Delta column types; a later-fixed `bronze_<source>.py` does **not** rewrite the table. The current source `.py` therefore does NOT describe the actual table.
+
+Authoring rule: before silver, query the live bronze schema, then re-derive any column that can be computed from a more fundamental column.
+
+```python
+# 1. Check the live bronze schema (don't trust the .py)
+spark.sql("DESCRIBE TABLE bronze_<source>").show(50, truncate=False)
+
+# 2. Re-derive computable columns from the authoritative timestamp
+#    instead of casting bronze's stored *_date / *_hour / *_quarter
+spark.sql("""
+    SELECT
+        price_id,
+        CAST(price_datetime_utc AS TIMESTAMP)                                  AS price_datetime_utc,
+        from_utc_timestamp(CAST(price_datetime_utc AS TIMESTAMP),
+                           'Europe/Luxembourg')                                AS price_datetime_lu,
+        CAST(from_utc_timestamp(CAST(price_datetime_utc AS TIMESTAMP),
+                                'Europe/Luxembourg') AS DATE)                  AS price_date_lu,
+        HOUR(from_utc_timestamp(CAST(price_datetime_utc AS TIMESTAMP),
+                                'Europe/Luxembourg'))                          AS price_hour_lu,
+        _ingest_ts
+    FROM bronze_<source>
+    WHERE price_id IS NOT NULL
+""")
+```
+
+What IS safe to read from bronze:
+- The primary timestamp written by source parsing (`*_datetime_utc`)
+- `_ingest_ts` — always written by `current_timestamp()` in Spark
+
+What is NOT safe to read at face value:
+- Any string field that *should* be a date — verify the live type first
+- Any derived column (date, hour, quarter) — re-derive in silver
+
+See `memory/skill-fixes/silver-do-not-trust-bronze-types.md` for the incident this rule comes from.
