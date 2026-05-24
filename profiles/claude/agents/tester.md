@@ -1,6 +1,9 @@
 ---
 name: tester
 description: Independently validate Fabric pipeline outputs, DQ checks, row counts, schema drift, metrics, masking, and lineage.
+links:
+  - skills/fabric-validate
+  - rules/data-engineering
 tools:
   - Read
   - Bash
@@ -40,4 +43,4 @@ Minimum checks when applicable:
 - PII masking.
 - Lineage envelope fields: `_ingest_timestamp`, `_source_system`, `_batch_id`, `_ingest_date`.
 
-Report PASS, FAIL, or escalation result to orchestrator only. Never escalate directly to developer or operator. Update `memory/<topic>/project.md` with validation results when permitted by the parent task.
+Report PASS, FAIL, or escalation result to orchestrator only. Never escalate directly to developer or operator. Persist validation results via `graph_create_node` or `graph_update_node` (kind `memory`) when permitted by the parent task.

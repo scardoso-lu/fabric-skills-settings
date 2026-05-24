@@ -1,85 +1,89 @@
-# Fabric Agent Pack - Codex Contributor Guidance
+# Fabric Agent Pack — Codex Contributor Guidance
 
-This repository is the source package and installer for Microsoft Fabric agent profiles. It is not the runtime workspace for Fabric projects. Install a profile into a target repository with `bin/install-fabric-agent`, then run Codex from that target repository root.
+This repository is the source package and installer for Microsoft Fabric agent profiles. It is not the day-to-day Fabric project workspace. Install a profile into a target repo with `bin/install-fabric-agent` (or `pip install fabric-skills-settings`), then run Codex from that target repo root.
 
-## Session Start
+## Architecture at a glance
 
-1. Read `memory/MEMORY.md`.
-2. Read `memory/project.md` if it exists.
-3. Mention relevant context briefly, then address the request.
+Two MCP servers ship with every install:
 
-## Source Package Layout
+- **`fabric`** (`tool/mcp/server.py`) — wraps the Fabric CLI: list/get items and authenticated REST API calls.
+- **`fabric-graph`** (`tool/mcp/graph-server.py`) — RAG knowledge graph: BM25 + 1-hop edge-aware read tools plus full CRUD over nodes and edges.
+
+The installed target's `AGENTS.md` is ~30 lines and points agents at `graph_get_entry` first. All operational knowledge — setup gate, session-start order, workflow, skills, tools, rules — lives in graph nodes. There is no static `memory/project.md`, `memory/runbooks/`, `memory/security/`, or `templates/`; those are now graph nodes accessed and updated via `graph_*` MCP tools.
+
+See [`docs/architecture.md`](docs/architecture.md) for diagrams.
+
+## Source package layout
 
 | Path | Purpose |
 |---|---|
-| `profiles/skills/` | Vendor-neutral skill source installed to `.agents/skills/` for Codex and `.claude/skills/` for Claude. |
-| `profiles/codex/` | Codex-native install assets: `AGENTS.md`, `.codex/agents`, and `.codex/config.toml`. |
-| `profiles/claude/` | Claude-native install assets: `CLAUDE.md`, `.claude/agents`, and `.claude/settings.local.json`. |
-| `profiles/shared/project-layout/` | Shared target scaffolding installed into target repositories. Target tooling lives under `tool/`. |
-| `profiles/shared/memory/` | Shared installed memory seed files. Runtime profile sharing is limited to `memory/`. |
-| `tool/` | Source-package mirror of installable target tooling. Must stay byte-for-byte aligned with `profiles/shared/project-layout/tool/`. |
-| `bin/` | Source-package-only installer and validators. These files are not installed into target repositories. |
-| `fabric_skills_settings/` | Pip-installable Python package. `_installer.py` mirrors `bin/install-fabric-agent`; `profiles/` is bundled into the wheel as `_profiles/` by hatchling. |
-| `rules/` and `templates/` | Source material for Fabric safety, data engineering, runbooks, and human-facing templates. Rules are mirrored into installed target repos under `memory/rules/`. |
+| `profiles/skills/` | Skill source. Single source of truth — installer copies to `.claude/skills/` and `.agents/skills/`. |
+| `profiles/codex/` | Codex-native install assets: `AGENTS.md`, `.codex/agents`, `.codex/config.toml`. |
+| `profiles/claude/` | Claude-native install assets: `CLAUDE.md`, `.claude/agents`, `.claude/settings.local.json`. |
+| `profiles/shared/graph-content/` | Knowledge-graph content tree (`entry.md`, `session/`, `workflow/`, `layout/`, `indexes/`, `integrations/`, `diagnostics/`, `semantic/`). Copied to `memory/graph-content/` at install. |
+| `profiles/shared/memory/` | Empty placeholder (just `.gitkeep`). Installed to target as `memory/` so the `fabric-graph` MCP server has a writable graph root. |
+| `profiles/shared/project-layout/` | Target scaffolding (`tool/`, `memory/rules/`, `.mcp.json`). |
+| `tool/` | **Runtime** tooling. Source-package mirror of `profiles/shared/project-layout/tool/`; parity is enforced. |
+| `tool/graph/` | Runtime graph package: `schema`, `store`, `search` (BM25 + 1-hop), `writes` (CRUD), `lock`, `builder`, `extract`. |
+| `tool/mcp/` | The two MCP servers: `server.py` (`fabric`), `graph-server.py` (`fabric-graph`). |
+| `build/graph_build/` | **Build-time only** modules used by `bin/build-*.py`. NOT installed into target repos. |
+| `rules/` | Source for security / data-engineering / fabric-platform rules. Mirrored to `memory/rules/` at install. |
+| `bin/` | Source-package-only: installer, validators, graph builders. Not installed. |
+| `fabric_skills_settings/` | Pip-installable wheel. `_installer.py` mirrors `bin/install-fabric-agent`; profiles bundled as `_profiles/` by hatchling. |
 
-## Skill Source
+## Knowledge graph
 
-Skill source files live only under `profiles/skills/`. The installer copies that same tree to `.agents/skills/` for Codex and `.claude/skills/` for Claude.
+- **Sources**: `profiles/shared/graph-content/**/*.md`, `profiles/shared/memory/*.md`, `profiles/skills/*/SKILL.md` (+ `sections/`), `rules/*.md`, `memory/skill-fixes/*.md`. Curated edges come from frontmatter `links:`; auto edges from raw `path/to/file.md` mentions in prose.
+- **Build**: `bin/build-graph.py` writes `memory/.graph/graph.json` + `memory/.graph/graph-bm25.pkl` + `memory/.graph/materialized-graph.svg`.
+- **Derived capability graph**: `bin/build-agent-capability-graph.py` writes `agent-capabilities.json` + `agent-capabilities.svg`. Groups knowledge nodes under the 4 subagents (orchestrator, developer, tester, operator) using their native frontmatter `links:` + `skills:` as the source of truth.
+- **CRUD at runtime**: every `graph_create_node` / `graph_update_node` / `graph_delete_node` / `graph_add_edge` / `graph_remove_edge` call triggers an atomic rebuild via `tool/graph/writes.py`.
+- **Entrypoint limits**: `profiles/claude/CLAUDE.md` and `profiles/codex/AGENTS.md` must stay ≤ 50 lines and contain no operational section headings. Enforced by `bin/validate-agent-guidance.py`.
 
-Installed skills:
+## Skills
 
-- `fabric-ingest`
-- `fabric-transform`
-- `fabric-model`
-- `fabric-validate`
-- `fabric-notebook-loop`
-- `fabric-ops`
-- `fabric-pipeline`
-- `mock-data`
-- `semantic-model`
-- `prd`
-- `grill-me`
-- `git-commit`
-- `caveman`
+Skill source files live only under `profiles/skills/`. Installed skills:
 
-## Installed Target Tooling
+`rtk`, `fabric-ingest`, `fabric-transform`, `fabric-model`, `fabric-validate`, `fabric-notebook-loop`, `fabric-ops`, `fabric-pipeline`, `semantic-model`, `mock-data`, `prd`, `grill-me`, `git-commit`, `caveman`.
 
-The installer copies `profiles/shared/project-layout/tool/` into target repositories as `tool/`:
+Long skills (> 150 lines) are split into `sections/` under the skill folder with a thin parent `SKILL.md` index. The split is gated by the `SPLIT_SKILLS` table in `tests/test_skill_split_coverage.py`.
 
-| Target path | Purpose |
+## Installed target tooling
+
+| Path | Purpose |
 |---|---|
-| `tool/setup/` | Human one-time setup, Fabric CLI sandbox wrappers, and read-only inventory helpers. Agents verify setup state; they do not run setup repair. |
-| `tool/data/` | Deterministic synthetic CSV generator for staged topics. |
-| `tool/notebook/` | Notebook build, deploy, smoke-test, fetch, run, and monitor helpers. |
-| `tool/pipeline/` | Data Factory pipeline create, update, run, status, list, and test helper. |
-| `tool/lakehouse/` | Lakehouse table and schema inspection helper. |
-| `tool/semantic-model/` | Fabric Semantic Model inspection via sempy.fabric: lists models and shows tables, DAX measures, and relationships. |
+| `tool/setup/` | One-time human setup, Fabric CLI sandbox wrappers, read-only inventory. |
+| `tool/data/` | Deterministic synthetic CSV generator. |
+| `tool/notebook/` | Notebook build, deploy, smoke-test, fetch, run, monitor. |
+| `tool/pipeline/` | Data Factory pipeline create / update / run / status / list / test. |
+| `tool/lakehouse/` | Lakehouse table and schema inspection. |
+| `tool/semantic-model/` | Semantic Model inspection via `sempy.fabric`. |
 | `tool/validate/` | Local pipeline-lineage validators. |
-| `tool/mcp/` | Fabric MCP server used by installed agent profiles. |
-| `tool/pre-commit-check.ps1` / `tool/pre-commit-check.sh` | Completion check used by developer guidance before reporting done. |
+| `tool/graph/` | Graph runtime (schema, store, search, writes, lock). |
+| `tool/mcp/` | `fabric` and `fabric-graph` MCP servers. |
+| `tool/pre-commit-check.{ps1,sh}` | Completion check used before reporting done. |
 
-## File Scanning
+## File scanning
 
-When searching or globbing files in this repository, always exclude `.venv/`. It contains third-party packages and will produce irrelevant matches and slow scans.
+Always exclude `.venv/` when searching — it contains third-party packages and produces noisy matches.
 
-## Development Rules
+## Development rules
 
-- Keep vendor-specific runtime assets inside their profile folders; do not put runtime Claude assets at repository root `.claude/` or runtime Codex assets outside `profiles/codex/`.
-- Keep skill source files only under `profiles/skills/`; this is the single source copied to both `.claude/skills/` and `.agents/skills/`.
-- Profiles own agents, skills, entrypoint guidance, and settings. Shared runtime state is `memory/` only.
-- Do not reintroduce the wrapper runtime model or external-wrapper path operation into installed profile guidance.
-- Add or change installable helper files in both `tool/<area>/...` and `profiles/shared/project-layout/tool/<area>/...`; `bin/validate-install-package.py` enforces mirror parity.
-- If installer refresh behavior must recognize a helper, update `REFRESHABLE_SCAFFOLD_MARKERS` in both `bin/install-fabric-agent` and `fabric_skills_settings/_installer.py`.
-- When modifying installer logic, keep `bin/install-fabric-agent` and `fabric_skills_settings/_installer.py` in sync. Run `uv build` to verify the wheel bundles the correct content.
-- Never commit `.env`, credentials, tokens, connection strings, data files, logs, generated Fabric notebook bundles, or `__pycache__/`.
-- Use placeholders only in `.env.example` files.
-- Fabric CLI wrappers and helpers must not execute caller-controlled binaries. Do not reintroduce `FAB_BIN`, PATH-based `fab` discovery, or arbitrary `fab` command resolution.
-- Fabric credentials must be passed through environment variables or approved secret stores, never command-line arguments.
-- RTK setup must stay pinned to a specific release and verify downloaded assets against the release checksum before execution or extraction.
+- Keep vendor-specific runtime assets inside their profile folders. No root `.claude/` or `.codex/` directories.
+- Skill source is single-source under `profiles/skills/`. Do not duplicate elsewhere.
+- Profiles own agents, skills, entrypoints, and settings. Runtime state shared between Codex and Claude is `memory/` only.
+- Build-time graph code (`build/graph_build/`) is NOT installed into target repos; only runtime code (`tool/graph/`) is. Don't reintroduce build modules under `tool/`.
+- When changing installable helpers, edit both `tool/<area>/...` and `profiles/shared/project-layout/tool/<area>/...`; `bin/validate-install-package.py` enforces parity.
+- When changing installer logic, keep `bin/install-fabric-agent` and `fabric_skills_settings/_installer.py` in sync. Run `uv build` to verify the wheel content.
+- If installer refresh must recognize a helper, update `REFRESHABLE_SCAFFOLD_MARKERS` in both installer scripts.
+- Never commit `.env`, credentials, tokens, connection strings, data files, logs, generated notebook bundles, or `__pycache__/`.
+- Use placeholders only in `.env.example`.
+- Fabric CLI wrappers must not execute caller-controlled binaries. Do not reintroduce `FAB_BIN`, PATH-based `fab` discovery, or arbitrary `fab` command resolution.
+- Fabric credentials pass through environment variables or approved secret stores only — never command-line arguments.
+- RTK setup stays pinned to a specific release and verifies downloaded assets against the release checksum.
 
-## Required Checks
+## Required checks
 
-After changing profiles, installer logic, guidance, validation, or installable tooling, run from this source package repo:
+After changing profiles, installer logic, guidance, validation, or installable tooling:
 
 ```bash
 uv run bin/validate-install-package.py
@@ -89,14 +93,14 @@ uv run --group dev pytest
 
 Run the unit tests after any change to `tool/notebook/build.py` or `tool/pipeline/manage.py`.
 
-For installer or profile-file changes, also check an installed target or run a disposable-target smoke test:
+For installer or profile changes, also run a disposable-target smoke test:
 
 ```bash
 python bin/install-fabric-agent --profile all --target <target-repo> --check
 ```
 
-Do not run source-package validators from an installed target repository; they are not installed there.
+Do not run source-package validators from an installed target repo; they are not installed there.
 
-## Commit / PR Handoff
+## Commit / PR handoff
 
-Summarize what changed, which validations were run, whether a target-repo smoke test was performed, and any validation failures or limitations encountered.
+State what changed, which validations were run, whether a target-repo smoke test was performed, and any failures or limitations encountered.

@@ -6,6 +6,13 @@
       "args": [
         "tool/mcp/server.py"
       ]
+    },
+    "fabric-graph": {
+      "type": "stdio",
+      "command": ".venv\\Scripts\\python.exe",
+      "args": [
+        "tool/mcp/graph-server.py"
+      ]
     }
   }
 }

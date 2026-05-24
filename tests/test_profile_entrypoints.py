@@ -60,16 +60,15 @@ def test_codex_and_claude_profile_entrypoints_are_at_least_80_percent_similar():
     assert similarity >= 0.80, f"profile entrypoint similarity is {similarity:.1%}"
 
 
-def test_all_installed_skills_are_mentioned_in_both_profile_entrypoints():
+def test_all_installed_skills_are_mentioned_in_skills_index_node():
+    """Phase P4: skills list moved out of the hard-minimal profile into the
+    graph-content/indexes/skills-index node. Profiles no longer mention skills."""
+    skills_index = ROOT / "profiles" / "shared" / "graph-content" / "indexes" / "skills-index.md"
     skill_names = _installed_skill_names()
     assert skill_names, "expected installed skills under profiles/skills"
-
-    codex_text = CODEX_ENTRYPOINT.read_text(encoding="utf-8")
-    claude_text = CLAUDE_ENTRYPOINT.read_text(encoding="utf-8")
-
+    text = skills_index.read_text(encoding="utf-8")
     for skill_name in sorted(skill_names):
-        assert f"`{skill_name}`" in codex_text, f"{skill_name} missing from Codex AGENTS.md"
-        assert f"`{skill_name}`" in claude_text, f"{skill_name} missing from Claude CLAUDE.md"
+        assert f"`{skill_name}`" in text, f"{skill_name} missing from {skills_index.name}"
 
 
 def test_root_agent_guidance_files_have_same_layout():

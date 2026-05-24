@@ -13,3 +13,4 @@ _delta_log/
 .claude/settings.local.json
 tool/
 .mcp.json
+memory/.graph/

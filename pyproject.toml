@@ -14,7 +14,10 @@ license = { text = "MIT" }
 install-fabric-agent = "fabric_skills_settings._installer:main"
 
 [dependency-groups]
-dev = ["pytest>=8", "Faker>=26", "mimesis>=18", "scikit-learn>=1.5", "pandas>=2"]
+dev = ["pytest>=8", "Faker>=26", "mimesis>=18", "scikit-learn>=1.5", "pandas>=2", "networkx>=3.2", "rank_bm25>=0.2.2"]
+
+[project.optional-dependencies]
+graph = ["networkx>=3.2", "rank_bm25>=0.2.2"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,3 +1,9 @@
+---
+name: security
+description: Credentials, PII, logging, dependency, inventory, and compliance rules — OWASP-mapped.
+kind: rule
+---
+
 # Security Rules
 
 These rules apply to all agents and all pipelines.

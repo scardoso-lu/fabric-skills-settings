@@ -25,42 +25,12 @@ function Write-Warn  { Write-Host "! $args" }
 
 # ── Source package directories ───────────────────────────────────────────────
 Write-Step "Source package directories"
-foreach ($dir in @('profiles/codex','profiles/claude','profiles/shared','rules','templates','bin','memory')) {
+foreach ($dir in @('profiles/codex','profiles/claude','profiles/shared','rules','bin','memory')) {
     if (Test-Path (Join-Path $ScriptDir $dir) -PathType Container) {
         Write-Ok "$dir/"
     } else {
         Write-Warn "missing $dir/"
     }
-}
-
-# ── Local memory ─────────────────────────────────────────────────────────────
-Write-Step "Local memory"
-$projectMd = Join-Path $ScriptDir 'memory/project.md'
-if (Test-Path $projectMd -PathType Leaf) {
-    Write-Ok "memory/project.md exists"
-} else {
-    @'
-# Project State
-
-## Current Focus
-
-*(not set — update when work begins)*
-
-## Active Pipelines
-
-| Pipeline | Layer | Status | Last Run | Notes |
-|---|---|---|---|---|
-| *(none yet)* | | | | |
-
-## Known Issues
-
-*(none yet)*
-
-## Completed Work
-
-*(log significant completions here with date)*
-'@ | Set-Content -Path $projectMd -Encoding utf8
-    Write-Ok "created local memory/project.md"
 }
 
 # ── Tool checks ───────────────────────────────────────────────────────────────

@@ -12,6 +12,15 @@ $VenvDir     = Join-Path $ProjectRoot ".venv"
 $VenvPython  = Join-Path $VenvDir "Scripts\python.exe"
 $Actions     = [System.Collections.Generic.List[string]]::new()
 $SecretWasInEnvironment = $false
+$HelperPackages = @(
+    "Faker>=26",
+    "mimesis>=18",
+    "scikit-learn>=1.5",
+    "semantic-link>=0.9",
+    "pandas>=2",
+    "networkx>=3.2",
+    "rank_bm25>=0.2.2"
+)
 
 function Read-DotEnv ([string]$Path) {
     foreach ($line in Get-Content -LiteralPath $Path) {
@@ -111,14 +120,75 @@ Write-Host "-- Project Python environment (.venv)"
 if (-not (Test-Path -LiteralPath $VenvDir)) {
     uv venv $VenvDir
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-    uv pip install --python $VenvPython "Faker>=26" "mimesis>=18" "scikit-learn>=1.5" "semantic-link>=0.9" "pandas>=2"
+    uv pip install --python $VenvPython @HelperPackages
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     $Actions.Add(".venv created")
     $Actions.Add("Python helper libraries installed in .venv")
 } else {
     $Actions.Add(".venv already exists")
-    $Actions.Add("Python helper libraries: skipped because .venv already exists")
+    & $VenvPython -c "import networkx, rank_bm25" *> $null
+    if ($LASTEXITCODE -ne 0) {
+        uv pip install --python $VenvPython "networkx>=3.2" "rank_bm25>=0.2.2"
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        $Actions.Add("Graph helper libraries installed in existing .venv")
+    } else {
+        $Actions.Add("Graph helper libraries already available")
+    }
 }
+
+# Build the local knowledge graph for the fabric-graph MCP server.
+Write-Host ""
+Write-Host "-- Knowledge graph"
+$GraphBuilder = @'
+import os
+import sys
+from pathlib import Path
+
+root = Path(os.environ["FABRIC_AGENT_PROJECT_ROOT"]).resolve()
+sys.path.insert(0, str(root / "tool"))
+
+from graph.builder import build
+from graph.schema import parse_frontmatter
+from graph.search import build_bm25_index, save_index
+
+result = build(root)
+for line in result.errors:
+    print(f"ERROR: {line}", file=sys.stderr)
+for line in result.warnings:
+    print(f"WARN:  {line}", file=sys.stderr)
+if result.errors:
+    sys.exit(2)
+
+graph_dir = root / "memory" / ".graph"
+graph_path = graph_dir / "graph.json"
+bm25_path = graph_dir / "graph-bm25.pkl"
+store = result.store
+store.save(graph_path, built_by="tool/setup/setup.ps1")
+
+bodies = {}
+for node_id in store.graph.nodes:
+    rel = store.graph.nodes[node_id]["path"]
+    try:
+        text = (root / rel).read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        continue
+    _, body = parse_frontmatter(text)
+    bodies[node_id] = body
+
+save_index(bm25_path, build_bm25_index(store, bodies))
+print(f"  wrote {graph_path.relative_to(root)} ({sum(store.kinds().values())} nodes, {store.graph.number_of_edges()} edges)")
+print(f"  wrote {bm25_path.relative_to(root)}")
+'@
+$PreviousGraphRoot = $env:FABRIC_AGENT_PROJECT_ROOT
+$env:FABRIC_AGENT_PROJECT_ROOT = [string]$ProjectRoot
+$GraphBuilder | & $VenvPython -
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+if ($null -eq $PreviousGraphRoot) {
+    Remove-Item Env:FABRIC_AGENT_PROJECT_ROOT -ErrorAction SilentlyContinue
+} else {
+    $env:FABRIC_AGENT_PROJECT_ROOT = $PreviousGraphRoot
+}
+$Actions.Add("knowledge graph built in memory/.graph")
 
 # ── Load existing .env ────────────────────────────────────────────────────────
 if (Test-Path -LiteralPath $EnvFile) { Read-DotEnv -Path $EnvFile }

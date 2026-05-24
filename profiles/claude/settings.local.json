@@ -32,7 +32,8 @@
       "Read(**/.env.*)",
       "Read(**/*secret*)",
       "Read(**/*credential*)",
-      "Read(**/*token*)"
+      "Read(**/*token*)",
+      "Read(**/*.graph*)"
     ],
     "allow": [
       "Skill(fabric-notebook-loop)",
@@ -80,6 +81,7 @@
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
-    "fabric"
+    "fabric",
+    "fabric-graph"
   ]
 }

@@ -1,6 +1,9 @@
 ---
 name: operator
 description: Review code and pipelines against OWASP Data Security Top 10 — injection, auth, breaches, malware, insider threats, cryptography, data handling, third-party risk, inventory, and compliance. Never write code or modify pipelines.
+links:
+  - rules/security
+  - rules/fabric-platform
 tools:
   - Read
   - Bash

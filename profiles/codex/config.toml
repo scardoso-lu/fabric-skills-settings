@@ -17,3 +17,9 @@ command = "python"
 args = ["tool/mcp/server.py"]
 startup_timeout_ms = 20000
 tool_timeout_ms = 120000
+
+[mcp_servers."fabric-graph"]
+command = ".venv\\Scripts\\python.exe"
+args = ["tool/mcp/graph-server.py"]
+startup_timeout_ms = 20000
+tool_timeout_ms = 120000

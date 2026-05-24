@@ -13,6 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PROFILES = ROOT / "profiles"
 SKILLS = {
+    "rtk",
     "fabric-ingest",
     "fabric-transform",
     "fabric-model",
@@ -85,7 +86,6 @@ def validate_required(errors: list[str]) -> None:
     require(PROFILES / "claude" / "settings.local.json", errors)
     if (PROFILES / "claude" / "settings.json").exists():
         error("profiles/claude/settings.json must not exist; Claude local installs use settings.local.json", errors)
-    require(PROFILES / "shared" / "memory" / "MEMORY.md", errors)
     require(PROFILES / "shared" / ".env.example", errors)
     require(PROFILES / "shared" / ".gitignore.fragment", errors)
     require(PROFILES / "shared" / "project-layout" / ".mcp.json", errors)

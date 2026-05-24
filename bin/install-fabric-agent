@@ -28,6 +28,15 @@ REFRESHABLE_SCAFFOLD_MARKERS = {
     Path("tool/semantic-model/inspect.py"):              "Inspect Microsoft Fabric Semantic Models",
     Path("tool/pipeline/manage.py"):                      "Create, deploy, and test a Fabric Data Pipeline that chains topic notebooks",
     Path("tool/mcp/server.py"):                           "Minimal MCP server that exposes selected Microsoft Fabric CLI commands",
+    Path("tool/mcp/graph-server.py"):                     "MCP server exposing the knowledge graph through the `fabric-graph` MCP `graph_*` tools",
+    Path("tool/graph/__init__.py"):                       "Knowledge graph over the Fabric agent profile vault",
+    Path("tool/graph/schema.py"):                         "Node, Edge, frontmatter parser, and path -> id mapping for the graph",
+    Path("tool/graph/store.py"):                          "networkx-backed graph store with atomic JSON save/load",
+    Path("tool/graph/builder.py"):                        "Discover markdown files, parse them, and assemble a graph",
+    Path("tool/graph/search.py"):                         "BM25 + edge-aware re-rank over the knowledge graph",
+    Path("tool/graph/extract.py"):                        "Auto-edge extraction from markdown prose",
+    Path("tool/graph/lock.py"):                           "Cross-platform exclusive file lock for atomic graph writes",
+    Path("tool/graph/writes.py"):                         "CRUD writes for the knowledge graph",
     Path("tool/notebook/build.py"):                       "Build simple Fabric .Notebook folders",
     Path("tool/notebook/deploy.py"):                      "Deploy, run, and monitor Fabric notebooks via REST API",
     Path("tool/notebook/smoke-test.sh"):                  "smoke-test.sh",
@@ -90,6 +99,14 @@ def collect_files(profile: str) -> list[tuple[Path, Path, bool]]:
         entries.append((PROFILES / "codex" / "config.toml", Path(".codex/config.toml"), False))
         for src in sorted((PROFILES / "skills").glob("*/SKILL.md")):
             entries.append((src, Path(".agents/skills") / src.parent.name / "SKILL.md", True))
+            sections_dir = src.parent / "sections"
+            if sections_dir.is_dir():
+                for section in sorted(sections_dir.glob("*.md")):
+                    entries.append((
+                        section,
+                        Path(".agents/skills") / src.parent.name / "sections" / section.name,
+                        True,
+                    ))
         for src in sorted((PROFILES / "codex" / "agents").glob("*.toml")):
             entries.append((src, Path(".codex/agents") / src.name, False))
     elif profile == "claude":
@@ -97,6 +114,14 @@ def collect_files(profile: str) -> list[tuple[Path, Path, bool]]:
         entries.append((PROFILES / "claude" / "settings.local.json", Path(".claude/settings.local.json"), False))
         for src in sorted((PROFILES / "skills").glob("*/SKILL.md")):
             entries.append((src, Path(".claude/skills") / src.parent.name / "SKILL.md", True))
+            sections_dir = src.parent / "sections"
+            if sections_dir.is_dir():
+                for section in sorted(sections_dir.glob("*.md")):
+                    entries.append((
+                        section,
+                        Path(".claude/skills") / src.parent.name / "sections" / section.name,
+                        True,
+                    ))
         for src in sorted((PROFILES / "claude" / "agents").glob("*.md")):
             entries.append((src, Path(".claude/agents") / src.name, True))
     else:
@@ -110,6 +135,10 @@ def collect_shared_files() -> list[tuple[Path, Path, bool]]:
     for src in sorted((shared / "memory").rglob("*")):
         if src.is_file():
             entries.append((src, Path("memory") / src.relative_to(shared / "memory"), True))
+    if (shared / "graph-content").exists():
+        for src in sorted((shared / "graph-content").rglob("*")):
+            if src.is_file():
+                entries.append((src, Path("memory/graph-content") / src.relative_to(shared / "graph-content"), True))
     for src in sorted((shared / "project-layout").rglob("*")):
         if src.is_file() and "__pycache__" not in src.parts and src.suffix not in {".pyc", ".pyo", ".pyd"}:
             entries.append((src, src.relative_to(shared / "project-layout"), False))
@@ -238,7 +267,7 @@ def write_file(src: Path, dest: Path, managed: bool, args: argparse.Namespace, r
 
 
 _PROFILE_IGNORES: dict[str, list[str]] = {
-    "shared": ["tool/", "contracts/", "data/", "memory/", "runbooks/"],
+    "shared": ["tool/", "contracts/", "data/", "memory/"],
     "codex": ["AGENTS.md", ".agents/", ".codex/"],
     "claude": ["CLAUDE.md", ".claude/"],
 }

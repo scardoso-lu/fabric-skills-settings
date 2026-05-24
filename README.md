@@ -6,6 +6,10 @@ Fabric Agent Pack turns a normal git repository into a guided Microsoft Fabric p
 
 > This repository is the **source package and installer**, not the day-to-day Fabric project workspace. Install a profile into your actual project repository, then run Codex or Claude Code from that target repository root.
 
+**Overview**
+
+![Fabric Agent Pack](img/overview.png)
+
 ## Quick start
 
 ### Option A — pip install (recommended)
@@ -19,14 +23,16 @@ pip install fabric-skills-settings
 Preview what will be written, then apply:
 
 ```bash
-# preview changes first
+# preview
 uv run install-fabric-agent --profile claude --target /path/to/project-repo --dry-run
 
 # apply
 uv run install-fabric-agent --profile claude --target /path/to/project-repo
 ```
 
-`--profile` accepts `claude`, `codex`, or `all`.
+`--profile` accepts `claude`, `codex`, or `all`. The installer drops a minimal entrypoint (`CLAUDE.md` or `AGENTS.md`, ~30 lines) plus two MCP servers — `fabric` and `fabric-graph` — into the target repo. The first thing agents do in the target repo is call `graph_get_entry` to read the setup gate and traverse the knowledge graph.
+
+After install, run `claude` or `codex` from the target repo root.
 
 ---
 
@@ -49,15 +55,32 @@ Clone this repository, then prepare the source package:
 .\setup.ps1 -Help            # show usage
 ```
 
-Both setup scripts check for Git and uv, create `memory/project.md` if absent, and run the package validators.
+Both setup scripts check for Git and uv and run the package validators.
+
+Build the local knowledge graph artifact before using the `fabric-graph` MCP server from this source checkout. The build commands mirror the installer's `--target` / `--dry-run` flag style:
+
+```bash
+# preview — validate and print stats, no artifacts written
+uv run --group dev python bin/build-graph.py --target . --dry-run --stats
+uv run --group dev python bin/build-agent-capability-graph.py --target . --dry-run --stats
+
+# apply — write memory/.graph/{graph.json, graph-bm25.pkl, materialized-graph.svg}
+#              and agent-capabilities.{json,svg}
+uv run --group dev python bin/build-graph.py --target . --stats
+uv run --group dev python bin/build-agent-capability-graph.py --target . --stats
+```
+
+`--target` accepts any repo (this source checkout, an installed target, a disposable smoke-test directory). `--dry-run` runs the build pipeline in memory and prints findings without touching disk.
+
+The source repo splits graph code into:
+
+- `tool/graph/` — **runtime** modules used by the installed MCP server (schema, store, search, writes, builder, lock).
+- `build/graph_build/` — **build-time-only** modules used by `bin/build-*.py` (visualize, agent_capabilities). Not installed into target repos.
 
 Install into a target repository:
 
 ```bash
-# preview changes first
 uv run install-fabric-agent --profile claude --target /path/to/project-repo --dry-run
-
-# apply
 uv run install-fabric-agent --profile claude --target /path/to/project-repo
 ```
 
@@ -155,7 +178,7 @@ The code is integrated with Git, and the agent develops everything in a dedicate
 
 ## Learn more
 
-For the deeper human/machine split, architecture diagrams, notebook deployment loop, medallion flow, authoring rules, safety behavior, and validation commands, see [docs/learn-more.md](docs/learn-more.md).
+For architecture diagrams of the two MCP servers, the RAG knowledge graph, and the skills + tools each server exposes, see [docs/architecture.md](docs/architecture.md).
 
 ## Validation commands for contributors
 
@@ -183,7 +206,7 @@ uv run install-fabric-agent --profile all --target "$tmp" --check
 |---|---|
 | Codex | `AGENTS.md`, `.agents/skills/*/SKILL.md` copied from `profiles/skills/`, `.codex/agents/*.toml`, `.codex/config.toml` |
 | Claude | `CLAUDE.md`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `.claude/settings.local.json` |
-| Shared | `memory/` including `memory/rules/`, placeholder `.env.example`, managed `.gitignore` block, `workspace/`, `data/sandbox/`, `contracts/`, `runbooks/`, `tool/` |
+| Shared | `memory/` including `memory/rules/` and `memory/graph-content/`, placeholder `.env.example`, managed `.gitignore` block, `workspace/`, `data/sandbox/`, `contracts/`, `tool/` (with `tool/mcp/` running the `fabric` and `fabric-graph` MCP servers) |
 
 
 The only shared runtime state between vendor profiles is `memory/`. Runtime Codex assets stay under `profiles/codex/`; runtime Claude assets stay under `profiles/claude/`. Skill source is intentionally single-source under `profiles/skills/` and is copied to both runtime skill paths during installation.

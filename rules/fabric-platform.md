@@ -1,3 +1,9 @@
+---
+name: fabric-platform
+description: Fabric API, auth wrapper, notebook, lakehouse, warehouse, and Delta maintenance rules.
+kind: rule
+---
+
 # Fabric Platform Rules
 
 Microsoft Fabric-specific technical patterns and constraints.

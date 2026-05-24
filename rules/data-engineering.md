@@ -1,3 +1,9 @@
+---
+name: data-engineering
+description: Pipeline idempotency, lineage, schema evolution, quality, and DAG rules.
+kind: rule
+---
+
 # Data Engineering Rules
 
 Fundamental principles that apply across all data engineering work.

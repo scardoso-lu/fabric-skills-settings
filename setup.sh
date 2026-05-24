@@ -27,41 +27,13 @@ log_ok() { printf '✓ %s\n' "$*"; }
 log_warn() { printf '⚠ %s\n' "$*"; }
 
 log_step "Source package directories"
-for dir in profiles/codex profiles/claude profiles/shared rules templates bin memory; do
+for dir in profiles/codex profiles/claude profiles/shared rules bin memory; do
   if [[ -d "${SCRIPT_DIR}/${dir}" ]]; then
     log_ok "${dir}/"
   else
     log_warn "missing ${dir}/"
   fi
 done
-
-log_step "Local memory"
-if [[ -f "${SCRIPT_DIR}/memory/project.md" ]]; then
-  log_ok "memory/project.md exists"
-else
-  cat > "${SCRIPT_DIR}/memory/project.md" <<'MEMORY'
-# Project State
-
-## Current Focus
-
-*(not set — update when work begins)*
-
-## Active Pipelines
-
-| Pipeline | Layer | Status | Last Run | Notes |
-|---|---|---|---|---|
-| *(none yet)* | | | | |
-
-## Known Issues
-
-*(none yet)*
-
-## Completed Work
-
-*(log significant completions here with date)*
-MEMORY
-  log_ok "created local memory/project.md"
-fi
 
 log_step "Tool checks"
 check_tool() {

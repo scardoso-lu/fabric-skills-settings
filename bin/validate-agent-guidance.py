@@ -2,7 +2,14 @@
 # /// script
 # requires-python = ">=3.10"
 # ///
-"""Validate source-package guidance for the vendor-native installer setup."""
+"""Validate source-package guidance for the vendor-native installer setup.
+
+This validator was rewritten in Phase P4 of the graph-driven-profile branch.
+The old per-profile phrase checks now live in profiles/shared/graph-content/
+nodes; the profile files themselves are checked only for hard-minimal shape
+(<= 50 lines, must mention the graph tool, must NOT contain operational
+section names).
+"""
 
 from __future__ import annotations
 
@@ -11,6 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_SKILLS = {
+    "rtk",
     "fabric-ingest",
     "fabric-transform",
     "fabric-model",
@@ -36,6 +44,30 @@ FORBIDDEN_GUIDANCE_PHRASES = [
     "authoritative harness",
     "ignore target repo instructions",
     "everything goes to `$TARGET_REPO_PATH`",
+]
+
+PROFILE_FILES = [
+    ROOT / "profiles" / "claude" / "CLAUDE.md",
+    ROOT / "profiles" / "codex" / "AGENTS.md",
+]
+GRAPH_CONTENT_DIR = ROOT / "profiles" / "shared" / "graph-content"
+ENTRY_FILE = GRAPH_CONTENT_DIR / "entry.md"
+SESSION_START_FILE = GRAPH_CONTENT_DIR / "session" / "session-start.md"
+OPERATING_RULES_FILE = GRAPH_CONTENT_DIR / "session" / "operating-rules.md"
+SKILLS_INDEX_FILE = GRAPH_CONTENT_DIR / "indexes" / "skills-index.md"
+
+PROFILE_MAX_LINES = 50
+PROFILE_ANCHOR = "You know NOTHING about this project except how to call the graph tool"
+PROFILE_ENTRY_TOOL = "graph_get_entry"
+PROFILE_FORBIDDEN_SECTION_NAMES = [
+    "## Pipeline Structure",
+    "## Tool Layout",
+    "## Directory Layout",
+    "## Operating Rules",
+    "## Notebook Workflow",
+    "## Smoke-test Diagnostics",
+    "## Semantic Models",
+    "## Workspace Management",
 ]
 
 
@@ -80,7 +112,6 @@ def validate_profiles(errors: list[str]) -> None:
     require(ROOT / "profiles" / "claude" / "settings.local.json", errors)
     if (ROOT / "profiles" / "claude" / "settings.json").exists():
         errors.append("profiles/claude/settings.json must not exist; Claude local installs use settings.local.json")
-    require(ROOT / "profiles" / "shared" / "memory" / "MEMORY.md", errors)
     require(ROOT / "profiles" / "shared" / "project-layout" / "memory" / "rules" / "data-engineering.md", errors)
     require(ROOT / "profiles" / "shared" / "project-layout" / "memory" / "rules" / "fabric-platform.md", errors)
     require(ROOT / "profiles" / "shared" / "project-layout" / "memory" / "rules" / "security.md", errors)
@@ -118,16 +149,41 @@ def validate_profiles(errors: list[str]) -> None:
                     f"{rel(settings)} must not allow {phrase!r}; agents consume only the safe sandbox workspace"
                 )
 
-    for path in [ROOT / "profiles" / "codex" / "AGENTS.md", ROOT / "profiles" / "claude" / "CLAUDE.md"]:
+
+def validate_profile_minimalism(errors: list[str]) -> None:
+    """Hard-minimal profile: <=50 lines, references the graph entry tool,
+    contains the anti-drift anchor sentence, and contains NO operational
+    section names (anti-bypass - operational content must live in graph nodes)."""
+    for path in PROFILE_FILES:
         if not path.exists():
             continue
         text = path.read_text(errors="ignore")
-        for skill in REQUIRED_SKILLS:
-            if f"`{skill}`" not in text:
-                errors.append(f"{rel(path)} must list installed skill `{skill}`")
+        line_count = text.count("\n") + (0 if text.endswith("\n") else 1)
+        if line_count > PROFILE_MAX_LINES:
+            errors.append(
+                f"{rel(path)} has {line_count} lines; hard-minimal profile must be <= {PROFILE_MAX_LINES}"
+            )
+        if PROFILE_ENTRY_TOOL not in text:
+            errors.append(f"{rel(path)} must reference {PROFILE_ENTRY_TOOL!r}")
+        if PROFILE_ANCHOR not in text:
+            errors.append(f"{rel(path)} must contain anti-drift anchor sentence: {PROFILE_ANCHOR!r}")
+        for forbidden in PROFILE_FORBIDDEN_SECTION_NAMES:
+            if forbidden in text:
+                errors.append(
+                    f"{rel(path)} contains operational section heading {forbidden!r};"
+                    " move that content to a graph-content node"
+                )
 
 
-def validate_setup_guidance(errors: list[str]) -> None:
+def validate_entry_node(errors: list[str]) -> None:
+    """The mandatory setup gate moved into graph-content/entry.md (Phase P4).
+
+    Phrases that USED to be required in the profile must now be present here.
+    """
+    if not ENTRY_FILE.exists():
+        errors.append(f"missing entry node: {rel(ENTRY_FILE)}")
+        return
+    text = ENTRY_FILE.read_text(errors="ignore")
     required = [
         "tool\\setup\\setup.ps1",
         "tool/setup/setup.sh",
@@ -135,55 +191,44 @@ def validate_setup_guidance(errors: list[str]) -> None:
         "fab-sandbox auth login",
         "Do **not** read `.env` contents",
         "Setup incomplete",
+        "Mandatory setup gate",
+        "verify `.env`, `fab`, and `fab auth`",
+        "before accepting any Fabric work",
+        "network",
+        "lakehouse",
+        "notebook",
     ]
+    for phrase in required:
+        if phrase not in text:
+            errors.append(f"missing required phrase in {rel(ENTRY_FILE)}: {phrase!r}")
     forbidden = [
         "FABRIC_WORKSPACE_ID` is missing",
-        "If `bin/setup.sh`, `.env`, or `FABRIC_WORKSPACE_ID` is missing",
-        "If `bin/setup.ps1`, `bin/setup.sh`, `.env`, or `FABRIC_WORKSPACE_ID` is missing",
     ]
-    for path in [ROOT / "profiles" / "codex" / "AGENTS.md", ROOT / "profiles" / "claude" / "CLAUDE.md"]:
-        if not path.exists():
-            continue
-        text = path.read_text(errors="ignore")
-        for phrase in required:
-            if phrase not in text:
-                errors.append(f"missing setup guidance phrase {phrase!r} in {rel(path)}")
-        for phrase in forbidden:
-            if phrase in text:
-                errors.append(f"setup guidance implies reading .env via {phrase!r} in {rel(path)}")
-
-    codex = ROOT / "profiles" / "codex" / "AGENTS.md"
-    if codex.exists():
-        text = codex.read_text(errors="ignore")
-        codex_required = [
-            "Mandatory setup gate",
-            "verify `.env`, `fab`, and `fab auth`",
-            "before accepting any Fabric work",
-        ]
-        for phrase in codex_required:
-            if phrase not in text:
-                errors.append(f"missing Codex setup gate phrase {phrase!r} in {rel(codex)}")
-
-    setup_autoload = ROOT / "docs" / "setup-autoload.md"
-    if setup_autoload.exists():
-        text = setup_autoload.read_text(errors="ignore")
-        if "Runs mandatory setup gate" not in text:
-            errors.append("docs/setup-autoload.md must show the Codex mandatory setup gate")
-        if "(.env, fab, fab auth)" not in text:
-            errors.append("docs/setup-autoload.md must name .env, fab, and fab auth in setup checks")
+    for phrase in forbidden:
+        if phrase in text:
+            errors.append(f"entry node {rel(ENTRY_FILE)} implies reading .env via {phrase!r}")
 
 
-def validate_auth_network_guidance(errors: list[str]) -> None:
-    """Auth-failure guidance must mention network restriction so agents don't treat firewalls as auth errors."""
-    for path in [ROOT / "profiles" / "codex" / "AGENTS.md", ROOT / "profiles" / "claude" / "CLAUDE.md"]:
-        if not path.exists():
-            continue
-        text = path.read_text(errors="ignore")
-        if "network" not in text.lower():
-            errors.append(
-                f"auth failure row in {rel(path)} must mention network restriction"
-                " — agents must not treat a firewall block as a permanent auth failure"
-            )
+def validate_skills_index_node(errors: list[str]) -> None:
+    """All 13 skills must be named in the skills-index node (moved from profile)."""
+    if not SKILLS_INDEX_FILE.exists():
+        errors.append(f"missing skills index node: {rel(SKILLS_INDEX_FILE)}")
+        return
+    text = SKILLS_INDEX_FILE.read_text(errors="ignore")
+    for skill in REQUIRED_SKILLS:
+        if f"`{skill}`" not in text:
+            errors.append(f"{rel(SKILLS_INDEX_FILE)} must list installed skill `{skill}`")
+
+
+def validate_session_nodes(errors: list[str]) -> None:
+    """Operating-rules node must reference the three rule files (moved from profile)."""
+    if not OPERATING_RULES_FILE.exists():
+        errors.append(f"missing operating-rules node: {rel(OPERATING_RULES_FILE)}")
+        return
+    text = OPERATING_RULES_FILE.read_text(errors="ignore")
+    for rule_id in ("rules/security", "rules/data-engineering", "rules/fabric-platform"):
+        if rule_id not in text:
+            errors.append(f"{rel(OPERATING_RULES_FILE)} must reference {rule_id!r}")
 
 
 def validate_platform_rules_use_wrapper(errors: list[str]) -> None:
@@ -227,10 +272,6 @@ def validate_skill_wiring(errors: list[str]) -> None:
             ROOT / "rules" / "fabric-platform.md",
             ["fabric-model"],
         ),
-        (
-            ROOT / "docs" / "tooling-map.md",
-            ["fabric-transform", "fabric-model", "fabric-validate", "DE-06", "FP-08", "DE-04"],
-        ),
     ]
     for path, phrases in required:
         if not path.exists():
@@ -240,23 +281,6 @@ def validate_skill_wiring(errors: list[str]) -> None:
         for phrase in phrases:
             if phrase not in text:
                 errors.append(f"missing skill wiring phrase {phrase!r} in {rel(path)}")
-
-
-def validate_item_creation_guidance(errors: list[str]) -> None:
-    """Guidance must distinguish what humans create (workspace/lakehouses) from what agents auto-create (notebooks/folders)."""
-    for path in [ROOT / "profiles" / "codex" / "AGENTS.md", ROOT / "profiles" / "claude" / "CLAUDE.md"]:
-        if not path.exists():
-            continue
-        text = path.read_text(errors="ignore")
-        if "lakehouse" not in text.lower():
-            errors.append(
-                f"{rel(path)} must state that humans create lakehouses"
-                " — missing item-creation boundary guidance"
-            )
-        if "notebook items" not in text and "notebook" not in text.lower():
-            errors.append(
-                f"{rel(path)} must clarify that agents may create notebook items automatically"
-            )
 
 
 def validate_no_root_runtime(errors: list[str]) -> None:
@@ -269,11 +293,12 @@ def main() -> int:
     errors: list[str] = []
     validate_root_guidance(errors)
     validate_profiles(errors)
-    validate_setup_guidance(errors)
-    validate_auth_network_guidance(errors)
+    validate_profile_minimalism(errors)
+    validate_entry_node(errors)
+    validate_skills_index_node(errors)
+    validate_session_nodes(errors)
     validate_platform_rules_use_wrapper(errors)
     validate_skill_wiring(errors)
-    validate_item_creation_guidance(errors)
     validate_no_root_runtime(errors)
 
     if errors:

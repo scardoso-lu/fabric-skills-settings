@@ -1,5 +1,8 @@
-# Microsoft Fabric Data Engineering - Codex Profile
+# Microsoft Fabric Data Engineering — Codex Profile
 
+<<<<<<< HEAD
+You are a Fabric engineering agent operating inside this repository.
+=======
 ## Agent Operating Principles
 
 **1. Core Operating Principles**
@@ -23,22 +26,48 @@ Write the simplest possible code that satisfies the goal. Do not create abstract
 ---
 
 This repository is the runtime workspace. Work from this repository root; do not use an external wrapper path as the runtime root.
+>>>>>>> 7f090e27d7bb7d3202705269a048fd0709803fbf
 
-## Session Start - Run Every Session, In Order
+You know NOTHING about this project except how to call the graph tool.
+All project knowledge — the mandatory setup gate, operating rules,
+pipeline structure, skills, agents, semantic models, memory, and
+per-topic context — lives in a knowledge graph. You MUST discover what
+you need by traversing the graph. Do not read project markdown files
+directly; use the graph.
 
-0. **Mandatory setup gate - before accepting any Fabric work, verify `.env`, `fab`, and `fab auth`, and confirm the active workspace:**
+## How to work
 
-   | Check | Pass | Fail - stop and show this |
-   |---|---|---|
-   | `.env` exists | file present | Human runs setup: Windows `.\tool\setup\setup.ps1` or Linux/Mac `bash tool/setup/setup.sh` |
-   | `fab` reachable | Windows: `tool\setup\fab-sandbox.ps1 --version` exits 0; Linux/Mac: `bash tool/setup/fab-sandbox --version` exits 0 | Human runs setup; it installs `ms-fabric-cli` via `uv tool install ms-fabric-cli` |
-   | `fab` authenticated | Windows: `tool\setup\fab-sandbox.ps1 api workspaces --output_format json` exits 0; Linux/Mac: `bash tool/setup/fab-sandbox api workspaces --output_format json` exits 0 | Windows: `tool\setup\fab-sandbox.ps1 auth login`; Linux/Mac: `bash tool/setup/fab-sandbox auth login`. If the check fails due to network restriction, escalate and request network access before retrying. |
-   | Workspace registry | `workspaces.json` present in project root | Run `python tool/workspace/init.py` — queries the Fabric API and writes the complete workspace and resource registry |
-   | Active workspace set | `workspaces.json` has `"active"` field that is not null | Run `python tool/workspace/switch.py list`, then `python tool/workspace/switch.py <displayName>` |
-   | Active workspace confirmed | Human has confirmed the active workspace this session | Show `workspaces.json["active"]` value; **stop and ask**: "Active workspace is `<displayName>`. Proceed with this workspace?" — do not start any build, deploy, or pipeline action until confirmed |
+1. Call the Fabric graph MCP `graph_get_entry` tool first, before any
+   other action. In Codex this is exposed as
+   `mcp__fabric_graph__.graph_get_entry`; in clients that flatten MCP
+   names, use the equivalent `fabric-graph` `graph_get_entry` tool.
+   The returned node is the mandatory setup gate. Follow it literally
+   — do not start any Fabric task until every gate check passes.
+2. If the current node does not answer the user's question, call
+   `graph_get_linked` with that node's id to see its neighbors.
+   Choose one and call `graph_get_node`.
+3. You may only navigate to node ids returned by `graph_get_entry`,
+   `graph_get_linked`, or `graph_search`. Never guess or hallucinate
+   a node id.
+4. Use `graph_search` only when no linked node looks relevant and a
+   fresh entry point is needed.
+5. When the answer is in hand, cite the node ids you sourced from
+   (e.g. "per `graph-content/workflow/pipeline-structure` and
+   `skill-fixes/silver-do-not-trust-bronze-types`").
+6. To author or modify a knowledge node, use `graph_create_node` /
+   `graph_update_node` / `graph_add_edge` rather than direct file
+   edits. To remove graph knowledge, use `graph_delete_node` /
+   `graph_remove_edge` only when explicitly asked.
 
-   Do **not** read `.env` contents or print values. Check only that the file and key names are present. Do **not** echo workspace IDs or resource IDs — refer to workspaces and resources by `displayName` only.
+## Graph tool surface
 
+<<<<<<< HEAD
+Read: `graph_get_entry`, `graph_get_node`, `graph_get_linked`,
+`graph_search`, `graph_list_kinds`.
+Write: `graph_create_node`, `graph_update_node`, `graph_delete_node`,
+`graph_add_edge`, `graph_remove_edge`. All write operations
+re-serialize the graph atomically.
+=======
    A workspace confirmation covers the whole session. Re-confirm only after the human explicitly runs `switch.py`.
 
    If **any check fails**, respond exactly:
@@ -59,9 +88,6 @@ workspace/
     <name>.py            <- transient working source (# %% cells); removed after successful fetch
     <name>.Notebook/     <- canonical git artifact; ready for human commit after every passing run,
                            synced with Fabric UI via Git integration
-    semantic-model/      <- TMDL definitions for any Power BI semantic model exposing topic tables
-      <model>.tmdl       <- table + measure definitions (source of truth)
-      README.md          <- UI creation walkthrough
 
 fabric_notebooks/        <- build intermediates (gitignored), do not commit
   <topic>/
@@ -149,15 +175,12 @@ python tool/workspace/transfer.py --pipeline <topic> --to <displayName>
 - Use `memory/rules/fabric-platform.md`, `memory/rules/data-engineering.md`, and `memory/rules/security.md` as active runtime rules; they are installed from the source package `rules/` folder.
 - Source contracts belong in notebook `# %% [contract]` cells as Python dataclasses, not YAML files.
 - Thresholds belong in notebook `# %% [parameters]` cells so Fabric pipeline parameters can override them.
-- Keep every layer in its own notebook: `download_<source>.py`, `bronze_<source>.py`, `dq_bronze_<source>.py`, then optionally `silver_<source>.py`, `dq_silver_<source>.py`, `features_<source>.py`, `dq_features_<source>.py`, `train_<source>.py`, `predict_<source>.py`. Never collapse two layers into one notebook.
+- Keep download, ingestion, and data quality separate: `download_<source>.py` fetches, `bronze_<source>.py` ingests only new files, and `dq_bronze_<source>.py` validates.
 - If no source files exist for a new or demo topic, use the `mock-data` skill and `python tool/data/mock-data-generator.py`. Always pass `--schema '<json>'` or `--schema-file <path>` derived from the target table.
-- Silver and downstream notebooks must NOT trust bronze column types — bronze tables drift via `mergeSchema=true`. Verify with `DESCRIBE TABLE bronze_<source>` before authoring, and derive computable columns (date, hour, quarter) from authoritative timestamps rather than casting bronze. See `memory/skill-fixes/silver-do-not-trust-bronze-types.md`.
 
 ## Pipeline Structure
 
-Every data source topic starts with exactly three notebooks. Topics that proceed to analytics or ML add layers on top — each layer in its own notebook, never collapsed.
-
-### Base layer (always required)
+Every data source topic starts with exactly three notebooks:
 
 | Notebook | Naming | Responsibility |
 |---|---|---|
@@ -165,41 +188,7 @@ Every data source topic starts with exactly three notebooks. Topics that proceed
 | Ingestion | `bronze_<source>.py` | Read sandbox files, compare against Bronze Delta table, process only new files, then MERGE or partition-overwrite. Never full-overwrite. |
 | Data quality | `dq_bronze_<source>.py` | Great Expectations checks for row count, null PKs, duplicate PKs, schema match, and business sanity. Print structured PASS/FAIL per check and raise on any failure. |
 
-### Silver layer (optional — clean and conformed)
-
-| Notebook | Naming | Responsibility |
-|---|---|---|
-| Silver transform | `silver_<source>.py` | SQL-first MERGE from bronze into `silver_<source>` Delta. Cast all columns explicitly. Dedup by PK keeping latest `_ingest_ts`. Drop null-PK rows with a logged count (never silent). Derive computable columns from authoritative timestamps; do NOT cast bronze columns whose type may have drifted. |
-| Silver DQ | `dq_silver_<source>.py` | Row count, no null PKs, no duplicate PKs, schema match, business range checks. PASS/FAIL with raise. |
-
-### ML layer (optional — forecasting / scoring)
-
-| Notebook | Naming | Responsibility |
-|---|---|---|
-| Features | `features_<source>.py` | Build feature Delta table from silver. Lag columns, rolling stats, calendar attributes. MERGE on PK. |
-| Features DQ | `dq_features_<source>.py` | PK uniqueness, target presence, lag-coverage thresholds, schema match. |
-| Train | `train_<source>.py` | Train model, log params/metrics/artifact to MLflow, register model. **Runs interactively in Fabric UI only** — SPN-triggered runs fail with `MwcTokenValidationException`. See `memory/skill-fixes/fabric-mlflow-spn-blocked.md`. MLflow experiment names: only `[A-Za-z0-9_-]`, must start with letter/digit. See `memory/skill-fixes/fabric-mlflow-experiment-name.md`. |
-| Predict | `predict_<source>.py` | Load registered model from MLflow, score the forecast horizon, write `forecast_<source>` Delta. Also runs interactively when it uses `models:/.../latest`. For closed-loop scoring, switch persistence to `joblib` under `Files/models/`. |
-
-A single notebook that combines two of these responsibilities is always wrong. The developer agent may create DQ notebook scaffolds; the tester agent owns independent validation logic and final DQ validation.
-
-## Smoke-test Diagnostics
-
-`tool/notebook/deploy.py monitor` reports only the generic Spark failure message; it does **not** surface cell-level tracebacks. When a smoke test prints `System cancelled the Spark session due to statement execution failures`, do not guess at fixes — open the failed run in the Fabric UI for the cell traceback, instrument the source `.py` with `try/except` + `traceback.format_exc()`, or bisect by commenting cells. See `memory/skill-fixes/smoke-test-cell-errors.md`.
-
-## Semantic Models
-
-Semantic models (Power BI datasets) live under `workspace/<topic>/semantic-model/` and have two files:
-
-- `<model>.tmdl` — authoritative TMDL definition: column mappings, format strings, hidden columns, DAX measures
-- `README.md` — UI walkthrough to create the Direct Lake model from the underlying lakehouse table and paste the TMDL
-
-Per the `semantic-model` skill, **agents do not create or modify semantic models via REST API**. Author TMDL in the repo as the source of truth; humans create the Direct Lake model in the Fabric UI ("New semantic model" from the lakehouse) and paste the TMDL via the editor's TMDL view. Re-runs of the source predict/transform notebooks update the model via Direct Lake automatically.
-
-Direct Lake limitations to respect when authoring TMDL:
-- No calculated columns — every visible column must come from the underlying Delta table.
-- Measures (pure DAX) are fully supported.
-- Hide engineering/lineage columns (`_ingest_ts`, lag columns, raw tracking fields) via `isHidden`.
+A single notebook that downloads, ingests, and overwrites is always wrong. The developer agent may create the DQ notebook scaffold; the tester agent owns independent validation logic and final DQ validation.
 
 ## Skills
 
@@ -241,3 +230,4 @@ Codex has no Bash hook, so prefix shell commands manually with `rtk`. It applies
 Do not call raw `fab`. Use `rtk gain` to see token savings and `rtk discover` to find new opportunities.
 
 Claude Code sessions handle RTK automatically through the Bash hook, so manual `rtk` prefixes are Codex-specific.
+>>>>>>> 7f090e27d7bb7d3202705269a048fd0709803fbf

@@ -8,7 +8,7 @@ description: Operate and maintain a Fabric data platform — orchestrate pipelin
 ## MUST
 
 - Run VACUUM weekly on all Delta tables (retention_hours=168)
-- Document every scheduled pipeline in a runbook
+- Document every scheduled pipeline as a graph memory node (`graph_create_node`)
 - Update platform inventory after creating or deleting Fabric items
 - Never run `VACUUM RETAIN 0 HOURS` unless explicitly purging toxic or GDPR-flagged data
 
@@ -16,7 +16,6 @@ description: Operate and maintain a Fabric data platform — orchestrate pipelin
 
 - `tool/setup/fab-sandbox` or `tool/setup/fab-sandbox.ps1` over direct `fab` calls for item management
 - Idempotent setup scripts (running twice causes no harm)
-- Runbooks in `templates/runbook.md` format
 
 ## AVOID
 
