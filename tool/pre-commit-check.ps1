@@ -21,6 +21,11 @@ Write-Step "Pipeline staging-path consistency"
 if ($LASTEXITCODE -eq 0) { Write-Ok "pipeline-lineage passed" }
 else { Write-Err "pipeline-lineage failed"; $failed = $true }
 
+Write-Step "Deterministic lints (tool/lint/)"
+& $python -m tool.lint --target "$ProjectRoot"
+if ($LASTEXITCODE -eq 0) { Write-Ok "lints passed" }
+else { Write-Err "lints failed"; $failed = $true }
+
 Write-Host ""
 Write-Host "════════════════════════════════════════════"
 if ($failed) { Write-Err "Pre-commit checks failed"; exit 1 }

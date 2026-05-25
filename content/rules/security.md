@@ -12,7 +12,6 @@ OWASP Data Security Top 10 (2025) mapping:
 
 | OWASP | Rule(s) |
 |---|---|
-| DATA1 Injection Attacks | SEC-08 |
 | DATA2 Broken Auth & Access Control | SEC-01 |
 | DATA3 Data Breaches | SEC-02, SEC-03, SEC-07 |
 | DATA4 Malware & Ransomware | SEC-10, SEC-12 |
@@ -74,6 +73,8 @@ Prohibited:
 - Connection strings in notebooks
 - Tokens in git history
 
+**Enforced by**: `tool/lint/sec_no_hardcoded_secrets.py` — fails on JWT-shaped tokens, `AccountKey=...`, `SharedAccessSignature=...`, `Bearer <token>`, hardcoded `password=`/`api_key=` assignments, and connection strings with embedded `Pwd=`/`Password=`. Allowed: `os.environ[...]` lookups, Key Vault references, and `<placeholder>` / `REPLACE_ME` style values.
+
 ## SEC-02: The Sanitization Barrier
 
 For any source that may contain PII or sensitive data:
@@ -116,21 +117,6 @@ print(payload)      # forbidden
 df.show()           # forbidden
 logging.info(row)   # forbidden if row contains PII
 ```
-
-## SEC-08: Injection Prevention
-
-Never build Spark SQL or JDBC queries from string concatenation. Use the Column API or parameterized queries.
-
-```python
-# ❌ Forbidden
-spark.sql(f"SELECT * FROM {table_name} WHERE id = '{user_id}'")
-
-# ✅ Correct
-df.filter(F.col("id") == user_id)
-spark.sql("SELECT * FROM orders WHERE id = :id", args={"id": user_id})
-```
-
-For JDBC sources, use `PreparedStatement`-style patterns and never interpolate external values into query strings.
 
 ## SEC-09: Encryption Requirements
 

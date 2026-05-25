@@ -79,6 +79,8 @@ Pipelines must respect layer dependencies:
 - **Integration tests**: full pipeline with local/sandbox Delta tables
 - Use `Faker` with `seed(42)` for deterministic synthetic PII in tests — never real data
 
+**Enforced by**: `tool/lint/de_faker_seed.py` — any module that imports `faker.Faker` or `mimesis.Generic` must call `Faker.seed(...)`, `seed_instance(...)`, or `mimesis.random.seed(...)` somewhere in the module.
+
 ## DE-10: Code Quality
 
 - Type hints on all Python function signatures

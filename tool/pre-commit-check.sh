@@ -28,6 +28,14 @@ else
   FAILED=true
 fi
 
+log_step "Deterministic lints (tool/lint/)"
+if "$PYTHON_BIN" -m tool.lint --target "$PROJECT_ROOT"; then
+  log_ok "lints passed"
+else
+  log_err "lints failed"
+  FAILED=true
+fi
+
 echo ""
 echo "════════════════════════════════════════════"
 if [[ "$FAILED" == "true" ]]; then

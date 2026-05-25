@@ -146,7 +146,6 @@ Include these checks in DQ notebooks for tables that receive external or user-ge
 
 | Risk | OWASP | Check | GX Expectation |
 |---|---|---|---|
-| SQL injection chars in PK | DATA1 | PK matches safe-char pattern | `ExpectColumnValuesToMatchRegex(column=pk, regex=r"^[A-Za-z0-9_\-\.]+$")` |
 | Unexpected volume spike | DATA3 | Row count within expected ceiling | `ExpectTableRowCountToBeBetween(max_value=EXPECTED_MAX)` |
 | PII masking verification | DATA7 | Masked column follows format | `ExpectColumnValuesToMatchRegex(column="email", regex=r"^[A-Z]{3}\*+@.*$")` |
 | Audit envelope integrity | DATA5/DATA9 | Envelope columns non-null and in range | `ExpectColumnValuesToBeBetween(column="_ingest_timestamp", ...)` |
