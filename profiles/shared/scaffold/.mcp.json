@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "fabric": {
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "mcp/server.py"
+      ]
+    },
+    "fabric-graph": {
+      "type": "stdio",
+      "command": ".venv\\Scripts\\python.exe",
+      "args": [
+        "mcp/graph-server.py"
+      ]
+    }
+  }
+}

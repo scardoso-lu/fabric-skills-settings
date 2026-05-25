@@ -136,17 +136,18 @@ if (-not (Test-Path -LiteralPath $VenvDir)) {
     }
 }
 
-# Build the local knowledge graph for the fabric-graph MCP server.
+# Knowledge graph artifacts are shipped pre-built by install-fabric-agent.
+# Incremental updates flow through the fabric-graph MCP server's CRUD writes
+# (tool/graph/writes.py), which atomically rebuilds memory/.graph on every change.
 Write-Host ""
 Write-Host "-- Knowledge graph"
-Push-Location $ProjectRoot
-try {
-    uv run --group dev python packaging/builders/build-graph.py --target . --stats
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-} finally {
-    Pop-Location
+$GraphJson = Join-Path $ProjectRoot "memory\.graph\graph.json"
+if (Test-Path -LiteralPath $GraphJson) {
+    $Actions.Add("knowledge graph present at memory/.graph (shipped by installer)")
+} else {
+    Write-Warning "memory/.graph/graph.json not found. Re-run install-fabric-agent to refresh the shipped graph."
+    $Actions.Add("knowledge graph missing -- re-run install-fabric-agent")
 }
-$Actions.Add("knowledge graph built in dist/.graph")
 
 # ── Load existing .env ────────────────────────────────────────────────────────
 if (Test-Path -LiteralPath $EnvFile) { Read-DotEnv -Path $EnvFile }
@@ -211,7 +212,11 @@ $WorkspaceInit = Join-Path $ProjectRoot "tool\workspace\init.py"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $Actions.Add("workspaces.json refreshed from Fabric API")
 
-# Interactive active-workspace selection — see scaffold/tool/setup/setup.ps1 for full notes.
+# Interactive active-workspace selection.
+# Env override:  FABRIC_WORKSPACE_DISPLAYNAME=<name>  -> pick non-interactively
+# Single workspace:                                   -> auto-select
+# Non-TTY stdin:                                      -> skip; user runs switch.py later
+# Multiple workspaces on a TTY:                       -> number-prompt, then call switch.py
 $WorkspaceSelector = @'
 import json
 import os

@@ -12,111 +12,78 @@ Fabric Agent Pack turns a normal git repository into a guided Microsoft Fabric p
 
 ## Quick start
 
-### Option A — pip install (recommended)
+Both paths give you the same install — a single command, no two-step dance.
+
+### Option A — pip install (recommended for users)
 
 No git clone required. Install the package and run the CLI directly:
 
 ```bash
 pip install fabric-skills-settings
-```
 
-Preview what will be written, then apply:
-
-```bash
 # preview
-uv run install-fabric-agent --profile claude --target /path/to/project-repo --dry-run
+install-fabric-agent --profile claude --target /path/to/project-repo --dry-run
 
 # apply
-uv run install-fabric-agent --profile claude --target /path/to/project-repo
+install-fabric-agent --profile claude --target /path/to/project-repo
 ```
-
-`--profile` accepts `claude`, `codex`, or `all`. The installer drops a minimal entrypoint (`CLAUDE.md` or `AGENTS.md`, ~30 lines) plus two MCP servers — `fabric` and `fabric-graph` — into the target repo. The first thing agents do in the target repo is call `graph_get_entry` to read the setup gate and traverse the knowledge graph.
-
-After install, run `claude` or `codex` from the target repo root.
-
----
 
 ### Option B — from source (contributors)
 
-Clone this repository, then prepare the source package:
+Clone the repo and use the `setup.ps1` / `setup.sh` single-shot CLI. It runs the validators first, then installs.
 
 #### Linux / macOS
 
 ```bash
-./setup.sh                  # check tools and validate package
-./setup.sh --install-tools  # also install uv if missing
+git clone https://github.com/scardoso-lu/fabric-skills-settings && cd fabric-skills-settings
+
+# preview
+./setup.sh --profile claude --target /path/to/project-repo --dry-run
+
+# apply
+./setup.sh --profile claude --target /path/to/project-repo
 ```
 
 #### Windows (PowerShell)
 
 ```powershell
-.\setup.ps1                  # check tools and validate package
-.\setup.ps1 -InstallTools    # also install uv if missing
-.\setup.ps1 -Help            # show usage
+git clone https://github.com/scardoso-lu/fabric-skills-settings; cd fabric-skills-settings
+
+# preview
+.\setup.ps1 -Profile claude -Target C:\path\to\project-repo -DryRun
+
+# apply
+.\setup.ps1 -Profile claude -Target C:\path\to\project-repo
 ```
 
-Both setup scripts check for Git and uv and run the package validators.
+### Common flags
 
-Build the local knowledge graph artifact before using the `fabric-graph` MCP server from this source checkout. The build commands mirror the installer's `--target` / `--dry-run` flag style:
+| Flag (bash / PowerShell) | Effect |
+|---|---|
+| `--profile codex \| claude \| all` / `-Profile` | Pick the agent profile (required for install) |
+| `--target <path>` / `-Target` | Target git repository (required for install) |
+| `--dry-run` / `-DryRun` | Preview changes without writing (skips bootstrap) |
+| `--check` / `-Check` | Verify target state, exit 1 if it drifts (skips bootstrap) |
+| `--force` / `-Force` | Overwrite non-managed existing files |
+| `--backup` / `-Backup` | Back up replaced files alongside the originals |
+| `--no-bootstrap` / `-NoBootstrap` | Copy files only; skip the post-install `.venv` + Fabric auth + workspaces.json bootstrap |
+| `--skip-validators` / `-SkipValidators` | Skip the pre-install validator pass (source-clone only) |
+| `--install-tools` / `-InstallTools` | Auto-install `uv` if missing (source-clone wrappers only) |
+| `--help` / `-Help` | Show usage |
 
-```bash
-# preview — validate and print stats, no artifacts written
-uv run --group dev python bin/build-graph.py --target . --dry-run --stats
-uv run --group dev python bin/build-agent-capability-graph.py --target . --dry-run --stats
+### Service-principal credentials
 
-# apply — write memory/.graph/{graph.json, graph-bm25.pkl, materialized-graph.svg}
-#              and agent-capabilities.{json,svg}
-uv run --group dev python bin/build-graph.py --target . --stats
-uv run --group dev python bin/build-agent-capability-graph.py --target . --stats
-```
-
-`--target` accepts any repo (this source checkout, an installed target, a disposable smoke-test directory). `--dry-run` runs the build pipeline in memory and prints findings without touching disk.
-
-The source repo splits graph code into:
-
-- `tool/graph/` — **runtime** modules used by the installed MCP server (schema, store, search, writes, builder, lock).
-- `build/graph_build/` — **build-time-only** modules used by `bin/build-*.py` (visualize, agent_capabilities). Not installed into target repos.
-
-Install into a target repository:
-
-```bash
-uv run install-fabric-agent --profile claude --target /path/to/project-repo --dry-run
-uv run install-fabric-agent --profile claude --target /path/to/project-repo
-```
-
-Then work from the target repository:
-
-```bash
-cd /path/to/project-repo
-codex   # or: claude
-```
-
----
-
-### 2. Configure Fabric access in the target repository
-
-Minimum required Fabric workspace role: **Contributor**. Run the setup script to create the local `.venv`, install the Python helper libraries, authenticate Fabric access, and refresh the workspace registry. You do not need to edit `.env` manually.
-
-```powershell
-# Windows
-.\tool\setup\setup.ps1
-```
-```bash
-# Linux / macOS
-bash tool/setup/setup.sh
-```
-
-The script prompts for service-principal credentials only:
+Minimum Fabric workspace role: **Contributor**. The bootstrap prompts for these and stores them safely:
 
 | Prompt | Stored where |
 |---|---|
-| `FABRIC_TENANT_ID` | `.env` |
-| `FABRIC_CLIENT_ID` | `.env` |
+| `FABRIC_TENANT_ID` | `<target>/.env` |
+| `FABRIC_CLIENT_ID` | `<target>/.env` |
 | `FABRIC_CLIENT_SECRET` | OS environment only — never `.env` |
 
 On Windows the secret is written to the user registry via `SetEnvironmentVariable("User")`. On Linux/macOS it is appended to your shell profile (`~/.zprofile`, `~/.bash_profile`, or `~/.profile`).
 
-Create the service principal before running setup:
+Create the service principal once, before running setup:
 
 ```text
 Azure Portal → App registrations → New registration
@@ -127,7 +94,15 @@ Fabric workspace → Manage access → Add → service principal
   Role: Contributor
 ```
 
-Re-running setup is idempotent — values already set are skipped.
+Re-running the same install command is idempotent — credentials already set are skipped, and managed files only change when their source content changes. If you need to bootstrap again later (e.g. after rotating the secret), run `<target>/tool/setup/setup.{ps1,sh}` directly from inside the target.
+
+
+## Learn more
+
+- [docs/workflow.md](docs/workflow.md) — agent → skill → tool → Fabric flow, focused on what you get in the target repo.
+- [docs/knowledge-graph.md](docs/knowledge-graph.md) — what's indexed under `memory/` and the `graph_*` MCP surface the agents call.
+- [docs/architecture.md](docs/architecture.md) — full source-vs-target picture: MCP servers, folder layout, setup CLI, and the redesign migration notes.
+
 
 ## Example result
 
@@ -175,42 +150,6 @@ The code is integrated with Git, and the agent develops everything in a dedicate
 ## Live reference implementation
 
 [**fabric-open-data-lu**](https://github.com/scardoso-lu/fabric-open-data-lu) is a public target repository with Claude- and Codex-generated scripts for EU open-data ingestion into Microsoft Fabric. It demonstrates the `download_` → `bronze_` → `dq_bronze_` notebook pattern used by this package.
-
-## Learn more
-
-For architecture diagrams of the two MCP servers, the RAG knowledge graph, and the skills + tools each server exposes, see [docs/architecture.md](docs/architecture.md).
-
-## Validation commands for contributors
-
-Run these from this source package repository after changing profiles, installer logic, guidance, validation, or installable tooling:
-
-```bash
-uv run bin/validate-install-package.py
-uv run bin/validate-agent-guidance.py
-uv run --group dev pytest
-```
-
-For installer changes, also run a disposable-target smoke test:
-
-```bash
-tmp=$(mktemp -d)
-git init -q "$tmp"
-uv run install-fabric-agent --profile all --target "$tmp" --dry-run
-uv run install-fabric-agent --profile all --target "$tmp"
-uv run install-fabric-agent --profile all --target "$tmp" --check
-```
-
-## What gets installed?
-
-| Profile | Installed into target repo |
-|---|---|
-| Codex | `AGENTS.md`, `.agents/skills/*/SKILL.md` copied from `profiles/skills/`, `.codex/agents/*.toml`, `.codex/config.toml` |
-| Claude | `CLAUDE.md`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `.claude/settings.local.json` |
-| Shared | `memory/` including `memory/rules/` and `memory/graph-content/`, placeholder `.env.example`, managed `.gitignore` block, `workspace/`, `data/sandbox/`, `contracts/`, `tool/` (with `tool/mcp/` running the `fabric` and `fabric-graph` MCP servers) |
-
-
-The only shared runtime state between vendor profiles is `memory/`. Runtime Codex assets stay under `profiles/codex/`; runtime Claude assets stay under `profiles/claude/`. Skill source is intentionally single-source under `profiles/skills/` and is copied to both runtime skill paths during installation.
-
 
 ## Why use it?
 

@@ -143,15 +143,20 @@ def first_h1(body: str) -> str:
 
 
 _PATH_PREFIX_TO_ID: tuple[tuple[str, str], ...] = (
+    # Target-repo layout (memory/ is the runtime root).
     ("memory/graph-content/", "graph-content/"),
     ("memory/rules/", "rules/"),
     ("memory/skill-fixes/", "skill-fixes/"),
     ("memory/", "memory/"),
-    ("profiles/shared/graph-content/", "graph-content/"),
+    # Source-package layout (content/ is the single source).
+    ("content/graph-content/", "graph-content/"),
+    ("content/rules/", "rules/"),
     ("profiles/shared/memory/", "memory/"),
-    ("profiles/shared/project-layout/memory/rules/", "rules/"),
-    ("profiles/shared/project-layout/memory/", "memory/"),
+    # Bare canonical-id prefixes — prose often references these directly
+    # ("rules/security.md", "graph-content/entry.md") without a parent path.
     ("rules/", "rules/"),
+    ("graph-content/", "graph-content/"),
+    ("skill-fixes/", "skill-fixes/"),
 )
 
 

@@ -14,11 +14,11 @@ def _write(path: Path, text: str) -> None:
 
 def _make_tree(root: Path) -> None:
     _write(
-        root / "profiles" / "shared" / "graph-content" / "entry.md",
-        "---\nname: entry\ndescription: Setup gate\nlinks:\n  - graph-content/session/session-start\n---\n\n# Entry\nSee rules/security.md and skills/fabric-transform.\n",
+        root / "content" / "graph-content" / "entry.md",
+        "---\nname: entry\ndescription: Setup gate\nlinks:\n  - graph-content/session/session-start\n---\n\n# Entry\nSee content/rules/security.md and skills/fabric-transform.\n",
     )
     _write(
-        root / "profiles" / "shared" / "graph-content" / "session" / "session-start.md",
+        root / "content" / "graph-content" / "session" / "session-start.md",
         "---\nname: session-start\ndescription: Read order\n---\n\n# Session start\nWorkflows in profiles/skills/fabric-transform/SKILL.md.\n",
     )
     _write(
@@ -26,11 +26,11 @@ def _make_tree(root: Path) -> None:
         "---\nname: fabric-transform\ndescription: Silver/Gold transform skill\nlinks:\n  - rules/data-engineering\n---\n\n# fabric-transform\nMERGE pattern with idempotent upsert.\n",
     )
     _write(
-        root / "rules" / "data-engineering.md",
+        root / "content" / "rules" / "data-engineering.md",
         "---\nname: data-engineering\ndescription: Pipeline rules\n---\n\n# Data engineering rules\nIdempotency required.\n",
     )
     _write(
-        root / "rules" / "security.md",
+        root / "content" / "rules" / "security.md",
         "---\nname: security\ndescription: Secrets handling rules\n---\n\n# Security\nNever commit credentials.\n",
     )
 
@@ -100,13 +100,13 @@ def test_build_warns_and_keeps_first_on_duplicate_id(tmp_path):
     assert any("duplicate node id" in w for w in result.warnings)
     assert result.errors == []
     node = result.store.get_node("graph-content/entry")
-    assert node.path.startswith("profiles/shared/graph-content/")
+    assert node.path.startswith("content/graph-content/")
 
 
 def test_build_errors_on_unresolved_curated_link(tmp_path):
     _make_tree(tmp_path)
     _write(
-        tmp_path / "rules" / "broken.md",
+        tmp_path / "content" / "rules" / "broken.md",
         "---\nname: broken\nlinks:\n  - rules/does-not-exist\n---\n\n# Broken\n",
     )
     result = build(tmp_path)
@@ -118,7 +118,8 @@ def test_id_from_path_handles_known_locations():
         "memory/graph-content/entry.md": "graph-content/entry",
         "memory/graph-content/workflow/pipeline-structure.md": "graph-content/workflow/pipeline-structure",
         "memory/rules/data-engineering.md": "rules/data-engineering",
-        "rules/data-engineering.md": "rules/data-engineering",
+        "content/rules/data-engineering.md": "rules/data-engineering",
+        "content/graph-content/entry.md": "graph-content/entry",
         "memory/skill-fixes/silver-do-not-trust-bronze-types.md": "skill-fixes/silver-do-not-trust-bronze-types",
         ".claude/skills/fabric-transform/SKILL.md": "skills/fabric-transform",
         "profiles/skills/fabric-transform/SKILL.md": "skills/fabric-transform",

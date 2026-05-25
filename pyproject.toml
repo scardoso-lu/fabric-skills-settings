@@ -11,7 +11,7 @@ readme = "README.md"
 license = { text = "MIT" }
 
 [project.scripts]
-install-fabric-agent = "fabric_skills_settings._installer:main"
+install-fabric-agent = "fabric_agent_installer._installer:main"
 
 [dependency-groups]
 dev = ["pytest>=8", "Faker>=26", "mimesis>=18", "scikit-learn>=1.5", "pandas>=2", "networkx>=3.2", "rank_bm25>=0.2.2"]
@@ -29,19 +29,35 @@ source = "vcs"
 local_scheme = "no-local-version"
 
 [tool.hatch.build.targets.wheel]
-packages = ["fabric_skills_settings"]
+packages = ["packaging/fabric_agent_installer"]
+
+[tool.hatch.build.targets.wheel.sources]
+"packaging/fabric_agent_installer" = "fabric_agent_installer"
 
 [tool.hatch.build.targets.wheel.force-include]
-"profiles" = "fabric_skills_settings/_profiles"
+"profiles" = "fabric_agent_installer/_profiles"
+"content" = "fabric_agent_installer/_content"
+"tool" = "fabric_agent_installer/_tool"
+"mcp" = "fabric_agent_installer/_mcp"
+"dist/.graph" = "fabric_agent_installer/_graph"
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "fabric_skills_settings/",
+    "packaging/",
     "profiles/",
-    "bin/",
     "tool/",
+    "mcp/",
+    "content/",
     "tests/",
     "README.md",
     "LICENSE",
     "pyproject.toml",
+    "setup.ps1",
+    "setup.sh",
 ]
+
+# Pre-built knowledge graph artifacts must ship to target repos. They live under
+# dist/.graph (source-side build output) which is gitignored, so force-include is
+# the only way to pull them into the sdist (which the wheel build then re-uses).
+[tool.hatch.build.targets.sdist.force-include]
+"dist/.graph" = "dist/.graph"

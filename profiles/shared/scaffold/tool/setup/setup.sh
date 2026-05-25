@@ -175,14 +175,17 @@ else
   fi
 fi
 
-# Build the local knowledge graph for the fabric-graph MCP server.
+# Knowledge graph artifacts are shipped pre-built by install-fabric-agent.
+# Incremental updates flow through the fabric-graph MCP server's CRUD writes
+# (tool/graph/writes.py), which atomically rebuilds memory/.graph on every change.
 echo ""
 echo "-- Knowledge graph"
-(
-  cd "${PROJECT_ROOT}"
-  uv run --group dev python packaging/builders/build-graph.py --target . --stats
-)
-actions+=("knowledge graph built in dist/.graph")
+if [[ -f "${PROJECT_ROOT}/memory/.graph/graph.json" ]]; then
+  actions+=("knowledge graph present at memory/.graph (shipped by installer)")
+else
+  echo "  memory/.graph/graph.json not found. Re-run install-fabric-agent to refresh the shipped graph." >&2
+  actions+=("knowledge graph missing -- re-run install-fabric-agent")
+fi
 
 # ── Load existing .env ────────────────────────────────────────────────────────
 if [[ -f "$ENV_FILE" ]]; then
@@ -240,7 +243,11 @@ echo "  Discovering Fabric workspaces via API..."
 "${VENV_PY}" "${PROJECT_ROOT}/tool/workspace/init.py"
 actions+=("workspaces.json refreshed from Fabric API")
 
-# Interactive active-workspace selection — see scaffold/tool/setup/setup.sh for full notes.
+# Interactive active-workspace selection.
+# Env override:  FABRIC_WORKSPACE_DISPLAYNAME=<name>  → pick non-interactively
+# Single workspace:                                   → auto-select
+# Non-TTY stdin:                                      → skip; user runs switch.py later
+# Multiple workspaces on a TTY:                       → number-prompt, then call switch.py
 if "${VENV_PY}" - <<'PY'
 import json
 import os
@@ -295,6 +302,7 @@ else:
     else:
         selection = raw
 
+# Hand off to switch.py — it updates workspaces.json (active) and writes resource IDs to .env.
 rc = subprocess.run(
     [sys.executable, "tool/workspace/switch.py", selection]
 ).returncode

@@ -1,13 +1,13 @@
 # Fabric Agent Pack — Claude Contributor Guidance
 
-This repository is the source package and installer for Microsoft Fabric agent profiles. It is not the day-to-day Fabric project workspace. Install a profile into a target repo with `bin/install-fabric-agent` (or `pip install fabric-skills-settings`), then run Claude Code from that target repo root.
+This repository is the source package and installer for Microsoft Fabric agent profiles. It is not the day-to-day Fabric project workspace. Install a profile into a target repo with `packaging/install-fabric-agent` (or `pip install fabric-skills-settings`), then run Claude Code from that target repo root.
 
 ## Architecture at a glance
 
 Two MCP servers ship with every install:
 
-- **`fabric`** (`tool/mcp/server.py`) — wraps the Fabric CLI: list/get items and authenticated REST API calls.
-- **`fabric-graph`** (`tool/mcp/graph-server.py`) — RAG knowledge graph: BM25 + 1-hop edge-aware read tools plus full CRUD over nodes and edges.
+- **`fabric`** (`mcp/server.py`) — wraps the Fabric CLI: list/get items and authenticated REST API calls.
+- **`fabric-graph`** (`mcp/graph-server.py`) — RAG knowledge graph: BM25 + 1-hop edge-aware read tools plus full CRUD over nodes and edges.
 
 The installed target's `CLAUDE.md` is ~30 lines and points agents at `graph_get_entry` first. All operational knowledge — setup gate, session-start order, workflow, skills, tools, rules — lives in graph nodes. There is no static `memory/project.md`, `memory/runbooks/`, `memory/security/`, or `templates/`; those are now graph nodes accessed and updated via `graph_*` MCP tools.
 
@@ -17,26 +17,32 @@ See [`docs/architecture.md`](docs/architecture.md) for diagrams.
 
 | Path | Purpose |
 |---|---|
-| `profiles/skills/` | Skill source. Single source of truth — installer copies to `.claude/skills/` and `.agents/skills/`. |
+| `packaging/` | Source-package internals (NOT installed into targets). |
+| `packaging/fabric_agent_installer/` | Pip-installable wheel (published on PyPI as `fabric-skills-settings`). Imported as `fabric_agent_installer`. Profiles bundled as `_profiles/`, content as `_content/`, tool/ as `_tool/`, mcp/ as `_mcp/`, graph artifacts as `_graph/` by hatchling. |
+| `packaging/install-fabric-agent` | The CLI shim (mirrors `_installer.py`). |
+| `packaging/builders/` | Source-package-only graph builders: `build-graph.py`, `build-agent-capability-graph.py`, and the `graph_build/` build-time modules they import. |
+| `packaging/validators/` | Source-package-only validators: `validate-install-package.py`, `validate-agent-guidance.py`. |
+| `tool/` | Fabric runtime helpers. Single source of truth — installer copies to target's `tool/`. |
+| `tool/graph/` | Runtime graph package: `schema`, `store`, `search` (BM25 + 1-hop), `writes` (CRUD), `lock`, `builder`, `extract`. |
+| `mcp/` | MCP servers, **top-level and parallel to `tool/`**: `server.py` (`fabric`), `graph-server.py` (`fabric-graph`). Installer copies to target's `mcp/`. |
+| `content/` | Installable content sources. |
+| `content/rules/` | Security / data-engineering / fabric-platform / notebook-authoring rules. Installer copies to target's `memory/rules/`. |
+| `content/graph-content/` | Knowledge-graph content tree (`entry.md`, `session/`, `workflow/`, `layout/`, `indexes/`, `integrations/`, `diagnostics/`, `semantic/`). Installer copies to target's `memory/graph-content/`. |
+| `profiles/skills/` | Skill source. Installer copies to `.claude/skills/` and `.agents/skills/`. |
 | `profiles/codex/` | Codex-native install assets: `AGENTS.md`, `.codex/agents`, `.codex/config.toml`. |
 | `profiles/claude/` | Claude-native install assets: `CLAUDE.md`, `.claude/agents`, `.claude/settings.local.json`. |
-| `profiles/shared/graph-content/` | Knowledge-graph content tree (`entry.md`, `session/`, `workflow/`, `layout/`, `indexes/`, `integrations/`, `diagnostics/`, `semantic/`). Copied to `memory/graph-content/` at install. |
-| `profiles/shared/memory/` | Empty placeholder (just `.gitkeep`). Installed to target as `memory/` so the `fabric-graph` MCP server has a writable graph root. |
-| `profiles/shared/project-layout/` | Target scaffolding (`tool/`, `memory/rules/`, `.mcp.json`). |
-| `tool/` | **Runtime** tooling. Source-package mirror of `profiles/shared/project-layout/tool/`; parity is enforced. |
-| `tool/graph/` | Runtime graph package: `schema`, `store`, `search` (BM25 + 1-hop), `writes` (CRUD), `lock`, `builder`, `extract`. |
-| `tool/mcp/` | The two MCP servers: `server.py` (`fabric`), `graph-server.py` (`fabric-graph`). |
-| `build/graph_build/` | **Build-time only** modules used by `bin/build-*.py`. NOT installed into target repos. |
-| `rules/` | Source for security / data-engineering / fabric-platform rules. Mirrored to `memory/rules/` at install. |
-| `bin/` | Source-package-only: installer, validators, graph builders. Not installed. |
-| `fabric_skills_settings/` | Pip-installable wheel. `_installer.py` mirrors `bin/install-fabric-agent`; profiles bundled as `_profiles/` by hatchling. |
+| `profiles/shared/memory/` | Placeholder (just `.gitkeep`). Installed to target as `memory/` so the `fabric-graph` MCP server has a writable graph root. |
+| `profiles/shared/scaffold/` | Target scaffolding installed verbatim: `.mcp.json`, `data/sandbox/`, `workspace/`, target-side overrides for `tool/setup/setup.{ps1,sh}` (which omit the source-side graph-build step). |
+| `dist/` | Build outputs — both the wheel (`*.whl`, `*.tar.gz`) and `dist/.graph/` (source-side knowledge graph artifacts; the installer ships these to target's `memory/.graph/`). |
+| `setup.ps1` / `setup.sh` | Root post-clone entry points for source-package maintainers; forward to `packaging/validators/` and document `packaging/install-fabric-agent`. |
 
 ## Knowledge graph
 
-- **Sources**: `profiles/shared/graph-content/**/*.md`, `profiles/shared/memory/*.md`, `profiles/skills/*/SKILL.md` (+ `sections/`), `rules/*.md`, `memory/skill-fixes/*.md`. Curated edges come from frontmatter `links:`; auto edges from raw `path/to/file.md` mentions in prose.
-- **Build**: `bin/build-graph.py` writes `memory/.graph/graph.json` + `memory/.graph/graph-bm25.pkl` + `memory/.graph/materialized-graph.svg`.
-- **Derived capability graph**: `bin/build-agent-capability-graph.py` writes `agent-capabilities.json` + `agent-capabilities.svg`. Groups knowledge nodes under the 4 subagents (orchestrator, developer, tester, operator) using their native frontmatter `links:` + `skills:` as the source of truth.
-- **CRUD at runtime**: every `graph_create_node` / `graph_update_node` / `graph_delete_node` / `graph_add_edge` / `graph_remove_edge` call triggers an atomic rebuild via `tool/graph/writes.py`.
+- **Sources**: `content/graph-content/**/*.md`, `content/rules/*.md`, `profiles/skills/*/SKILL.md` (+ `sections/`), `profiles/shared/memory/*.md`, `memory/skill-fixes/*.md` (target-side runtime). Curated edges come from frontmatter `links:`; auto edges from raw `path/to/file.md` mentions in prose.
+- **Build**: `packaging/builders/build-graph.py` writes `dist/.graph/{graph.json, graph-bm25.pkl, materialized-graph.html, materialized-graph.svg}` in the source repo. Source-package `tool/setup/setup.{ps1,sh}` invokes it via `uv run --group dev python packaging/builders/build-graph.py --target . --stats`.
+- **Derived capability graph**: `packaging/builders/build-agent-capability-graph.py` writes `dist/.graph/agent-capabilities.json` + `agent-capabilities.html` + `agent-capabilities.svg`. Groups knowledge nodes under the 4 subagents (orchestrator, developer, tester, operator) using their native frontmatter `links:` + `skills:` as the source of truth.
+- **Shipped pre-built to target**: `install-fabric-agent` copies `dist/.graph/*` (graph.json, BM25 pickle, HTML/SVG visualizations, agent-capabilities) into the target's `memory/.graph/`. Wheel installs source these from the bundled `fabric_agent_installer/_graph/`; source-checkout installs source from `<repo>/dist/.graph/`. Lock files are not shipped. Existing target artifacts are kept unless `--force` is passed.
+- **CRUD at runtime**: every `graph_create_node` / `graph_update_node` / `graph_delete_node` / `graph_add_edge` / `graph_remove_edge` call in a target repo triggers an atomic rebuild via `tool/graph/writes.py`, writing to the target's `memory/.graph/`. Target setup scripts therefore no longer rebuild the graph from scratch — they only verify the shipped artifact is present.
 - **Entrypoint limits**: `profiles/claude/CLAUDE.md` and `profiles/codex/AGENTS.md` must stay ≤ 50 lines and contain no operational section headings. Enforced by `bin/validate-agent-guidance.py`.
 
 ## Skills
@@ -59,8 +65,10 @@ Long skills (> 150 lines) are split into `sections/` under the skill folder with
 | `tool/semantic-model/` | Semantic Model inspection via `sempy.fabric`. |
 | `tool/validate/` | Local pipeline-lineage validators. |
 | `tool/graph/` | Graph runtime (schema, store, search, writes, lock). |
-| `tool/mcp/` | `fabric` and `fabric-graph` MCP servers. |
+| `tool/workspace/` | Workspace registry helpers (`init.py`, `switch.py`, `transfer.py`). |
 | `tool/pre-commit-check.{ps1,sh}` | Completion check used before reporting done. |
+| `mcp/` | `fabric` and `fabric-graph` MCP servers (top-level, parallel to `tool/`). |
+| `memory/` | Target runtime persistence root: `memory/.graph/` (graph artifacts), `memory/rules/` (installed rules), `memory/graph-content/` (installed graph content nodes), `memory/skill-fixes/`. |
 
 ## File scanning
 
@@ -71,9 +79,9 @@ Always exclude `.venv/` when searching — it contains third-party packages and 
 - Keep vendor-specific runtime assets inside their profile folders. No root `.claude/` or `.codex/` directories.
 - Skill source is single-source under `profiles/skills/`. Do not duplicate elsewhere.
 - Profiles own agents, skills, entrypoints, and settings. Runtime state shared between Codex and Claude is `memory/` only.
-- Build-time graph code (`build/graph_build/`) is NOT installed into target repos; only runtime code (`tool/graph/`) is. Don't reintroduce build modules under `tool/`.
-- When changing installable helpers, edit both `tool/<area>/...` and `profiles/shared/project-layout/tool/<area>/...`; `bin/validate-install-package.py` enforces parity.
-- When changing installer logic, keep `bin/install-fabric-agent` and `fabric_skills_settings/_installer.py` in sync. Run `uv build` to verify the wheel content.
+- Build-time graph code (`packaging/builders/graph_build/`) is NOT installed into target repos; only runtime code (`tool/graph/`) is. Don't reintroduce build modules under `tool/`.
+- `tool/` is the single source of truth for installable helpers. The scaffold only carries target-side OVERRIDES (currently just `profiles/shared/scaffold/tool/setup/setup.{ps1,sh}`, which omit the source-side graph-build invocation because the target receives the graph pre-built via the installer).
+- When changing installer logic, keep `packaging/install-fabric-agent` (CLI shim) and `packaging/fabric_agent_installer/_installer.py` in sync. Run `uv build` to verify the wheel content.
 - If installer refresh must recognize a helper, update `REFRESHABLE_SCAFFOLD_MARKERS` in both installer scripts.
 - Never commit `.env`, credentials, tokens, connection strings, data files, logs, generated notebook bundles, or `__pycache__/`.
 - Use placeholders only in `.env.example`.
@@ -83,21 +91,18 @@ Always exclude `.venv/` when searching — it contains third-party packages and 
 
 ## Required checks
 
+`./setup.sh` (or `.\setup.ps1`) is the single-shot CLI for the source clone. With no args it runs the maintainer sanity check + both validators. With `--profile X --target Y` it validates, installs, and runs the target's `tool/setup/setup.{ps1,sh}` bootstrap (`.venv` + Fabric auth prompts + `workspaces.json`) **in one command**. After `pip install fabric-skills-settings`, the same end-to-end install runs as `install-fabric-agent --profile X --target Y`. Pass `--no-bootstrap` when you only want files copied (CI / dry-run flows).
+
 After changing profiles, installer logic, guidance, validation, or installable tooling:
 
 ```bash
-uv run bin/validate-install-package.py
-uv run bin/validate-agent-guidance.py
-uv run --group dev pytest
+./setup.sh                                            # validators + sanity check (no install)
+uv run --group dev pytest                             # tests
+./setup.sh --profile all --target <target-repo> --dry-run  # disposable-target smoke test
+./setup.sh --profile all --target <target-repo> --check    # idempotency check
 ```
 
-Run the unit tests after any change to `tool/notebook/build.py` or `tool/pipeline/manage.py`.
-
-For installer or profile changes, also run a disposable-target smoke test:
-
-```bash
-python bin/install-fabric-agent --profile all --target <target-repo> --check
-```
+Run the unit tests after any change to `tool/notebook/build.py` or `tool/pipeline/manage.py`. The validators are also runnable directly (`uv run packaging/validators/validate-install-package.py`, `uv run packaging/validators/validate-agent-guidance.py`) when you want to skip the wrapper.
 
 Do not run source-package validators from an installed target repo; they are not installed there.
 

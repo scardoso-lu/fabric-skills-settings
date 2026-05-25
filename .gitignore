@@ -21,15 +21,16 @@ _delta_log/
 *.xls
 !tool/data/
 !tool/data/mock-data-generator.py
-!profiles/shared/project-layout/tool/data/
-!profiles/shared/project-layout/tool/data/mock-data-generator.py
 
-# Allow packaged target scaffolding placeholders under profiles/shared/project-layout
-!profiles/shared/project-layout/data/
-!profiles/shared/project-layout/data/sandbox/
-!profiles/shared/project-layout/data/sandbox/.gitkeep
-!profiles/shared/project-layout/workspace/
-!profiles/shared/project-layout/workspace/.gitkeep
+# Allow packaged target scaffolding placeholders under profiles/shared/scaffold
+!profiles/shared/scaffold/data/
+!profiles/shared/scaffold/data/sandbox/
+!profiles/shared/scaffold/data/sandbox/.gitkeep
+!profiles/shared/scaffold/workspace/
+!profiles/shared/scaffold/workspace/.gitkeep
+
+# Folder-redesign baseline snapshot (Step 0)
+baseline-snapshot/
 
 # Python
 __pycache__/
@@ -45,8 +46,8 @@ venv/
 # Memory — runtime memory is persisted via the graph MCP CRUD ops
 memory/*.md
 
-# Knowledge graph build artifacts (rebuilt by bin/build-graph.py at install + refresh)
-memory/.graph/
+# Knowledge graph build artifacts (rebuilt by packaging/builders/build-graph.py)
+dist/.graph/
 
 # OS / IDE
 .DS_Store

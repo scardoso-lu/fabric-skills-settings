@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-SERVER_PATH = ROOT / "tool" / "mcp" / "graph-server.py"
+SERVER_PATH = ROOT / "mcp" / "graph-server.py"
 
 
 def _load_server_module(tmp_root: Path):
@@ -34,9 +34,9 @@ def _build_graph(tmp_root: Path) -> None:
 
     _write(tmp_root / "memory" / "graph-content" / "entry.md",
            "---\nname: entry\ndescription: Mandatory setup gate.\nlinks:\n  - rules/security\n---\n\n# Mandatory setup gate\nVerify .env, fab, fab auth. Setup incomplete blocks all work.\n")
-    _write(tmp_root / "rules" / "security.md",
+    _write(tmp_root / "memory" / "rules" / "security.md",
            "---\nname: security\ndescription: Credential and PII rules\n---\n\n# Security\nNever commit credentials.\n")
-    _write(tmp_root / "rules" / "data-engineering.md",
+    _write(tmp_root / "memory" / "rules" / "data-engineering.md",
            "---\nname: data-engineering\ndescription: Pipeline rules\n---\n\n# Data engineering\nIdempotent MERGE only.\n")
     _write(tmp_root / "profiles" / "skills" / "fabric-transform" / "SKILL.md",
            "---\nname: fabric-transform\ndescription: Silver/Gold MERGE\n---\n\n# fabric-transform\nDelta MERGE pattern.\n")

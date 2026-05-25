@@ -16,20 +16,20 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-VALIDATOR = ROOT / "bin" / "validate-agent-guidance.py"
+VALIDATOR = ROOT / "packaging" / "validators" / "validate-agent-guidance.py"
 
 
 def _run_validator(tmp_root: Path) -> tuple[int, str]:
     """Run the validator as a subprocess with ROOT pointed at tmp_root.
 
-    We do this by copying the validator script into tmp_root/bin/ so its
-    `ROOT = Path(__file__).resolve().parents[1]` resolves to tmp_root.
+    We copy the validator script into tmp_root/packaging/validators/ so its
+    `ROOT = Path(__file__).resolve().parents[2]` resolves to tmp_root.
     """
-    bin_dir = tmp_root / "bin"
-    bin_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy(VALIDATOR, bin_dir / VALIDATOR.name)
+    validators_dir = tmp_root / "packaging" / "validators"
+    validators_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy(VALIDATOR, validators_dir / VALIDATOR.name)
     result = subprocess.run(
-        [sys.executable, str(bin_dir / VALIDATOR.name)],
+        [sys.executable, str(validators_dir / VALIDATOR.name)],
         cwd=tmp_root,
         capture_output=True,
         text=True,
@@ -65,14 +65,11 @@ def _make_baseline_source_repo(root: Path) -> None:
 
     (root / "profiles" / "codex" / "config.toml").write_text("")
     (root / "profiles" / "claude" / "settings.local.json").write_text("{}")
-    rules_dir = root / "profiles" / "shared" / "project-layout" / "memory" / "rules"
-    rules_dir.mkdir(parents=True, exist_ok=True)
-    for name in ("data-engineering.md", "fabric-platform.md", "security.md"):
-        (rules_dir / name).write_text(f"# {name}\n")
-    (root / "rules").mkdir(exist_ok=True)
-    (root / "rules" / "data-engineering.md").write_text("# DE\nfabric-transform fabric-validate\n")
-    (root / "rules" / "fabric-platform.md").write_text("# FP\nfabric-model\n")
-    (root / "rules" / "security.md").write_text("# SEC\n")
+    content_rules = root / "content" / "rules"
+    content_rules.mkdir(parents=True, exist_ok=True)
+    (content_rules / "data-engineering.md").write_text("# DE\nfabric-transform fabric-validate\n")
+    (content_rules / "fabric-platform.md").write_text("# FP\nfabric-model\n")
+    (content_rules / "security.md").write_text("# SEC\n")
 
     docs_dir = root / "docs"
     docs_dir.mkdir(exist_ok=True)
@@ -80,7 +77,7 @@ def _make_baseline_source_repo(root: Path) -> None:
         "fabric-transform fabric-model fabric-validate DE-06 FP-08 DE-04\n"
     )
 
-    gc = root / "profiles" / "shared" / "graph-content"
+    gc = root / "content" / "graph-content"
     (gc / "indexes").mkdir(parents=True, exist_ok=True)
     (gc / "session").mkdir(parents=True, exist_ok=True)
     (gc / "indexes" / "skills-index.md").write_text(

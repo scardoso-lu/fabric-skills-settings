@@ -10,10 +10,12 @@ from .schema import Edge, Node, first_h1, id_from_path, kind_for_id
 from .store import GraphStore
 
 DISCOVER_PATTERNS: tuple[tuple[str, str], ...] = (
-    ("profiles/shared/graph-content/**/*.md", "content"),
+    # Source-package layout (this repo): content/ is the single source of truth.
+    ("content/graph-content/**/*.md", "content"),
+    ("content/rules/*.md", "rule"),
     ("profiles/skills/*/SKILL.md", "skill"),
     ("profiles/skills/*/sections/*.md", "content"),
-    ("rules/*.md", "rule"),
+    # Target-repo layout: installer mirrors content/ into memory/.
     ("memory/graph-content/**/*.md", "content"),
     ("memory/rules/*.md", "rule"),
     ("memory/skill-fixes/*.md", "skill-fix"),

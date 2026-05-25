@@ -76,7 +76,12 @@
       "Bash(bash tool/setup/fab-sandbox --version)",
       "Bash(bash tool/setup/fab-sandbox api workspaces --output_format json)",
       "Bash(powershell.exe -File tool/setup/fab-sandbox.ps1 --version)",
-      "Bash(powershell.exe -File tool/setup/fab-sandbox.ps1 api workspaces --output_format json)"
+      "Bash(powershell.exe -File tool/setup/fab-sandbox.ps1 api workspaces --output_format json)",
+      "mcp__fabric-graph__graph_get_entry",
+      "mcp__fabric-graph__graph_get_node",
+      "mcp__fabric-graph__graph_search",
+      "mcp__fabric__fabric_api_get",
+      "Bash(python tool/workspace/switch.py *)"
     ]
   },
   "enableAllProjectMcpServers": true,

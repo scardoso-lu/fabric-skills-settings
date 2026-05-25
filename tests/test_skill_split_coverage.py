@@ -46,11 +46,11 @@ SPLIT_SKILLS: dict[str, dict[str, list[str]]] = {
 
 
 def _build_graph_into_temp(tmp_path: Path) -> None:
-    """Run bin/build-graph.py with --out / --bm25 pointed at tmp_path to keep tests hermetic."""
+    """Run packaging/builders/build-graph.py with --out / --bm25 pointed at tmp_path to keep tests hermetic."""
     out = tmp_path / "graph.json"
     bm25 = tmp_path / "bm25.pkl"
     subprocess.run(
-        [sys.executable, str(ROOT / "bin" / "build-graph.py"),
+        [sys.executable, str(ROOT / "packaging" / "builders" / "build-graph.py"),
          "--root", str(ROOT), "--out", str(out), "--bm25", str(bm25)],
         check=True, capture_output=True,
     )
