@@ -382,15 +382,15 @@ function initLayout() {
     const sibs = byLevel[lv] || [sn.id];
     const idx  = sibs.indexOf(sn.id);
     const frac = sibs.length > 1 ? idx / (sibs.length - 1) : 0.5;
-    sn.x = 80 + frac * 760 + (Math.random() - 0.5) * 20;
-    sn.y = 80 + (lv / Math.max(maxLv, 1)) * 640 + (Math.random() - 0.5) * 15;
+    sn.x = 80 + frac * 340 + (Math.random() - 0.5) * 15;
+    sn.y = 80 + (lv / Math.max(maxLv, 1)) * 300 + (Math.random() - 0.5) * 12;
   });
 }
 initLayout();
 
 // --- Force simulation ---
-const REPULSION = 4500, SPRING_K = 0.015, REST_LEN = 130;
-const GRAVITY = 0.0012, DAMPING = 0.80;
+const REPULSION = 1800, SPRING_K = 0.03, REST_LEN = 70;
+const GRAVITY = 0.002, DAMPING = 0.80;
 const ALPHA_DECAY = 0.0018, MIN_ALPHA = 0.001;
 let alpha = 1.0, frozen = false;
 
