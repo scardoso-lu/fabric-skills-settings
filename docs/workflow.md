@@ -21,7 +21,7 @@ flowchart TD
     SKILLS["Skills by sub-agent<br/>━━━━━━━━━━<br/>developer ⇒ fabric-ingest · fabric-transform · fabric-model<br/>fabric-notebook-loop · fabric-pipeline<br/>mock-data · semantic-model · git-commit<br/>tester ⇒ fabric-validate · fabric-notebook-loop<br/>operator ⇒ fabric-ops · rtk"]:::skill
     SKILLS --> TOOLS
 
-    TOOLS["fabric-cli proxy (Bash, target-side)<br/>━━━━━━━━━━<br/>notebook — build · deploy · smoke-test · fetch<br/>lakehouse — list-tables<br/>pipeline — manage<br/>workspace — init · switch · transfer · pick<br/>lint · precommit<br/>━━━━━━━━━━<br/>fabric-server MCP<br/>data_mock_generate · semantic_model_* · pipeline_lineage_check · graph_*"]:::tool
+    TOOLS["fabric-cli proxy (package-owned)<br/>━━━━━━━━━━<br/>notebook — build · deploy · smoke-test · fetch<br/>lakehouse — list-tables<br/>pipeline — manage<br/>workspace — init · switch · transfer · pick<br/>lint · precommit · setup<br/>━━━━━━━━━━<br/>fabric-server MCP<br/>data_mock_generate · semantic_model_* · pipeline_lineage_check · graph_*"]:::tool
     TOOLS --> FAB
 
     FAB[("Microsoft Fabric<br/>workspace · REST API · CLI")]:::ext
@@ -33,12 +33,12 @@ flowchart TD
 |---|---|---|
 | 🟠 Orange | Agents (4) | `.claude/agents/*.md` and `.codex/agents/*.toml` |
 | 🔵 Blue | Skills (14) | served from the `fabric-server` graph via `graph_get_node('skills/<name>')` |
-| 🟢 Green | Tools | `fabric-cli` subcommands (Bash, target-side `tool/`) + `fabric-server` MCP tools |
+| 🟢 Green | Tools | `fabric-cli` package helpers + `fabric-server` MCP tools |
 | 🔴 Red | External | Microsoft Fabric workspace (CLI + REST API) |
 
 ## What each command does
 
-`fabric-cli` (Bash, runs the target-side `tool/` scripts):
+`fabric-cli` (Bash, runs package-owned helpers from the target root):
 
 | Command | Used by |
 |---|---|
@@ -57,4 +57,4 @@ flowchart TD
 | `pipeline_lineage_check` | `fabric-validate`, pre-commit check |
 | `graph_*` | all agents (knowledge graph read/write) |
 
-`tool/setup/setup.{ps1,sh}` is human-run at install time; agents do not invoke it. The knowledge graph + MCP tools are served by the `fabric-server` Docker container — see [knowledge-graph.md](knowledge-graph.md).
+`fabric-cli setup` is human-run at install time; agents do not invoke it. The knowledge graph + MCP tools are served by the `fabric-server` Docker container — see [knowledge-graph.md](knowledge-graph.md).

@@ -35,7 +35,7 @@ def _fake_subprocess_ok(stdout: str = "ok"):
         captured["env"] = kwargs.get("env")
         return _Result(stdout)
 
-    return patch("server.script_runner.subprocess.run", side_effect=_fake_run), captured
+    return patch("server.tools.utils.script_runner.subprocess.run", side_effect=_fake_run), captured
 
 
 def _tools(mcp: FastMCP) -> dict[str, callable]:

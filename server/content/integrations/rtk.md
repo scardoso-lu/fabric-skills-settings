@@ -8,7 +8,7 @@ links:
 
 # RTK — Rust Token Killer
 
-RTK reduces shell output token consumption. It is installed by `tool/setup/setup.sh` / `tool/setup/setup.ps1`.
+RTK reduces shell output token consumption. It is installed by `fabric-cli setup`.
 
 Claude Code sessions handle RTK automatically through the Bash hook; no manual command prefix is required.
 

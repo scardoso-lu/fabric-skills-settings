@@ -27,8 +27,8 @@ Never assume a 202 means the operation completed.
 
 ## FP-02: Authentication
 
-Authentication is a one-time human step performed by `tool/setup/setup.ps1`
-(Windows) or `tool/setup/setup.sh` (Linux/Mac), which logs the service
+Authentication is a one-time human step performed by `fabric-cli setup`,
+which logs the service
 principal in and writes credentials to `.env` + the OS environment. Agents
 **never** run login/token commands or pass credentials on the command line —
 they only verify the setup gate (see [[graph-content/entry]]).

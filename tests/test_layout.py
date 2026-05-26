@@ -24,8 +24,7 @@ def test_cli_has_no_rules_dir():
 # ── cli/ : CLI + everything it ships into target repos ────────────────────────
 def test_cli_layout():
     """cli/ contains the installer wheel package (src/ layout) + the user-facing
-    install scripts + profile/tool/setup content that the CLI installs into
-    target repos."""
+    setup/tool assets bundled behind fabric-cli."""
     cli = ROOT / "cli"
     # New src/ layout — fabric_skills_settings package with Typer CLI.
     pkg = cli / "src" / "fabric_skills_settings"
@@ -40,7 +39,7 @@ def test_cli_layout():
     assert (pkg / "core" / "bootstrap.py").is_file()
     # Canonical CLI install is `uv tool install fabric-skills-settings` —
     # no top-level cli/setup.{sh,ps1} wrapper. `cli/setup/setup.{sh,ps1}`
-    # is the target-repo bootstrap, shipped to <target>/tool/setup/.
+    # is invoked through fabric-cli setup.
     assert not (cli / "setup.sh").exists()
     assert not (cli / "setup.ps1").exists()
     # Legacy launcher and old package layout are gone.
@@ -56,7 +55,7 @@ def test_cli_layout():
     # fab-sandbox / fabric-inventory-readonly removed — fab is server-side now
     assert not (cli / "setup" / "fab-sandbox").exists()
     assert not (cli / "setup" / "fabric-inventory-readonly").exists()
-    # ms-fabric-cli-dependent helpers live in cli/tools/ (target-side, invoked via Bash).
+    # ms-fabric-cli-dependent helpers live in cli/tools/ and are invoked through fabric-cli.
     assert (cli / "tools" / "notebook" / "build.py").is_file()
     assert (cli / "tools" / "notebook" / "deploy.py").is_file()
     assert (cli / "tools" / "pipeline" / "manage.py").is_file()
@@ -64,7 +63,7 @@ def test_cli_layout():
     assert (cli / "tools" / "workspace" / "init.py").is_file()
     assert (cli / "tools" / "workspace" / "switch.py").is_file()
     assert (cli / "tools" / "workspace" / "transfer.py").is_file()
-    # Deterministic lints + pre-commit aggregator also live target-side now.
+    # Deterministic lints + pre-commit aggregator also live behind fabric-cli.
     assert (cli / "tools" / "lint" / "__init__.py").is_file()
     assert (cli / "tools" / "lint" / "core.py").is_file()
     assert (cli / "tools" / "precommit" / "pre-commit-check.sh").is_file()

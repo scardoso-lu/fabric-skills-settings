@@ -18,6 +18,7 @@ from . import __version__
 from .commands import check as check_cmd
 from .commands import install as install_cmd
 from .commands import refresh as refresh_cmd
+from .core.version_check import update_notice
 from .logging_config import setup_logging
 
 
@@ -63,7 +64,7 @@ NoBootstrapOption = Annotated[
     bool,
     typer.Option(
         "--no-bootstrap",
-        help="Skip the post-install bootstrap (tool/setup/setup.{ps1,sh}).",
+        help="Skip the post-install bootstrap (fabric-cli setup).",
     ),
 ]
 SelfTestOption = Annotated[
@@ -100,6 +101,10 @@ def _root(
     quiet: QuietOption = False,
 ) -> None:
     setup_logging(verbose=verbose, quiet=quiet)
+    if not quiet:
+        notice = update_notice(__version__)
+        if notice:
+            typer.secho(notice, fg=typer.colors.YELLOW, err=True)
 
 
 @app.command()
@@ -112,7 +117,7 @@ def install(
     no_bootstrap: NoBootstrapOption = False,
     self_test: SelfTestOption = False,
 ) -> None:
-    """Install profile, scaffold, and tool files into a target repo."""
+    """Install profile and scaffold files into a target repo."""
     rc = install_cmd.run(
         profile=profile.value,
         target=target,

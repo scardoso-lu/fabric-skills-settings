@@ -7,12 +7,11 @@ from pathlib import Path
 
 from ..core.files import WriteOptions, render_content, write_file
 from ..core.gitignore import merge_gitignore
-from ..core.markers import has_managed_marker
+from ..core.markers import can_refresh_unmanaged_scaffold, has_managed_marker
 from ..core.paths import package_dir, profiles_root
 from ..core.profiles import (
     collect_profile_files,
     collect_shared_files,
-    collect_tool_files,
     planned_profiles,
 )
 
@@ -58,10 +57,8 @@ def apply_profile_set(
             continue
         operations.append(write_file(src, dest, managed, options, rel))
 
-    for src, rel, managed in collect_tool_files():
-        operations.append(write_file(src, target / rel, managed, options, rel))
-
     operations.extend(_remove_obsolete_profile_files(target, profiles, options))
+    operations.extend(_remove_obsolete_tool_files(target, options))
     operations.append(merge_gitignore(target, profiles, options))
 
     return operations, profiles
@@ -92,4 +89,25 @@ def _remove_obsolete_claude_settings(target: Path, options: WriteOptions) -> lis
         return operations
     old.unlink()
     operations.append(f"DELETE {old}")
+    return operations
+
+
+def _remove_obsolete_tool_files(target: Path, options: WriteOptions) -> list[str]:
+    """Remove old package-owned target helpers; fabric-cli now runs bundled tools."""
+    operations: list[str] = []
+    for rel in (Path("tool/setup/setup.ps1"), Path("tool/setup/setup.sh")):
+        old = target / rel
+        if not old.exists():
+            continue
+        if not has_managed_marker(old) and not can_refresh_unmanaged_scaffold(rel, old):
+            operations.append(f"KEEP custom obsolete path {old}")
+            continue
+        if options.check:
+            operations.append(f"OBSOLETE {old}")
+            continue
+        if options.dry_run:
+            operations.append(f"DELETE {old}")
+            continue
+        old.unlink()
+        operations.append(f"DELETE {old}")
     return operations

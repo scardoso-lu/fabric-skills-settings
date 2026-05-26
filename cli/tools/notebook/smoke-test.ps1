@@ -13,14 +13,14 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$ScriptDir   = $PSScriptRoot
-$ProjectRoot = Resolve-Path (Join-Path $ScriptDir "../..")
+$ProjectRootInput = if ($env:FABRIC_TARGET_ROOT) { $env:FABRIC_TARGET_ROOT } else { (Get-Location).Path }
+$ProjectRoot = Resolve-Path -LiteralPath $ProjectRootInput
 $EnvFile     = Join-Path $ProjectRoot ".env"
 
 if ($Help -or (-not $Notebook)) {
     @'
 Usage:
-  tool\notebook\smoke-test.ps1 -Notebook <name>
+  fabric-cli notebook smoke-test -Notebook <name>
 
 Options:
   -Notebook     Stem name of the notebook (e.g. bronze_electricity_day_ahead_prices).
@@ -29,7 +29,7 @@ Options:
 
 Preconditions:
   - Run from the repository root.
-  - The notebook is already deployed (run: python tool\notebook\deploy.py deploy <name> <workspace_id>).
+  - The notebook is already deployed (run: fabric-cli notebook deploy deploy <name> <workspace_id>).
   - fab is authenticated (run: fab auth login).
   - FABRIC_WORKSPACE_ID is set in .env.
 '@
@@ -57,15 +57,5 @@ if (-not $WorkspaceId) {
     exit 1
 }
 
-$python = $env:PYTHON_BIN
-if (-not $python) {
-    $cmd = Get-Command python -ErrorAction SilentlyContinue
-    if ($cmd) { $python = $cmd.Source }
-}
-if (-not $python) {
-    Write-Error "python is required but was not found on PATH."
-    exit 127
-}
-
-& $python (Join-Path $ProjectRoot "tool\notebook\deploy.py") exec $Notebook $WorkspaceId
+fabric-cli notebook deploy exec $Notebook $WorkspaceId
 exit $LASTEXITCODE

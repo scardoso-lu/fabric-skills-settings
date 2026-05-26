@@ -16,7 +16,7 @@ These rules apply to every Fabric session, regardless of topic.
 - Never commit `.env`, `workspaces.json`, data files, logs, `fabric_notebooks/`, or generated build intermediates.
 - Humans must create the Fabric workspace and any lakehouses first. Resource IDs are discovered automatically via `fabric-cli workspace init`.
 - Agents may create or update notebook items and workspace folders automatically via `fabric-cli notebook deploy`.
-- Agents must not run `tool/setup/setup.ps1` or `tool/setup/setup.sh`; they verify setup state and report blockers.
+- Agents must not run `fabric-cli setup`; they verify setup state and report blockers.
 - All Fabric CLI/API access must route through the `fabric-cli` proxy and the `fabric-server` MCP tools — agents never call the Fabric CLI directly or pass credentials on the command line.
 - Use `memory/rules/fabric-platform.md` ([[rules/fabric-platform]]), `memory/rules/data-engineering.md` ([[rules/data-engineering]]), and `memory/rules/security.md` ([[rules/security]]) as active runtime rules.
 - Source contracts belong in notebook `# %% [contract]` cells as Python dataclasses, not YAML files.

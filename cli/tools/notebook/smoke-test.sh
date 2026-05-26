@@ -7,8 +7,7 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+PROJECT_ROOT="$(cd "${FABRIC_TARGET_ROOT:-$PWD}" && pwd)"
 ENV_FILE="${PROJECT_ROOT}/.env"
 
 if [[ -f "$ENV_FILE" ]]; then
@@ -36,7 +35,7 @@ WORKSPACE_ID="${FABRIC_WORKSPACE_ID:-}"
 usage() {
   cat <<'USAGE'
 Usage:
-  tool/notebook/smoke-test.sh --notebook <name>
+  fabric-cli notebook smoke-test --notebook <name>
 
 Options:
   --notebook     Stem name of the notebook (e.g. bronze_electricity_day_ahead_prices).
@@ -44,7 +43,7 @@ Options:
 
 Preconditions:
   - Run from the repository root.
-  - The notebook is already deployed (run: python tool/notebook/deploy.py deploy <name> <workspace_id>).
+  - The notebook is already deployed (run: fabric-cli notebook deploy deploy <name> <workspace_id>).
   - fab is authenticated (run: fab auth login).
   - FABRIC_WORKSPACE_ID is set in .env.
 USAGE
@@ -66,4 +65,4 @@ if [[ -z "$WORKSPACE_ID" ]]; then
   echo "Missing workspace id. Set FABRIC_WORKSPACE_ID in .env." >&2; exit 1
 fi
 
-"$PYTHON_BIN" "${PROJECT_ROOT}/tool/notebook/deploy.py" exec "$NOTEBOOK_NAME" "$WORKSPACE_ID"
+(cd "$PROJECT_ROOT" && fabric-cli notebook deploy exec "$NOTEBOOK_NAME" "$WORKSPACE_ID")

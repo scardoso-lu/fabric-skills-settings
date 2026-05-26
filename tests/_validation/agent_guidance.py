@@ -171,8 +171,7 @@ class _Validator:
         text = self.entry_file.read_text(errors="ignore")
         required = [
             # Target bootstrap (raw scripts — runs before fabric-cli is on the target's PATH).
-            "tool\\setup\\setup.ps1",
-            "tool/setup/setup.sh",
+            "fabric-cli setup",
             "FABRIC_WORKSPACE_ID",
             "docker compose up",
             "graph_get_entry",

@@ -19,7 +19,7 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 from ...audit import CallTimer
-from ...script_runner import run_capture
+from ..utils.script_runner import run_capture
 
 _SCRIPT = Path(__file__).resolve().parent / "pipeline-lineage.py"
 

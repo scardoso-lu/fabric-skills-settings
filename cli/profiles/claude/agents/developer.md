@@ -37,7 +37,7 @@ Work from this repository root. Discover project context through the knowledge g
 
 - **Knowledge graph (MCP)**: `graph_get_entry`, `graph_get_node`, `graph_get_linked`, `graph_search`, `graph_create_node`, `graph_update_node`, `graph_add_edge`. Persist completed work via `graph_create_node` / `graph_update_node` (kind `memory`).
 - **Server-side helpers (MCP)**: `pipeline_lineage_check`, `data_mock_generate`, `semantic_model_list`, `semantic_model_show`. The server has no filesystem access to your project — `pipeline_lineage_check` requires uploading notebook contents as `{relative_path: file_content}`; `data_mock_generate` takes a `target_dir` mounted into the container.
-- **Target-side helpers (Bash)**: all target-side helpers go through the `fabric-cli` proxy, invoked from the project root. Fabric-CLI-dependent helpers require `ms-fabric-cli` (`uv tool install ms-fabric-cli`) and read SPN credentials from `.env` + OS environment:
+- **Package-owned helpers (Bash)**: all local helpers go through the `fabric-cli` proxy, invoked from the project root. Fabric-CLI-dependent helpers require `ms-fabric-cli` (`uv tool install ms-fabric-cli`) and read SPN credentials from `.env` + OS environment:
   - `fabric-cli notebook build` — build .Notebook bundles from `workspace/<topic>/<name>.py`.
   - `fabric-cli notebook deploy {deploy|run|exec|fetch|monitor} <name> <workspace_id>` — deploy + run + monitor + fetch.
   - `fabric-cli pipeline manage {list|create|run|status|test} ...` — Data Factory pipelines.
