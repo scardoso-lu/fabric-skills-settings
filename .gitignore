@@ -10,7 +10,6 @@
 .claude/settings.local.json
 
 # Data and generated runtime artifacts do not belong in this source package
-data/
 logs/
 src/
 !cli/src/
