@@ -2,7 +2,7 @@
 
 Vendor-native **Codex** and **Claude Code** profiles for Microsoft Fabric data engineering.
 
-Fabric Agent Pack turns a normal git repository into a guided Microsoft Fabric project workspace. It installs agent instructions and lightweight scaffold files, while `fabric-cli` provides the setup, validation, notebook, pipeline, lakehouse, and workspace helpers from the package.
+Fabric Agent Pack turns a normal git repository into a guided Microsoft Fabric project workspace. It installs agent instructions and lightweight scaffold files, while `fabric-vibe` provides the setup, validation, notebook, pipeline, lakehouse, and workspace helpers from the package.
 
 > This repository is the **source package and installer**, not the day-to-day Fabric project workspace. Install a profile into your actual project repository, then run Codex or Claude Code from that target repository root.
 
@@ -12,19 +12,19 @@ Fabric Agent Pack turns a normal git repository into a guided Microsoft Fabric p
 
 ## Quick start
 
-The CLI is published as `fabric-skills-settings` on PyPI. Installing it puts two console scripts on your PATH:
+The CLI is published as `fabric-vibecoding-settings` on PyPI. Installing it puts two console scripts on your PATH:
 
 | Command | Role |
 |---|---|
-| `fabric-agents` | Install / check / refresh agent profiles in a project repo |
-| `fabric-cli` | Daily Fabric helpers run from a project repo (notebook, pipeline, lakehouse, workspace, lint, precommit) |
+| `fabric-vibecoding-agents` | Install / check / refresh agent profiles in a project repo |
+| `fabric-vibe` | Daily Fabric helpers run from a project repo (notebook, pipeline, lakehouse, workspace, lint, precommit) |
 
 ### Step 1 — Install the CLI
 
 ```bash
-uv tool install fabric-skills-settings        # recommended
+uv tool install fabric-vibecoding-settings        # recommended
 # or
-pip install fabric-skills-settings
+pip install fabric-vibecoding-settings
 ```
 
 
@@ -32,34 +32,34 @@ pip install fabric-skills-settings
 
 ```bash
 # preview
-fabric-agents install --profile claude --target /path/to/project-repo --dry-run
+fabric-vibecoding-agents install --profile claude --target /path/to/project-repo --dry-run
 
-# apply (also runs fabric-cli setup: ms-fabric-cli + creds + workspaces.json)
-fabric-agents install --profile claude --target /path/to/project-repo
+# apply (also runs fabric-vibe setup: ms-fabric-cli + creds + workspaces.json)
+fabric-vibecoding-agents install --profile claude --target /path/to/project-repo
 
 # verify drift later
-fabric-agents check --profile claude --target /path/to/project-repo
+fabric-vibecoding-agents check --profile claude --target /path/to/project-repo
 ```
 
-`fabric-agents install` copies the profile and scaffold files into the target, then runs `fabric-cli setup` from the target root to install `ms-fabric-cli`, prompt for `FABRIC_TENANT_ID` / `CLIENT_ID` / `CLIENT_SECRET`, verify auth, and populate `workspaces.json`. Pass `--no-bootstrap` to skip.
+`fabric-vibecoding-agents install` copies the profile and scaffold files into the target, then runs `fabric-vibe setup` from the target root to install `ms-fabric-cli`, prompt for `FABRIC_TENANT_ID` / `CLIENT_ID` / `CLIENT_SECRET`, verify auth, and populate `workspaces.json`. Pass `--no-bootstrap` to skip.
 
 ### Step 3 — Daily work inside the project
 
-Once a profile is installed, run the daily helpers via `fabric-cli` from the project root:
+Once a profile is installed, run the daily helpers via `fabric-vibe` from the project root:
 
 ```bash
-fabric-cli notebook build  <name>
-fabric-cli notebook deploy <name> <workspace_id>
-fabric-cli pipeline manage list
-fabric-cli lakehouse list-tables
-fabric-cli workspace switch <displayName>
-fabric-cli lint
-fabric-cli precommit
+fabric-vibe notebook build  <name>
+fabric-vibe notebook deploy <name> <workspace_id>
+fabric-vibe pipeline manage list
+fabric-vibe lakehouse list-tables
+fabric-vibe workspace switch <displayName>
+fabric-vibe lint
+fabric-vibe precommit
 ```
 
-Each subcommand passes its trailing argv through to package-bundled helpers while preserving the target repo as the working directory. Use `fabric-cli <group> --help` to see what each helper accepts.
+Each subcommand passes its trailing argv through to package-bundled helpers while preserving the target repo as the working directory. Use `fabric-vibe <group> --help` to see what each helper accepts.
 
-### `fabric-agents` flags
+### `fabric-vibecoding-agents` flags
 
 | Flag | Effect |
 |---|---|
@@ -96,7 +96,43 @@ Fabric workspace → Manage access → Add → service principal
   Role: Contributor
 ```
 
-Re-running the same install command is idempotent — credentials already set are skipped, and managed files only change when their source content changes. If you need to bootstrap again later (e.g. after rotating the secret), run `fabric-cli setup` from inside the target.
+Re-running the same install command is idempotent — credentials already set are skipped, and managed files only change when their source content changes. If you need to bootstrap again later (e.g. after rotating the secret), run `fabric-vibe setup` from inside the target.
+
+## Docker image
+
+The Fabric MCP server is also published as a Docker image on Docker Hub:
+
+```bash
+docker pull silviocardoso/fabric-vibecoding-mcp-server:latest
+```
+
+Image page: [silviocardoso/fabric-vibecoding-mcp-server](https://hub.docker.com/r/silviocardoso/fabric-vibecoding-mcp-server)
+
+The image builds from `server/Dockerfile` and includes the server-side MCP tools plus the baked knowledge-graph artifacts. Use it when you want to run the MCP server from a published image instead of building it locally with `docker compose up --build`.
+
+Minimal `docker-compose.yml` using the published image:
+
+```yaml
+services:
+  server:
+    image: silviocardoso/fabric-vibecoding-mcp-server:latest
+    container_name: fabric-mcp-server
+    environment:
+      PORT: "8000"
+      HOST: "0.0.0.0"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+```
+
+Then start it with:
+
+```bash
+docker compose up
+```
+
+This binds the server to `127.0.0.1:8000`, so it is reachable from your machine without exposing it to the LAN.
 
 
 ## Learn more

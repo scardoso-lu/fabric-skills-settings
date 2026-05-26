@@ -1,1 +1,1 @@
-"""Subcommands for the `fabric-agents` CLI."""
+"""Subcommands for the `fabric-vibecoding-agents` CLI."""

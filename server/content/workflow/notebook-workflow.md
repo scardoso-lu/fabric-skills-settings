@@ -19,9 +19,9 @@ author -> build -> deploy REST -> smoke test -> fetch -> human commits via Fabri
 
 Deploy and smoke test are separate steps:
 
-- Deploy on source change: `fabric-cli notebook deploy deploy <name> <workspace_id>`.
-- Smoke test an existing deployed notebook: `fabric-cli notebook smoke-test --notebook <name>` (cross-platform).
-- Fetch after a passing run: `fabric-cli notebook deploy fetch <name> <workspace_id>`.
+- Deploy on source change: `fabric-vibe notebook deploy deploy <name> <workspace_id>`.
+- Smoke test an existing deployed notebook: `fabric-vibe notebook smoke-test --notebook <name>` (cross-platform).
+- Fetch after a passing run: `fabric-vibe notebook deploy fetch <name> <workspace_id>`.
 
 The smoke test never deploys. It triggers a job on whatever is already in Fabric and reports status. After fetch, stop and report to the orchestrator. Do not run `git add`, `git rm`, or `git commit` for fetched Fabric notebook artifacts unless the human explicitly asks for a repository commit.
 

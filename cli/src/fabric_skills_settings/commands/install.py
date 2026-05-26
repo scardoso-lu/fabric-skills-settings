@@ -1,4 +1,4 @@
-"""`fabric-agents install` - write profile/scaffold files into a target repo."""
+"""`fabric-vibecoding-agents install` - write profile/scaffold files into a target repo."""
 
 from __future__ import annotations
 

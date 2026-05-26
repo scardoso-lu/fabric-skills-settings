@@ -29,7 +29,7 @@ Perform security and operational review only. Never write code or modify pipelin
 
 Treat DQ failures as potential sensitive-data leaks until root cause is known. Report APPROVED or BLOCKED (with full remediation list) to orchestrator only. Never communicate results directly to developer or tester.
 
-For workspace inventory, refresh the registry with `fabric-cli workspace init` from the project root (it queries the Fabric API with the user's SPN) and read `workspaces.json`. The SBOM and platform inventory are stored as graph memory nodes — fetch them via `graph_get_node('memory/sbom')` and `graph_get_node('memory/platform')` (or `graph_search` if the exact id is unknown).
+For workspace inventory, refresh the registry with `fabric-vibe workspace init` from the project root (it queries the Fabric API with the user's SPN) and read `workspaces.json`. The SBOM and platform inventory are stored as graph memory nodes — fetch them via `graph_get_node('memory/sbom')` and `graph_get_node('memory/platform')` (or `graph_search` if the exact id is unknown).
 
 ## Checklist
 
@@ -42,7 +42,7 @@ For workspace inventory, refresh the registry with `fabric-cli workspace init` f
 - Secrets referenced via `os.environ` or Key Vault only
 - Service principal auth for all automation; no personal credentials in pipelines
 - Least privilege confirmed on Lakehouse and Warehouse — no wildcard grants
-- Run `fabric-cli workspace init` to refresh `workspaces.json`, then read it to enumerate workspace items and confirm access scope.
+- Run `fabric-vibe workspace init` to refresh `workspaces.json`, then read it to enumerate workspace items and confirm access scope.
 - RLS/OLS configured for any multi-tenant Gold data
 
 ### DATA3 · Data Breaches
@@ -85,7 +85,7 @@ For workspace inventory, refresh the registry with `fabric-cli workspace init` f
 
 ### DATA9 · Data Inventory and Management
 - The `memory/platform` graph node (`graph_get_node('memory/platform')`) lists every lakehouse, table, and source system for this pipeline
-- Refresh `workspaces.json` via `fabric-cli workspace init` and read it to confirm inventory completeness against the live Fabric tenant
+- Refresh `workspaces.json` via `fabric-vibe workspace init` and read it to confirm inventory completeness against the live Fabric tenant
 - Sensitivity classification documented for all tables containing personal or financial data
 - Schema contract present and current for each Bronze table
 

@@ -37,14 +37,14 @@ Work from this repository root. Discover project context through the knowledge g
 
 - **Knowledge graph (MCP)**: `graph_get_entry`, `graph_get_node`, `graph_get_linked`, `graph_search`, `graph_create_node`, `graph_update_node`, `graph_add_edge`. Persist completed work via `graph_create_node` / `graph_update_node` (kind `memory`).
 - **Server-side helpers (MCP)**: `pipeline_lineage_check`, `data_mock_generate`, `semantic_model_list`, `semantic_model_show`. The server has no filesystem access to your project — `pipeline_lineage_check` requires uploading notebook contents as `{relative_path: file_content}`; `data_mock_generate` takes a `target_dir` mounted into the container.
-- **Package-owned helpers (Bash)**: all local helpers go through the `fabric-cli` proxy, invoked from the project root. Fabric-CLI-dependent helpers require `ms-fabric-cli` (`uv tool install ms-fabric-cli`) and read SPN credentials from `.env` + OS environment:
-  - `fabric-cli notebook build` — build .Notebook bundles from `workspace/<topic>/<name>.py`.
-  - `fabric-cli notebook deploy {deploy|run|exec|fetch|monitor} <name> <workspace_id>` — deploy + run + monitor + fetch.
-  - `fabric-cli pipeline manage {list|create|run|status|test} ...` — Data Factory pipelines.
-  - `fabric-cli lakehouse list-tables` — inspect lakehouse tables and column schemas before authoring.
-  - `fabric-cli workspace {init|switch|transfer}` — refresh `workspaces.json`, switch active workspace, transfer items across workspaces.
-  - `fabric-cli lint --target .` — run deterministic lints (SEC-01 secrets, DE-09 Faker seed). Pure Python, no fab required.
-  - `fabric-cli precommit` — run all local pre-commit checks (cross-platform).
+- **Package-owned helpers (Bash)**: all local helpers go through the `fabric-vibe` proxy, invoked from the project root. Fabric helper commands that talk to Fabric require `ms-fabric-cli` (`uv tool install ms-fabric-cli`) and read SPN credentials from `.env` + OS environment:
+  - `fabric-vibe notebook build` — build .Notebook bundles from `workspace/<topic>/<name>.py`.
+  - `fabric-vibe notebook deploy {deploy|run|exec|fetch|monitor} <name> <workspace_id>` — deploy + run + monitor + fetch.
+  - `fabric-vibe pipeline manage {list|create|run|status|test} ...` — Data Factory pipelines.
+  - `fabric-vibe lakehouse list-tables` — inspect lakehouse tables and column schemas before authoring.
+  - `fabric-vibe workspace {init|switch|transfer}` — refresh `workspaces.json`, switch active workspace, transfer items across workspaces.
+  - `fabric-vibe lint --target .` — run deterministic lints (SEC-01 secrets, DE-09 Faker seed). Pure Python, no fab required.
+  - `fabric-vibe precommit` — run all local pre-commit checks (cross-platform).
 
 ## Rules
 
@@ -62,7 +62,7 @@ Work from this repository root. Discover project context through the knowledge g
 - Use the **fabric-transform** skill when implementing Silver or Gold Spark transformations, especially Delta MERGE and idempotent upsert logic.
 - Use the **fabric-model** skill when implementing Gold facts, dimensions, KPIs, or semantic-model-aligned outputs.
 - Never commit `.env`, data files, logs, generated notebook bundles, or credentials.
-- Before reporting complete to orchestrator, run `fabric-cli precommit` — runs deterministic lints locally. Also call the `pipeline_lineage_check` MCP tool with the affected notebook contents to verify staging-path consistency.
+- Before reporting complete to orchestrator, run `fabric-vibe precommit` — runs deterministic lints locally. Also call the `pipeline_lineage_check` MCP tool with the affected notebook contents to verify staging-path consistency.
 - Persist completed work via `graph_create_node` / `graph_update_node` (kind `memory`). Report status to orchestrator. Never hand off directly to tester or operator.
 - If routed back from orchestrator with a BLOCKED remediation list from operator, address each item in the list, re-run affected notebooks, and report back to orchestrator — do not route to tester or operator directly.
 - When a skill or tool behaves incorrectly and you apply a fix or workaround, persist a `skill-fix` graph node via `graph_create_node` with id `skill-fixes/<skill>-<issue-slug>`, kind `skill-fix`, body sections `## What happened`, `## Root cause`, `## Fix applied`, `## Rule going forward` (with **Why:** and **How to apply:** lines). Future sessions read this automatically via the graph.

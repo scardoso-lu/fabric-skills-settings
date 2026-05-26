@@ -16,8 +16,8 @@ def test_update_notice_reports_newer_cached_version(tmp_path, monkeypatch):
     notice = version_check.update_notice("1.1.0")
 
     assert notice is not None
-    assert "fabric-skills-settings 1.2.0 is available" in notice
-    assert "uv tool upgrade fabric-skills-settings" in notice
+    assert "fabric-vibecoding-settings 1.2.0 is available" in notice
+    assert "uv tool upgrade fabric-vibecoding-settings" in notice
 
 
 def test_update_notice_suppressed_when_disabled(tmp_path, monkeypatch):

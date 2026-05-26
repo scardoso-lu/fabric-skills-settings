@@ -14,7 +14,7 @@ description: Operate and maintain a Fabric data platform — orchestrate pipelin
 
 ## PREFER
 
-- `fabric-cli` subcommands (which wrap the Fabric CLI) over direct `fab` calls for item management
+- `fabric-vibe` subcommands (which wrap the Fabric CLI) over direct `fab` calls for item management
 - Idempotent setup scripts (running twice causes no harm)
 
 ## AVOID
@@ -33,16 +33,16 @@ description: Operate and maintain a Fabric data platform — orchestrate pipelin
 
 ```bash
 # List all lakehouses in the workspace with their tables and column schemas
-fabric-cli lakehouse list-tables
+fabric-vibe lakehouse list-tables
 
 # Scope to a specific lakehouse
-fabric-cli lakehouse list-tables --lakehouse bronze_lh
+fabric-vibe lakehouse list-tables --lakehouse bronze_lh
 
 # Inspect one table
-fabric-cli lakehouse list-tables --lakehouse bronze_lh --table raw_orders
+fabric-vibe lakehouse list-tables --lakehouse bronze_lh --table raw_orders
 
 # Machine-readable JSON (pipe to jq for filtering)
-fabric-cli lakehouse list-tables --json
+fabric-vibe lakehouse list-tables --json
 ```
 
 Column schema is read from each table's Delta transaction log via the OneLake DFS
@@ -59,7 +59,7 @@ fab api "workspaces/$FABRIC_WORKSPACE_ID/items" --output_format json
 fab api "workspaces/$FABRIC_WORKSPACE_ID/items/<item_id>/jobs/instances" --output_format json
 
 # Monitor a specific job instance
-fabric-cli notebook deploy monitor "$FABRIC_WORKSPACE_ID" <item_id> <job_instance_id>
+fabric-vibe notebook deploy monitor "$FABRIC_WORKSPACE_ID" <item_id> <job_instance_id>
 ```
 
 Check DQ notebook run results in the Fabric portal (Activities → Notebook runs).
@@ -96,9 +96,9 @@ mkdir -p workspace data/sandbox logs
 cp .env.example .env
 
 # Discover and select workspace/resource IDs from the registry
-fabric-cli workspace init
-fabric-cli workspace switch list
-fabric-cli workspace switch <displayName>
+fabric-vibe workspace init
+fabric-vibe workspace switch list
+fabric-vibe workspace switch <displayName>
 
 # Install Fabric CLI
 uv tool install ms-fabric-cli

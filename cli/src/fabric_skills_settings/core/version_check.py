@@ -12,9 +12,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-PACKAGE_NAME = "fabric-skills-settings"
+PACKAGE_NAME = "fabric-vibecoding-settings"
 PYPI_JSON_URL = f"https://pypi.org/pypi/{PACKAGE_NAME}/json"
-DISABLE_ENV = "FABRIC_SKILLS_SETTINGS_DISABLE_VERSION_CHECK"
+DISABLE_ENV = "FABRIC_VIBECODING_SETTINGS_DISABLE_VERSION_CHECK"
 CACHE_TTL_SECONDS = 24 * 60 * 60
 REQUEST_TIMEOUT_SECONDS = 1.5
 
@@ -38,7 +38,7 @@ def update_notice(current_version: str) -> str | None:
     if result is None or not result.update_available:
         return None
     return (
-        f"fabric-skills-settings {result.latest} is available "
+        f"fabric-vibecoding-settings {result.latest} is available "
         f"(installed: {result.current}). Update with: "
         f"uv tool upgrade {PACKAGE_NAME}"
     )

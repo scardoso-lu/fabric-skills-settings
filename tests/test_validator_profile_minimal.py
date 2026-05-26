@@ -19,9 +19,9 @@ from _validation.agent_guidance import collect_errors
 
 def _make_baseline_source_repo(root: Path) -> None:
     """Minimum tree so the validator only fails on the profile under test."""
-    (root / "README.md").write_text("fabric-agents profiles/codex profiles/claude\n")
-    (root / "AGENTS.md").write_text("fabric-agents profiles/codex profiles/claude\n")
-    (root / "CLAUDE.md").write_text("fabric-agents profiles/codex profiles/claude\n")
+    (root / "README.md").write_text("fabric-vibecoding-agents profiles/codex profiles/claude\n")
+    (root / "AGENTS.md").write_text("fabric-vibecoding-agents profiles/codex profiles/claude\n")
+    (root / "CLAUDE.md").write_text("fabric-vibecoding-agents profiles/codex profiles/claude\n")
 
     for skill in [
         "rtk", "fabric-ingest", "fabric-transform", "fabric-model", "fabric-validate",
@@ -67,15 +67,15 @@ def _make_baseline_source_repo(root: Path) -> None:
     (gc / "entry.md").write_text(
         "# entry\n"
         "Mandatory setup gate\n"
-        "fabric-cli setup\n"
+        "fabric-vibe setup\n"
         "FABRIC_WORKSPACE_ID\n"
         "docker compose up\n"
         "graph_get_entry\n"
         "fab --version\n"
         "fab api workspaces\n"
-        "fabric-cli workspace init\n"
-        "fabric-cli workspace switch\n"
-        "fabric-cli notebook deploy\n"
+        "fabric-vibe workspace init\n"
+        "fabric-vibe workspace switch\n"
+        "fabric-vibe notebook deploy\n"
         "Do **not** read `.env` contents\n"
         "Setup incomplete\n"
         "before accepting any Fabric work\n"

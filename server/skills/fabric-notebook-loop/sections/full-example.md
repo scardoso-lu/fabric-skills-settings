@@ -51,9 +51,9 @@ except Exception as exc:
 Build, deploy, then smoke test:
 
 ```bash
-fabric-cli notebook build
-fabric-cli notebook deploy deploy orders_bronze "$FABRIC_WORKSPACE_ID"
-fabric-cli notebook smoke-test --notebook orders_bronze   # cross-platform
+fabric-vibe notebook build
+fabric-vibe notebook deploy deploy orders_bronze "$FABRIC_WORKSPACE_ID"
+fabric-vibe notebook smoke-test --notebook orders_bronze   # cross-platform
 ```
 
 If the run fails, check the STATUS output, fix only the failing cell, then report to the orchestrator and await human approval before the next run.

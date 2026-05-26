@@ -35,7 +35,7 @@ WORKSPACE_ID="${FABRIC_WORKSPACE_ID:-}"
 usage() {
   cat <<'USAGE'
 Usage:
-  fabric-cli notebook smoke-test --notebook <name>
+  fabric-vibe notebook smoke-test --notebook <name>
 
 Options:
   --notebook     Stem name of the notebook (e.g. bronze_electricity_day_ahead_prices).
@@ -43,7 +43,7 @@ Options:
 
 Preconditions:
   - Run from the repository root.
-  - The notebook is already deployed (run: fabric-cli notebook deploy deploy <name> <workspace_id>).
+  - The notebook is already deployed (run: fabric-vibe notebook deploy deploy <name> <workspace_id>).
   - fab is authenticated (run: fab auth login).
   - FABRIC_WORKSPACE_ID is set in .env.
 USAGE
@@ -65,4 +65,4 @@ if [[ -z "$WORKSPACE_ID" ]]; then
   echo "Missing workspace id. Set FABRIC_WORKSPACE_ID in .env." >&2; exit 1
 fi
 
-(cd "$PROJECT_ROOT" && fabric-cli notebook deploy exec "$NOTEBOOK_NAME" "$WORKSPACE_ID")
+(cd "$PROJECT_ROOT" && fabric-vibe notebook deploy exec "$NOTEBOOK_NAME" "$WORKSPACE_ID")

@@ -1,4 +1,4 @@
-"""`fabric-agents check` — verify a target repo matches the package state."""
+"""`fabric-vibecoding-agents check` — verify a target repo matches the package state."""
 
 from __future__ import annotations
 

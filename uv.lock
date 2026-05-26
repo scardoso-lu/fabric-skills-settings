@@ -237,7 +237,7 @@ wheels = [
 ]
 
 [[package]]
-name = "fabric-skills-settings"
+name = "fabric-vibecoding-settings"
 source = { editable = "." }
 dependencies = [
     { name = "rich" },

@@ -11,7 +11,7 @@ function Write-Ok   { Write-Host "OK $args" }
 function Write-Err  { Write-Host "ERROR $args" -ForegroundColor Red }
 
 Write-Step "Deterministic lints"
-fabric-cli lint --target "$ProjectRoot"
+fabric-vibe lint --target "$ProjectRoot"
 if ($LASTEXITCODE -eq 0) { Write-Ok "lints passed" }
 else { Write-Err "lints failed"; $failed = $true }
 

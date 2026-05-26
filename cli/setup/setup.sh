@@ -18,7 +18,7 @@
 #   7. Writes .mcp.json and patches
 #      .codex/config.toml's [mcp_servers.fabric-server] url (if installed).
 #   8. Verifies SPN auth by calling `fab api workspaces`.
-#   9. Runs fabric-cli workspace init to populate workspaces.json.
+#   9. Runs fabric-vibe workspace init to populate workspaces.json.
 #  10. Prompts to select the active workspace.
 
 set -euo pipefail
@@ -259,17 +259,17 @@ actions+=("SPN auth verified via fab auth login + fab api workspaces")
 # ── Workspace registry ────────────────────────────────────────────────────────
 echo ""
 echo "-- Workspace registry"
-(cd "$PROJECT_ROOT" && fabric-cli workspace init)
+(cd "$PROJECT_ROOT" && fabric-vibe workspace init)
 actions+=("workspaces.json refreshed from Fabric API")
 
 # ── Active workspace selection ────────────────────────────────────────────────
 # Run pick.py as a sibling script so its stdin stays attached to the parent
 # terminal — interactive prompts only work when stdin is a real TTY.
-if (cd "$PROJECT_ROOT" && fabric-cli workspace pick); then
+if (cd "$PROJECT_ROOT" && fabric-vibe workspace pick); then
   actions+=("active workspace selected and resource IDs written to .env")
 else
-  echo "  Workspace selection skipped or failed; set it later with fabric-cli workspace switch." >&2
-  actions+=("active workspace not set (re-run fabric-cli workspace switch)")
+  echo "  Workspace selection skipped or failed; set it later with fabric-vibe workspace switch." >&2
+  actions+=("active workspace not set (re-run fabric-vibe workspace switch)")
 fi
 
 echo ""
@@ -277,6 +277,6 @@ echo "Setup complete."
 for a in "${actions[@]}"; do echo "- $a"; done
 echo ""
 echo "Next: start the Fabric MCP server."
-echo "  cd <fabric-skills-settings>/server"
+echo "  cd <fabric-vibecoding-settings>/server"
 echo "  docker compose up --build"
 echo "Then open Claude Code (or Codex) in this project."

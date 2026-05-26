@@ -1,10 +1,10 @@
-"""Typer CLI for fabric-skills-settings.
+"""Typer CLI for fabric-vibecoding-settings.
 
 Exposes three subcommands:
 
-    fabric-agents install --profile claude --target /path/to/repo
-    fabric-agents check   --profile claude --target /path/to/repo
-    fabric-agents refresh --profile claude --target /path/to/repo
+    fabric-vibecoding-agents install --profile claude --target /path/to/repo
+    fabric-vibecoding-agents check   --profile claude --target /path/to/repo
+    fabric-vibecoding-agents refresh --profile claude --target /path/to/repo
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ class Profile(str, Enum):
     all = "all"
 
 app = typer.Typer(
-    name="fabric-agents",
+    name="fabric-vibecoding-agents",
     help="Install Microsoft Fabric agent profiles (Claude Code and Codex) into a target repository.",
     add_completion=False,
     no_args_is_help=True,
@@ -64,7 +64,7 @@ NoBootstrapOption = Annotated[
     bool,
     typer.Option(
         "--no-bootstrap",
-        help="Skip the post-install bootstrap (fabric-cli setup).",
+        help="Skip the post-install bootstrap (fabric-vibe setup).",
     ),
 ]
 SelfTestOption = Annotated[
@@ -87,7 +87,7 @@ QuietOption = Annotated[
 
 def _version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"fabric-agents {__version__}")
+        typer.echo(f"fabric-vibecoding-agents {__version__}")
         raise typer.Exit()
 
 

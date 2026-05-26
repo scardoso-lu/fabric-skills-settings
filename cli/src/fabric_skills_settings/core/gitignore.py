@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .files import WriteOptions
-from .markers import GITIGNORE_BEGIN, GITIGNORE_END
+from .markers import GITIGNORE_BEGIN, GITIGNORE_END, LEGACY_GITIGNORE_BEGIN, LEGACY_GITIGNORE_END
 from .paths import profiles_root
 
 _PROFILE_IGNORES: dict[str, list[str]] = {
@@ -39,6 +39,10 @@ def merge_gitignore(target: Path, profiles: list[str], options: WriteOptions) ->
         if GITIGNORE_BEGIN in text and GITIGNORE_END in text:
             before, rest = text.split(GITIGNORE_BEGIN, 1)
             _, after = rest.split(GITIGNORE_END, 1)
+            new_text = before.rstrip() + "\n" + block + after.lstrip("\n")
+        elif LEGACY_GITIGNORE_BEGIN in text and LEGACY_GITIGNORE_END in text:
+            before, rest = text.split(LEGACY_GITIGNORE_BEGIN, 1)
+            _, after = rest.split(LEGACY_GITIGNORE_END, 1)
             new_text = before.rstrip() + "\n" + block + after.lstrip("\n")
         else:
             new_text = text.rstrip() + "\n\n" + block

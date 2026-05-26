@@ -91,9 +91,9 @@ class _Validator:
             if not path.exists():
                 continue
             text = path.read_text(errors="ignore")
-            if "fabric-agents" not in text:
+            if "fabric-vibecoding-agents" not in text:
                 self.errors.append(
-                    f"{self._rel(path)} must describe installer-first usage (fabric-agents)"
+                    f"{self._rel(path)} must describe installer-first usage (fabric-vibecoding-agents)"
                 )
             if "profiles/codex" not in text and path.name != "README.md":
                 self.errors.append(f"{self._rel(path)} must reference profiles/codex")
@@ -170,18 +170,18 @@ class _Validator:
             return
         text = self.entry_file.read_text(errors="ignore")
         required = [
-            # Target bootstrap (raw scripts — runs before fabric-cli is on the target's PATH).
-            "fabric-cli setup",
+            # Target bootstrap (raw scripts — runs before fabric-vibe is on the target's PATH).
+            "fabric-vibe setup",
             "FABRIC_WORKSPACE_ID",
             "docker compose up",
             "graph_get_entry",
             # Direct ms-fabric-cli probes (NOT proxied — `fab` is the upstream tool).
             "fab --version",
             "fab api workspaces",
-            # Daily helpers go through the fabric-cli proxy.
-            "fabric-cli workspace init",
-            "fabric-cli workspace switch",
-            "fabric-cli notebook deploy",
+            # Daily helpers go through the fabric-vibe proxy.
+            "fabric-vibe workspace init",
+            "fabric-vibe workspace switch",
+            "fabric-vibe notebook deploy",
             "Do **not** read `.env` contents",
             "Setup incomplete",
             "Mandatory setup gate",

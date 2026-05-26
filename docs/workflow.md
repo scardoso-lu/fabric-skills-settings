@@ -1,6 +1,6 @@
 # Workflow — agents, skills, and tools
 
-What you get in the **target repo** after `fabric-agents install` runs. Reads top-down: a request reaches an agent, the agent picks a skill, the skill drives one or more local tools, the tools talk to Microsoft Fabric.
+What you get in the **target repo** after `fabric-vibecoding-agents install` runs. Reads top-down: a request reaches an agent, the agent picks a skill, the skill drives one or more local tools, the tools talk to Microsoft Fabric.
 
 ```mermaid
 flowchart TD
@@ -21,7 +21,7 @@ flowchart TD
     SKILLS["Skills by sub-agent<br/>━━━━━━━━━━<br/>developer ⇒ fabric-ingest · fabric-transform · fabric-model<br/>fabric-notebook-loop · fabric-pipeline<br/>mock-data · semantic-model · git-commit<br/>tester ⇒ fabric-validate · fabric-notebook-loop<br/>operator ⇒ fabric-ops · rtk"]:::skill
     SKILLS --> TOOLS
 
-    TOOLS["fabric-cli proxy (package-owned)<br/>━━━━━━━━━━<br/>notebook — build · deploy · smoke-test · fetch<br/>lakehouse — list-tables<br/>pipeline — manage<br/>workspace — init · switch · transfer · pick<br/>lint · precommit · setup<br/>━━━━━━━━━━<br/>fabric-server MCP<br/>data_mock_generate · semantic_model_* · pipeline_lineage_check · graph_*"]:::tool
+    TOOLS["fabric-vibe proxy (package-owned)<br/>━━━━━━━━━━<br/>notebook — build · deploy · smoke-test · fetch<br/>lakehouse — list-tables<br/>pipeline — manage<br/>workspace — init · switch · transfer · pick<br/>lint · precommit · setup<br/>━━━━━━━━━━<br/>fabric-server MCP<br/>data_mock_generate · semantic_model_* · pipeline_lineage_check · graph_*"]:::tool
     TOOLS --> FAB
 
     FAB[("Microsoft Fabric<br/>workspace · REST API · CLI")]:::ext
@@ -33,20 +33,20 @@ flowchart TD
 |---|---|---|
 | 🟠 Orange | Agents (4) | `.claude/agents/*.md` and `.codex/agents/*.toml` |
 | 🔵 Blue | Skills (14) | served from the `fabric-server` graph via `graph_get_node('skills/<name>')` |
-| 🟢 Green | Tools | `fabric-cli` package helpers + `fabric-server` MCP tools |
+| 🟢 Green | Tools | `fabric-vibe` package helpers + `fabric-server` MCP tools |
 | 🔴 Red | External | Microsoft Fabric workspace (CLI + REST API) |
 
 ## What each command does
 
-`fabric-cli` (Bash, runs package-owned helpers from the target root):
+`fabric-vibe` (Bash, runs package-owned helpers from the target root):
 
 | Command | Used by |
 |---|---|
-| `fabric-cli notebook {build,deploy,smoke-test}` | Most data-engineering skills |
-| `fabric-cli lakehouse list-tables` | `fabric-transform`, `fabric-validate` |
-| `fabric-cli pipeline manage` | `fabric-pipeline` |
-| `fabric-cli workspace {init,switch,transfer,pick}` | `fabric-ops`, all agents at session start |
-| `fabric-cli lint` / `fabric-cli precommit` | pre-completion validation |
+| `fabric-vibe notebook {build,deploy,smoke-test}` | Most data-engineering skills |
+| `fabric-vibe lakehouse list-tables` | `fabric-transform`, `fabric-validate` |
+| `fabric-vibe pipeline manage` | `fabric-pipeline` |
+| `fabric-vibe workspace {init,switch,transfer,pick}` | `fabric-ops`, all agents at session start |
+| `fabric-vibe lint` / `fabric-vibe precommit` | pre-completion validation |
 
 `fabric-server` MCP (no `ms-fabric-cli` needed):
 
@@ -57,4 +57,4 @@ flowchart TD
 | `pipeline_lineage_check` | `fabric-validate`, pre-commit check |
 | `graph_*` | all agents (knowledge graph read/write) |
 
-`fabric-cli setup` is human-run at install time; agents do not invoke it. The knowledge graph + MCP tools are served by the `fabric-server` Docker container — see [knowledge-graph.md](knowledge-graph.md).
+`fabric-vibe setup` is human-run at install time; agents do not invoke it. The knowledge graph + MCP tools are served by the `fabric-server` Docker container — see [knowledge-graph.md](knowledge-graph.md).
