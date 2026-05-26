@@ -10,10 +10,10 @@ links:
 # MUST
 
 - Use `# %%` cell markers in local `.py` files
-- Build notebooks with `python tool/notebook/build.py`
-- Deploy and run via `tool/notebook/deploy.py` — NOT `fab import` or `fab job run` (both require an interactive Windows console and fail in Git Bash / non-interactive environments)
-- Monitor via `tool/notebook/deploy.py monitor` or by checking job instance status through the Fabric REST API
-- After a successful run, `deploy.py run` automatically fetches the notebook definition back from Fabric into `workspace/<topic>/<name>.Notebook/` (synced with Fabric UI)
+- Build notebooks with `fabric-cli notebook build`
+- Deploy and run via `fabric-cli notebook deploy` — NOT `fab import` or `fab job run` (both require an interactive Windows console and fail in Git Bash / non-interactive environments)
+- Monitor via `fabric-cli notebook deploy monitor` or by checking job instance status through the Fabric REST API
+- After a successful run, `fabric-cli notebook deploy run` automatically fetches the notebook definition back from Fabric into `workspace/<topic>/<name>.Notebook/` (synced with Fabric UI)
 - After fetch, report to orchestrator and stop — the human commits via the Fabric UI Git integration
 - Never run `git add`, `git rm`, or `git commit` — all git commits are the human's responsibility via Fabric UI
 - `fabric_notebooks/<topic>/<name>.Notebook/` is the build intermediate (gitignored) — never commit it

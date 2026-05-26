@@ -7,7 +7,7 @@ displayName so the active workspace + per-resource env keys land in .env.
 
 This used to be an inline heredoc inside setup.{ps1,sh} but that piped stdin
 away from the terminal — making the interactive prompt unreachable when the
-setup script was invoked from install-fabric-agent. Splitting it out keeps
+setup script was invoked from `fabric-agents install`. Splitting it out keeps
 stdin attached to the parent TTY.
 
 Selection precedence:

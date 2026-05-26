@@ -1,18 +1,19 @@
-"""Layout assertions for the 3-package structure (cli / server / packaging)."""
+"""Layout assertions for the 2-package structure (cli / server)."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-# ── packaging/ : validators only ──────────────────────────────────────────────
-def test_packaging_only_has_validators():
-    """After the 3-package split, packaging/ is just the validators dir."""
-    assert (ROOT / "packaging" / "validators" / "validate-install-package.py").is_file()
-    assert (ROOT / "packaging" / "validators" / "validate-agent-guidance.py").is_file()
-    # No legacy children
-    assert not (ROOT / "packaging" / "fabric_agent_installer").exists()
-    assert not (ROOT / "packaging" / "install-fabric-agent").exists()
-    assert not (ROOT / "packaging" / "builders").exists()
+# ── validators are now pytest modules, not a standalone packaging/ tree ───────
+def test_validators_are_pytest_modules():
+    """The former packaging/validators/ scripts moved into tests/ as pytest
+    modules backed by importable logic under tests/_validation/."""
+    assert (ROOT / "tests" / "_validation" / "install_package.py").is_file()
+    assert (ROOT / "tests" / "_validation" / "agent_guidance.py").is_file()
+    assert (ROOT / "tests" / "test_install_package.py").is_file()
+    assert (ROOT / "tests" / "test_agent_guidance.py").is_file()
+    # The standalone packaging/ tree is gone.
+    assert not (ROOT / "packaging").exists()
 
 
 def test_cli_has_no_rules_dir():
@@ -22,15 +23,34 @@ def test_cli_has_no_rules_dir():
 
 # ── cli/ : CLI + everything it ships into target repos ────────────────────────
 def test_cli_layout():
-    """cli/ contains the installer wheel package + the executable + profile/tool/rule/setup
-    content that the CLI installs into target repos."""
+    """cli/ contains the installer wheel package (src/ layout) + the user-facing
+    install scripts + profile/tool/setup content that the CLI installs into
+    target repos."""
     cli = ROOT / "cli"
-    assert (cli / "fabric_agent_installer" / "_installer.py").is_file()
-    assert (cli / "install-fabric-agent").is_file()
+    # New src/ layout — fabric_skills_settings package with Typer CLI.
+    pkg = cli / "src" / "fabric_skills_settings"
+    assert (pkg / "__init__.py").is_file()
+    assert (pkg / "cli.py").is_file()
+    assert (pkg / "commands" / "install.py").is_file()
+    assert (pkg / "commands" / "check.py").is_file()
+    assert (pkg / "commands" / "refresh.py").is_file()
+    assert (pkg / "core" / "files.py").is_file()
+    assert (pkg / "core" / "gitignore.py").is_file()
+    assert (pkg / "core" / "profiles.py").is_file()
+    assert (pkg / "core" / "bootstrap.py").is_file()
+    # Canonical CLI install is `uv tool install fabric-skills-settings` —
+    # no top-level cli/setup.{sh,ps1} wrapper. `cli/setup/setup.{sh,ps1}`
+    # is the target-repo bootstrap, shipped to <target>/tool/setup/.
+    assert not (cli / "setup.sh").exists()
+    assert not (cli / "setup.ps1").exists()
+    # Legacy launcher and old package layout are gone.
+    assert not (cli / "fabric_agent_installer").exists()
+    assert not (cli / "install-fabric-agent").exists()
     assert (cli / "profiles" / "claude" / "CLAUDE.md").is_file()
     assert (cli / "profiles" / "codex" / "AGENTS.md").is_file()
     assert not (cli / "profiles" / "skills").exists()
-    assert (cli / "profiles" / "shared" / "scaffold" / ".mcp.json").is_file()
+    # .mcp.json is written by the target bootstrap, not shipped as a scaffold template.
+    assert not (cli / "profiles" / "shared" / "scaffold" / ".mcp.json").exists()
     assert (cli / "setup" / "setup.sh").is_file()
     assert (cli / "setup" / "setup.ps1").is_file()
     # fab-sandbox / fabric-inventory-readonly removed — fab is server-side now
@@ -88,8 +108,10 @@ def test_server_layout():
 # ── Legacy roots that should be gone ──────────────────────────────────────────
 def test_legacy_top_levels_removed():
     """After the split, these top-level folders disappear (children migrated):
-    bin/, build/, content/, mcp/, rules/, tool/, fabric_agent_installer/."""
-    for legacy in ("bin", "build", "content", "mcp", "rules", "tool", "fabric_agent_installer"):
+    bin/, build/, content/, mcp/, rules/, tool/, fabric_agent_installer/,
+    fabric_skills_settings/."""
+    for legacy in ("bin", "build", "content", "mcp", "rules", "tool",
+                   "fabric_agent_installer", "fabric_skills_settings"):
         assert not (ROOT / legacy).exists(), f"legacy top-level {legacy!r} still present"
 
 

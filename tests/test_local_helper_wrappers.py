@@ -111,7 +111,7 @@ def test_pipeline_lineage_check_returns_stderr_on_failure():
     def _fake_run(*args, **kwargs):
         return _Result()
 
-    with patch("server.tools.validate.tools.subprocess.run", side_effect=_fake_run):
+    with patch("server.script_runner.subprocess.run", side_effect=_fake_run):
         out = _tools(mcp)["pipeline_lineage_check"](
             notebooks={"workspace/orders/bronze.py": 'OUTPUT_DIR = "x"\n'},
             topic="orders",

@@ -10,10 +10,11 @@ measures, and relationships so agents can understand the business data model
 before writing DAX queries, validating metric definitions, or mapping source
 tables to Gold-layer consumption models.
 
-Usage (from target repo root):
-    python tool/semantic-model/inspect.py list
-    python tool/semantic-model/inspect.py show <name-or-id>
-    python tool/semantic-model/inspect.py show <name-or-id> --json
+Runs server-side; exposed to agents as the `semantic_model_list` and
+`semantic_model_show` MCP tools (the wrapper invokes this script with `list` /
+`show <name-or-id> --json`). The CLI form below is for local debugging only:
+    python server/tools/semantic_model/inspect.py list
+    python server/tools/semantic_model/inspect.py show <name-or-id> --json
 
 Auth: reads FABRIC_TENANT_ID, FABRIC_CLIENT_ID, FABRIC_CLIENT_SECRET from .env
 and maps them to AZURE_* so azure-identity DefaultAzureCredential picks them up.
@@ -143,7 +144,7 @@ def _resolve_model(df, name_or_id: str) -> tuple[str, str]:
     if matches.empty:
         raise SystemExit(
             f"No semantic model found matching {name_or_id!r}.\n"
-            "Run `python tool/semantic-model/inspect.py list` to see available models."
+            "Run the semantic_model_list MCP tool to see available models."
         )
     if len(matches) > 1:
         ids = ", ".join(id_col[matches.index].tolist())

@@ -1,6 +1,6 @@
 ---
 name: mock-data
-description: Generate deterministic synthetic CSV files under data/sandbox/ using tool/data/mock-data-generator.py. Use when no real source file exists for a new or demo topic and you need staged data to build the download/bronze/dq notebook pipeline against.
+description: Generate deterministic synthetic CSV files under data/sandbox/ using the data_mock_generate MCP tool. Use when no real source file exists for a new or demo topic and you need staged data to build the download/bronze/dq notebook pipeline against.
 ---
 
 # mock-data
@@ -13,23 +13,41 @@ description: Generate deterministic synthetic CSV files under data/sandbox/ usin
 
 Do not use real source extracts. Always generate synthetic data and run it through the normal masking and DQ pipeline.
 
-## Commands
+## Tool — `data_mock_generate` (MCP)
 
-```bash
-# Custom schema matching your target table — always pass a schema
-python tool/data/mock-data-generator.py --topic orders --rows 1000 \
-  --schema '[{"name":"id","type":"id"},{"name":"customer_id","type":"int","min":1,"max":500},{"name":"email","type":"email"},{"name":"amount","type":"decimal","min":2.5,"max":2500,"decimals":2},{"name":"order_date","type":"date","start":"2025-01-01","end":"2025-12-31"}]'
+Call the `data_mock_generate` MCP tool on the `fabric-server`. It runs inside
+the container, so pass `target_dir` = the project root mounted into the
+container; output defaults to `data/sandbox/<topic>.csv` under it. Always pass
+a `schema` derived from the target table.
 
-# Schema from a JSON file (reusable across runs)
-python tool/data/mock-data-generator.py --topic orders --schema-file schemas/orders.json --rows 5000
+| Argument | Default | Notes |
+|---|---|---|
+| `target_dir` | — | Project root (required); the container writes under it |
+| `topic` | `orders` | Output file stem |
+| `rows` | `1000` | Row count |
+| `seed` | `42` | Deterministic seed |
+| `engine` | `stdlib` | One of `stdlib`, `faker`, `mimesis`, `sklearn` |
+| `schema` | — | Inline JSON array of `{name,type}` column defs |
+| `schema_file` | — | Project-relative path to a JSON schema (mutually exclusive with `schema`) |
+| `output` | — | Explicit project-relative CSV path |
 
-# Faker engine for richer PII-shaped values
-python tool/data/mock-data-generator.py --engine faker --topic customers --rows 1000 \
-  --schema '[{"name":"id","type":"id"},{"name":"full_name","type":"name"},{"name":"email","type":"email"},{"name":"phone","type":"phone"},{"name":"address","type":"address"}]'
+Examples (arguments shown as JSON for clarity):
 
-# ML fixtures — schema declares feature columns (float/decimal) and a target column
-python tool/data/mock-data-generator.py --engine sklearn --rows 5000 \
-  --schema '[{"name":"id","type":"id"},{"name":"price","type":"float","decimals":4},{"name":"quantity","type":"float","decimals":4},{"name":"target","type":"int"}]'
+```jsonc
+// Custom schema matching your target table
+{"target_dir": ".", "topic": "orders", "rows": 1000,
+ "schema": "[{\"name\":\"id\",\"type\":\"id\"},{\"name\":\"customer_id\",\"type\":\"int\",\"min\":1,\"max\":500},{\"name\":\"email\",\"type\":\"email\"},{\"name\":\"amount\",\"type\":\"decimal\",\"min\":2.5,\"max\":2500,\"decimals\":2},{\"name\":\"order_date\",\"type\":\"date\",\"start\":\"2025-01-01\",\"end\":\"2025-12-31\"}]"}
+
+// Schema from a reusable JSON file
+{"target_dir": ".", "topic": "orders", "rows": 5000, "schema_file": "schemas/orders.json"}
+
+// Faker engine for richer PII-shaped values
+{"target_dir": ".", "engine": "faker", "topic": "customers", "rows": 1000,
+ "schema": "[{\"name\":\"id\",\"type\":\"id\"},{\"name\":\"full_name\",\"type\":\"name\"},{\"name\":\"email\",\"type\":\"email\"},{\"name\":\"phone\",\"type\":\"phone\"},{\"name\":\"address\",\"type\":\"address\"}]"}
+
+// ML fixtures — feature columns + a target column
+{"target_dir": ".", "engine": "sklearn", "rows": 5000,
+ "schema": "[{\"name\":\"id\",\"type\":\"id\"},{\"name\":\"price\",\"type\":\"float\",\"decimals\":4},{\"name\":\"quantity\",\"type\":\"float\",\"decimals\":4},{\"name\":\"target\",\"type\":\"int\"}]"}
 ```
 
 Output lands at `data/sandbox/<topic>.csv`.

@@ -14,9 +14,11 @@
 #   5. Prompts for FABRIC_CLIENT_SECRET and persists to the user's OS env
 #      (NOT .env - secrets stay in the OS env).
 #   6. Prompts for FABRIC_SERVER_URL and writes it to .env.
-#   7. Verifies SPN auth by calling `fab api workspaces`.
-#   8. Runs `python tool/workspace/init.py` to populate workspaces.json.
-#   9. Prompts to select the active workspace.
+#   7. Prompts for the MCP server URL, writes .mcp.json, and patches
+#      .codex/config.toml's [mcp_servers.fabric-server] url (if installed).
+#   8. Verifies SPN auth by calling `fab api workspaces`.
+#   9. Runs tool/workspace/init.py to populate workspaces.json.
+#  10. Prompts to select the active workspace.
 
 [CmdletBinding()]
 param()
@@ -173,6 +175,44 @@ if ($env:FABRIC_SERVER_URL) {
     Write-EnvKey -Key "FABRIC_SERVER_URL" -Value $serverUrl
     $env:FABRIC_SERVER_URL = $serverUrl
     $Actions.Add("FABRIC_SERVER_URL written to .env ($serverUrl)")
+}
+
+# -- MCP client config (.mcp.json) -------------------------------------------
+# Claude/Codex read .mcp.json to reach the fabric-server MCP. Write it with a
+# concrete URL here (the installer no longer ships a template). The endpoint
+# defaults to <FABRIC_SERVER_URL>/mcp but can be overridden.
+Write-Host ""
+Write-Host "-- MCP server endpoint (.mcp.json)"
+$McpJson    = Join-Path $ProjectRoot ".mcp.json"
+$defaultMcp = "$($env:FABRIC_SERVER_URL.TrimEnd('/'))/mcp"
+$mcpUrl     = Read-Host "  MCP server URL [$defaultMcp]"
+if (-not $mcpUrl) { $mcpUrl = $defaultMcp }
+$mcpDoc = [ordered]@{
+    mcpServers = [ordered]@{
+        "fabric-server" = [ordered]@{
+            type = "http"
+            url  = $mcpUrl
+        }
+    }
+}
+$mcpDoc | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $McpJson -Encoding utf8
+$Actions.Add(".mcp.json written ($mcpUrl)")
+
+# Codex reads .codex/config.toml (not .mcp.json). Patch its
+# [mcp_servers.fabric-server] url to the same endpoint, if that profile is
+# installed. The file ships with a default url; we rewrite just that line.
+$CodexConfig = Join-Path $ProjectRoot ".codex/config.toml"
+if (Test-Path -LiteralPath $CodexConfig) {
+    $lines = [System.IO.File]::ReadAllLines($CodexConfig)
+    $inSection = $false
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i]
+        if ($line -match '^\[mcp_servers\.fabric-server\]') { $inSection = $true; continue }
+        elseif ($line -match '^\[') { $inSection = $false }
+        if ($inSection -and $line -match '^\s*url\s*=') { $lines[$i] = "url = `"$mcpUrl`"" }
+    }
+    [System.IO.File]::WriteAllLines($CodexConfig, $lines, [System.Text.UTF8Encoding]::new($false))
+    $Actions.Add(".codex/config.toml MCP url set ($mcpUrl)")
 }
 
 # -- Authenticate ------------------------------------------------------------

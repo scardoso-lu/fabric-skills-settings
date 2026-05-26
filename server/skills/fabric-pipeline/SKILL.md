@@ -30,31 +30,31 @@ description: Create, deploy, and test a Fabric Data Factory pipeline that chains
 
 ```bash
 # 0. Confirm active workspace (every session, before any pipeline action)
-python tool/workspace/switch.py list
+fabric-cli workspace switch list
 # Stop. Ask: "Active workspace is '<displayName>'. Confirm to proceed?"
-# Do not run manage.py until the human confirms.
-# To deploy to a different workspace instead, use transfer.py:
-#   python tool/workspace/transfer.py --pipeline <topic> --to <displayName>
+# Do not run pipeline manage until the human confirms.
+# To deploy to a different workspace instead, use workspace transfer:
+#   fabric-cli workspace transfer --pipeline <topic> --to <displayName>
 
 # Full cycle: auto-discover notebooks, create/update pipeline, run, and monitor
-python tool/pipeline/manage.py test --topic lux_energy_price
+fabric-cli pipeline manage test --topic lux_energy_price
 
 # Create or update only (no run)
-python tool/pipeline/manage.py create --topic lux_energy_price
+fabric-cli pipeline manage create --topic lux_energy_price
 
 # Explicit ordered list (use when auto-discover picks up the wrong notebooks)
-python tool/pipeline/manage.py create --topic lux_energy_price \
+fabric-cli pipeline manage create --topic lux_energy_price \
     --notebooks download_lux_energy_price,bronze_lux_energy_price,dq_bronze_lux_energy_price
 
 # Trigger an already-deployed pipeline (no monitoring)
-python tool/pipeline/manage.py run --pipeline pipeline_lux_energy_price
+fabric-cli pipeline manage run --pipeline pipeline_lux_energy_price
 
 # Monitor an existing run to completion
-python tool/pipeline/manage.py status \
+fabric-cli pipeline manage status \
     --pipeline pipeline_lux_energy_price --instance <job-instance-id>
 
 # List all data pipelines in the workspace
-python tool/pipeline/manage.py list
+fabric-cli pipeline manage list
 ```
 
 ## Activity Ordering

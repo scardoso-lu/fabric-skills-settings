@@ -23,7 +23,7 @@ Do NOT copy Databricks `/Shared/...` patterns. A leading `/`, a `.`, or a space 
 
 ## 2. SPN-authenticated runs cannot use MLflow at all
 
-Notebooks submitted via `fab-sandbox` run as a Service Principal. Fabric's MLflow plugin calls a backend "Mwc" service that rejects SPN tokens:
+Notebooks submitted via `fabric-cli notebook deploy` run as a Service Principal. Fabric's MLflow plugin calls a backend "Mwc" service that rejects SPN tokens:
 
 ```
 RestException: INTERNAL_ERROR: Response:

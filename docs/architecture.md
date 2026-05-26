@@ -76,40 +76,56 @@ Subagents are discovered by Claude and Codex from their native profile directori
 | Rules | `content/rules/*.md` | `memory/rules/*.md` |
 | Knowledge graph content | `content/graph-content/` | `memory/graph-content/` |
 | Seed memory | `profiles/shared/memory/` | `memory/` |
-| Target scaffold (.mcp.json, data/sandbox/, target-side setup overrides, ...) | `profiles/shared/scaffold/` | Target repo root |
+| Target scaffold (data/sandbox/, workspace/, ...) | `profiles/shared/scaffold/` | Target repo root |
+| `.mcp.json` | not shipped — written by `tool/setup/setup.{sh,ps1}` | Target repo root (concrete MCP URL) |
 | Graph artifacts | `dist/.graph/` (source build output, gitignored) | `memory/.graph/` (shipped by installer + rebuilt by `tool/graph/writes.py` on CRUD) |
 | MCP servers | `mcp/` (top-level, parallel to `tool/`) | `mcp/` |
 | Graph runtime | `tool/graph/` | `tool/graph/` |
-| Source-package CLI + builders + validators | `packaging/` | **not installed** |
+| Source-package CLI | `cli/src/fabric_skills_settings/` | installed as the `fabric-skills-settings` wheel |
+| Source-package validators | `tests/test_install_package.py`, `tests/test_agent_guidance.py` (+ `tests/_validation/`) | **not installed** (maintainer pytest) |
 
-## Setup CLI — single-shot install
+## Setup CLI — install path
 
-Both source-clone and pip-install paths land at the same entry point:
+The CLI is published as `fabric-skills-settings` on PyPI and exposes two
+console scripts:
 
-| Source path | One-line install |
+| Command | Role |
 |---|---|
-| Source clone (Linux/macOS) | `./setup.sh --profile claude --target /path/to/project` |
-| Source clone (Windows) | `.\setup.ps1 -Profile claude -Target C:\path\to\project` |
-| pip-installed wheel | `install-fabric-agent --profile claude --target /path/to/project` |
+| `fabric-agents` | Typer installer with `install` / `check` / `refresh` subcommands. Writes profile, scaffold, and tool files into a target repo, then runs the target bootstrap. |
+| `fabric-cli` | Typer proxy for target-side helpers — `notebook`, `pipeline`, `lakehouse`, `workspace`, `lint`, `precommit`. Run from the target repo root. |
 
-The source-clone wrappers (`setup.{sh,ps1}`) are thin shells that run the validators (`packaging/validators/validate-install-package.py` and `validate-agent-guidance.py`) and then exec `packaging/install-fabric-agent`. The wheel registers `install-fabric-agent` as a console-script entry point on `fabric_agent_installer._installer:main`, so post-pip-install there is no wrapper — the same Python entry point runs directly. All three paths accept the same flags (`--profile`, `--target`, `--dry-run`, `--check`, `--force`, `--backup`, `--no-bootstrap`).
+Install the package itself with:
 
-After the install copies files, the installer automatically invokes `<target>/tool/setup/setup.{ps1,sh}` to finish the bootstrap: create `.venv`, install Fabric CLI helpers (`ms-fabric-cli`, `Faker`, `pandas`, `networkx`, `rank-bm25`, RTK), prompt for any missing `FABRIC_TENANT_ID` / `FABRIC_CLIENT_ID` / `FABRIC_CLIENT_SECRET`, verify auth via `fab-sandbox api workspaces`, and populate `workspaces.json`. Pass `--no-bootstrap` (or `-NoBootstrap` on PowerShell) to skip — `--dry-run` and `--check` skip implicitly.
+```bash
+uv tool install fabric-skills-settings        # recommended
+# or
+pip install fabric-skills-settings
+```
 
-`./setup.sh` (or `.\setup.ps1`) with **no args** is the maintainer sanity check: tool presence + validators. No target is touched. The wrapper is also where `--install-tools` lives — auto-install `uv` if missing.
+Then install a profile into your project repo:
+
+```bash
+fabric-agents install --profile claude --target /path/to/project
+fabric-agents check   --profile claude --target /path/to/project
+fabric-agents refresh --profile claude --target /path/to/project
+```
+
+After the install copies files, the installer automatically invokes
+`<target>/tool/setup/setup.{ps1,sh}` to finish the bootstrap: create `.venv`,
+install Fabric CLI helpers (`ms-fabric-cli`, `Faker`, `pandas`, `networkx`,
+`rank-bm25`, RTK), prompt for any missing `FABRIC_TENANT_ID` /
+`FABRIC_CLIENT_ID` / `FABRIC_CLIENT_SECRET`, verify auth via
+`fab api workspaces`, and populate `workspaces.json`. Pass `--no-bootstrap`
+to skip — `--dry-run` and the `check` subcommand skip implicitly.
 
 ```mermaid
 flowchart TD
-    SRC["source clone<br/>./setup.sh / .\\setup.ps1"]
-    PIP["pip install fabric-skills-settings<br/>→ install-fabric-agent"]
+    PIP["uv tool install fabric-skills-settings<br/>(or pip install)"]
+    PIP --> CLI
+    CLI["fabric-agents install --profile X --target Y"]
+    CLI --> INST
 
-    SRC --> VAL
-    VAL["packaging/validators/<br/>validate-install-package.py<br/>validate-agent-guidance.py"]
-    VAL --> INST
-    SRC -.->|"--skip-validators"| INST
-    PIP --> INST
-
-    INST["packaging/install-fabric-agent<br/>(== fabric_agent_installer._installer:main)<br/>copy files into target"]
+    INST["fabric_skills_settings.commands.install<br/>copy files into target"]
     INST --> TGT
     TGT["target/<br/>CLAUDE.md · mcp/ · tool/ · memory/ · .mcp.json · ..."]
     TGT --> BOOT
@@ -128,12 +144,12 @@ flowchart TD
 ```text
 fabric-skills-settings/
 ├── README.md  CLAUDE.md  AGENTS.md  LICENSE  pyproject.toml  uv.lock  .gitignore
-├── setup.ps1  setup.sh                  post-clone entry points for maintainers
 │
-├── packaging/                           source-package internals (NOT installed into targets)
-│   ├── install-fabric-agent             CLI shim
-│   ├── fabric_agent_installer/          pip-installable wheel package
-│   │   ├── __init__.py  __main__.py  _installer.py
+├── cli/                                 installable assets
+│   ├── src/fabric_skills_settings/      pip-installable wheel package
+│   │   ├── __init__.py  __main__.py  cli.py
+│   │   ├── commands/{install,check,refresh}.py
+│   │   └── core/{files,gitignore,profiles,bootstrap,markers,paths}.py
 │   ├── builders/                        source-only graph builders
 │   │   ├── build-graph.py
 │   │   ├── build-agent-capability-graph.py
@@ -163,8 +179,8 @@ fabric-skills-settings/
 │   └── shared/
 │       ├── .env.example  .gitignore.fragment
 │       ├── memory/                      seed memory (.gitkeep, skill-fixes/) → target memory/
-│       └── scaffold/                    target-only scaffolding (.mcp.json, data/sandbox/,
-│                                        workspace/, target-side tool/setup/ overrides)
+│       └── scaffold/                    target-only scaffolding (data/sandbox/, workspace/);
+│                                        .mcp.json is NOT here — the bootstrap writes it
 │
 ├── dist/                                build outputs
 │   ├── .graph/                          source-side knowledge-graph artifacts (gitignored)
@@ -180,13 +196,13 @@ fabric-skills-settings/
 
 Disappeared as part of the redesign: `bin/`, `build/`, `rules/` at root, `profiles/shared/project-layout/`, `profiles/shared/graph-content/`, `tool/mcp/`, source-side `memory/.graph/`.
 
-### Installed target repository (what `install-fabric-agent` produces)
+### Installed target repository (what `fabric-agents install` produces)
 
 ```text
 <target-repo>/
 ├── CLAUDE.md  or  AGENTS.md             from profiles/{claude,codex}/  (hard-minimal stub)
 ├── .env.example  .gitignore             managed block
-├── .mcp.json                            from profiles/shared/scaffold/
+├── .mcp.json                            written by tool/setup/setup.{sh,ps1} (concrete MCP URL)
 │
 ├── .claude/                             agents/, skills/, settings.local.json   (claude profile)
 ├── .codex/                              agents/, config.toml                    (codex profile)

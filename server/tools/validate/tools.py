@@ -11,10 +11,7 @@ stdout + stderr (including any Python traceback) is returned to the caller.
 
 from __future__ import annotations
 
-import os
 import shutil
-import subprocess
-import sys
 import tempfile
 import traceback
 from pathlib import Path
@@ -22,6 +19,7 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 from ...audit import CallTimer
+from ...script_runner import run_capture
 
 _SCRIPT = Path(__file__).resolve().parent / "pipeline-lineage.py"
 
@@ -91,18 +89,12 @@ def register(mcp: FastMCP) -> None:
                     dest.parent.mkdir(parents=True, exist_ok=True)
                     dest.write_text(content, encoding="utf-8")
 
-                args = [sys.executable, str(_SCRIPT), "--workspace", workspace]
+                args = ["--workspace", workspace]
                 if topic:
                     args += ["--topic", topic]
 
                 try:
-                    proc = subprocess.run(
-                        args,
-                        cwd=tmp_root,
-                        capture_output=True,
-                        text=True,
-                        env=os.environ.copy(),
-                    )
+                    proc = run_capture(_SCRIPT, args, cwd=tmp_root)
                 except Exception as exc:
                     # subprocess itself blew up (shouldn't normally happen) —
                     # return the traceback so the caller can see the cause.

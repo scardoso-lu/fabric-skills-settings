@@ -15,9 +15,11 @@
 #   5. Prompts for FABRIC_CLIENT_SECRET and persists to the user's shell
 #      profile (NOT .env — secrets stay in the OS env).
 #   6. Prompts for FABRIC_SERVER_URL and writes it to .env.
-#   7. Verifies SPN auth by calling `fab api workspaces`.
-#   8. Runs `python tool/workspace/init.py` to populate workspaces.json.
-#   9. Prompts to select the active workspace.
+#   7. Prompts for the MCP server URL, writes .mcp.json, and patches
+#      .codex/config.toml's [mcp_servers.fabric-server] url (if installed).
+#   8. Verifies SPN auth by calling `fab api workspaces`.
+#   9. Runs tool/workspace/init.py to populate workspaces.json.
+#  10. Prompts to select the active workspace.
 
 set -euo pipefail
 
@@ -201,6 +203,43 @@ else
   write_env_key "FABRIC_SERVER_URL" "$server_url"
   export FABRIC_SERVER_URL="$server_url"
   actions+=("FABRIC_SERVER_URL written to .env (${server_url})")
+fi
+
+# ── MCP client config (.mcp.json) ───────────────────────────────────────────────
+# Claude/Codex read .mcp.json to reach the fabric-server MCP. Write it with a
+# concrete URL here (the installer no longer ships a template). The endpoint
+# defaults to <FABRIC_SERVER_URL>/mcp but can be overridden.
+echo ""
+echo "-- MCP server endpoint (.mcp.json)"
+MCP_JSON="${PROJECT_ROOT}/.mcp.json"
+default_mcp_url="${FABRIC_SERVER_URL%/}/mcp"
+read -rp "  MCP server URL [${default_mcp_url}]: " mcp_url
+mcp_url="${mcp_url:-$default_mcp_url}"
+cat > "$MCP_JSON" <<EOF
+{
+  "mcpServers": {
+    "fabric-server": {
+      "type": "http",
+      "url": "${mcp_url}"
+    }
+  }
+}
+EOF
+actions+=(".mcp.json written (${mcp_url})")
+
+# Codex reads .codex/config.toml (not .mcp.json). Patch its
+# [mcp_servers.fabric-server] url to the same endpoint, if that profile is
+# installed. The file ships with a default url; we rewrite just that line.
+CODEX_CONFIG="${PROJECT_ROOT}/.codex/config.toml"
+if [[ -f "$CODEX_CONFIG" ]]; then
+  _codex_tmp="$(mktemp)"
+  awk -v url="$mcp_url" '
+    /^\[mcp_servers\.fabric-server\]/ { print; in_section=1; next }
+    /^\[/                             { in_section=0 }
+    in_section && /^[[:space:]]*url[[:space:]]*=/ { print "url = \"" url "\""; next }
+    { print }
+  ' "$CODEX_CONFIG" > "$_codex_tmp" && mv "$_codex_tmp" "$CODEX_CONFIG"
+  actions+=(".codex/config.toml MCP url set (${mcp_url})")
 fi
 
 # ── Authenticate ──────────────────────────────────────────────────────────────

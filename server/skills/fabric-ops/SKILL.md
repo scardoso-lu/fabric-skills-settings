@@ -14,7 +14,7 @@ description: Operate and maintain a Fabric data platform — orchestrate pipelin
 
 ## PREFER
 
-- `tool/setup/fab-sandbox` or `tool/setup/fab-sandbox.ps1` over direct `fab` calls for item management
+- `fabric-cli` subcommands (which wrap the Fabric CLI) over direct `fab` calls for item management
 - Idempotent setup scripts (running twice causes no harm)
 
 ## AVOID
@@ -33,33 +33,33 @@ description: Operate and maintain a Fabric data platform — orchestrate pipelin
 
 ```bash
 # List all lakehouses in the workspace with their tables and column schemas
-python tool/lakehouse/list-tables.py
+fabric-cli lakehouse list-tables
 
 # Scope to a specific lakehouse
-python tool/lakehouse/list-tables.py --lakehouse bronze_lh
+fabric-cli lakehouse list-tables --lakehouse bronze_lh
 
 # Inspect one table
-python tool/lakehouse/list-tables.py --lakehouse bronze_lh --table raw_orders
+fabric-cli lakehouse list-tables --lakehouse bronze_lh --table raw_orders
 
 # Machine-readable JSON (pipe to jq for filtering)
-python tool/lakehouse/list-tables.py --json
+fabric-cli lakehouse list-tables --json
 ```
 
 Column schema is read from each table's Delta transaction log via the OneLake DFS
-endpoint using the sandbox-wrapper Fabric credential. If the token is unavailable, table
+endpoint using the Fabric CLI credential. If the token is unavailable, table
 names and types are still listed without schema.
 
 ## Daily Checks
 
 ```bash
 # List items in the workspace (shows notebooks, lakehouses, etc.)
-tool/setup/fab-sandbox api "workspaces/$FABRIC_WORKSPACE_ID/items" --output_format json
+fab api "workspaces/$FABRIC_WORKSPACE_ID/items" --output_format json
 
 # Check recent job runs for a specific notebook item
-tool/setup/fab-sandbox api "workspaces/$FABRIC_WORKSPACE_ID/items/<item_id>/jobs/instances" --output_format json
+fab api "workspaces/$FABRIC_WORKSPACE_ID/items/<item_id>/jobs/instances" --output_format json
 
 # Monitor a specific job instance
-python tool/notebook/deploy.py monitor "$FABRIC_WORKSPACE_ID" <item_id> <job_instance_id>
+fabric-cli notebook deploy monitor "$FABRIC_WORKSPACE_ID" <item_id> <job_instance_id>
 ```
 
 Check DQ notebook run results in the Fabric portal (Activities → Notebook runs).
@@ -96,15 +96,15 @@ mkdir -p workspace data/sandbox logs
 cp .env.example .env
 
 # Discover and select workspace/resource IDs from the registry
-python tool/workspace/init.py
-python tool/workspace/switch.py list
-python tool/workspace/switch.py <displayName>
+fabric-cli workspace init
+fabric-cli workspace switch list
+fabric-cli workspace switch <displayName>
 
 # Install Fabric CLI
 uv tool install ms-fabric-cli
 
-# Authenticate
-tool/setup/fab-sandbox auth login
+# Authenticate (normally done once by tool/setup/setup.{sh,ps1})
+fab auth login
 ```
 
 ## Platform Inventory Update

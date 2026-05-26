@@ -1,6 +1,6 @@
 ---
 name: smoke-test-diagnostics
-description: How to interpret opaque Spark cancellation messages from tool/notebook/deploy.py monitor. Required reading before guessing at smoke-test failures.
+description: How to interpret opaque Spark cancellation messages from fabric-cli notebook deploy monitor. Required reading before guessing at smoke-test failures.
 kind: content
 links:
   - skills/fabric-notebook-loop
@@ -8,7 +8,7 @@ links:
 
 # Smoke-test diagnostics
 
-`tool/notebook/deploy.py monitor` reports only the generic Spark failure message; it does **not** surface cell-level tracebacks. When a smoke test prints `System cancelled the Spark session due to statement execution failures`, do not guess at fixes.
+`fabric-cli notebook deploy monitor` reports only the generic Spark failure message; it does **not** surface cell-level tracebacks. When a smoke test prints `System cancelled the Spark session due to statement execution failures`, do not guess at fixes.
 
 Choose one of these diagnostic paths instead:
 

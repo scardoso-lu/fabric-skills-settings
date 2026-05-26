@@ -27,47 +27,35 @@ Never assume a 202 means the operation completed.
 
 ## FP-02: Authentication
 
-All Fabric CLI access must go through the installed sandbox wrapper. Humans run login when setup/auth is required; agents only verify auth state or call Fabric through repo-owned helpers.
+Authentication is a one-time human step performed by `tool/setup/setup.ps1`
+(Windows) or `tool/setup/setup.sh` (Linux/Mac), which logs the service
+principal in and writes credentials to `.env` + the OS environment. Agents
+**never** run login/token commands or pass credentials on the command line —
+they only verify the setup gate (see [[graph-content/entry]]).
 
-Windows:
-```powershell
-tool\setup\fab-sandbox.ps1 auth login
-tool\setup\fab-sandbox.ps1 auth token
-```
+For workspace and item operations, go through the `fabric-cli` proxy and the
+`fabric-server` MCP tools — never call the Fabric CLI directly from rules:
 
-Linux/Mac:
-```bash
-bash tool/setup/fab-sandbox auth login
-bash tool/setup/fab-sandbox auth token
-```
-
-For REST API calls or checks, use the wrapper or a repo helper that already uses it. Do not call raw `fab`, rely on PATH-based `fab` discovery, or pass credentials on the command line.
-
-Examples:
-```powershell
-tool\setup\fab-sandbox.ps1 api workspaces --output_format json
-```
-
-```bash
-bash tool/setup/fab-sandbox api workspaces --output_format json
-```
+- Workspace / resource discovery: `fabric-cli workspace init`
+- Active workspace + resource IDs: `fabric-cli workspace switch <displayName>`
+- Notebook / pipeline / lakehouse operations: the matching `fabric-cli` subcommands (FP-03, FP-04)
 
 ## FP-03: Notebook Authoring
 
 - Author in local `.py` files using `# %%` cell markers
-- Build to `.Notebook` format with `python tool/notebook/build.py`
-- Deploy via REST API: `python tool/notebook/deploy.py deploy <name> <workspace_id>`
-- Full loop: `tool/notebook/smoke-test.sh --notebook <name>` (reads `FABRIC_WORKSPACE_ID` from `.env`)
-- Raw `fab import` and `fab job run` require an interactive Windows console — do not use them in automated or non-interactive environments. Use `tool/notebook/deploy.py` and smoke-test helpers.
+- Build to `.Notebook` format with `fabric-cli notebook build`
+- Deploy via REST API: `fabric-cli notebook deploy deploy <name> <workspace_id>`
+- Full loop: `fabric-cli notebook smoke-test --notebook <name>` (reads `FABRIC_WORKSPACE_ID` from `.env`)
+- Raw `fab import` and `fab job run` require an interactive Windows console — do not use them in automated or non-interactive environments. Use `fabric-cli notebook deploy` and `fabric-cli notebook smoke-test`.
 - `tags` metadata is stripped by the REST API — do not rely on tags for parameter injection
 - Notebook cells must end with `\n` to prevent visual merge issues
 
 ## FP-04: Debugging Job Runs
 
-Use `tool/notebook/deploy.py monitor` for real-time status polling:
+Use `fabric-cli notebook deploy monitor` for real-time status polling:
 
 ```bash
-python tool/notebook/deploy.py monitor <workspace_id> <item_id> <job_instance_id>
+fabric-cli notebook deploy monitor <workspace_id> <item_id> <job_instance_id>
 ```
 
 For detailed error traces, open the Fabric portal: Activities → Notebook runs → select the failed run.

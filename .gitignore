@@ -4,6 +4,7 @@
 !.env.example
 *.local.json
 !profiles/claude/settings.local.json
+!cli/profiles/claude/settings.local.json
 
 # Local Claude Code overrides
 .claude/settings.local.json
@@ -12,6 +13,7 @@
 data/
 logs/
 src/
+!cli/src/
 fabric_notebooks/
 _delta_log/
 *.checkpoint.parquet

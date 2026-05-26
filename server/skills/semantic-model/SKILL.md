@@ -15,32 +15,20 @@ Invoke before any task that depends on understanding business metric definitions
 - Validating that a Silver → Gold promotion matches the expected column names and types
 - Answering questions like "what does the Revenue measure include?" or "how is Churn Rate calculated?"
 
-## Dependency
+## Tools — `semantic_model_list` / `semantic_model_show` (MCP)
 
-Requires `semantic-link` (`sempy.fabric`). Install once in the target repo:
+Inspection runs server-side via the `fabric-server` MCP tools (backed by
+`sempy.fabric` in the container). There is no target-side script. Auth is
+handled by the container's service-principal credentials.
 
-```bash
-pip install semantic-link
-```
+| Tool | Arguments | Purpose |
+|---|---|---|
+| `semantic_model_list` | _(none — uses the configured `FABRIC_WORKSPACE_ID`)_ | List all semantic models in the workspace |
+| `semantic_model_show` | `model` (name or id); `include_hidden` (default off); `include_expressions` (default off — DAX may carry sensitive logic) | Show tables, columns, measures, and relationships for one model. Always returns JSON. |
 
-Auth is automatic: the tool maps `FABRIC_TENANT_ID / FABRIC_CLIENT_ID / FABRIC_CLIENT_SECRET` from `.env` to `AZURE_*` so `azure-identity` `DefaultAzureCredential` picks them up as a service principal.
-
-## Commands
-
-```bash
-# List all semantic models in the workspace
-python tool/semantic-model/inspect.py list
-
-# Show tables, columns, measures, and relationships for a specific model
-python tool/semantic-model/inspect.py show "Sales Model"
-python tool/semantic-model/inspect.py show <model-id>
-
-# Raw JSON output (for programmatic processing)
-python tool/semantic-model/inspect.py show "Sales Model" --json
-
-# Override workspace (default: FABRIC_WORKSPACE_ID from .env)
-python tool/semantic-model/inspect.py --workspace <uuid> list
-```
+Call `semantic_model_list` first when the model name is unknown — never guess
+an ID. `semantic_model_show` hides DAX expressions and hidden objects by
+default; opt in with `include_expressions` / `include_hidden` only when needed.
 
 ## Output format
 

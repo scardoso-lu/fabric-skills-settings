@@ -1,6 +1,6 @@
 # Workflow — agents, skills, and tools
 
-What you get in the **target repo** after `setup.ps1` (or `install-fabric-agent`) runs. Reads top-down: a request reaches an agent, the agent picks a skill, the skill drives one or more local tools, the tools talk to Microsoft Fabric.
+What you get in the **target repo** after `fabric-agents install` runs. Reads top-down: a request reaches an agent, the agent picks a skill, the skill drives one or more local tools, the tools talk to Microsoft Fabric.
 
 ```mermaid
 flowchart TD
@@ -21,7 +21,7 @@ flowchart TD
     SKILLS["Skills by sub-agent<br/>━━━━━━━━━━<br/>developer ⇒ fabric-ingest · fabric-transform · fabric-model<br/>fabric-notebook-loop · fabric-pipeline<br/>mock-data · semantic-model · git-commit<br/>tester ⇒ fabric-validate · fabric-notebook-loop<br/>operator ⇒ fabric-ops · rtk"]:::skill
     SKILLS --> TOOLS
 
-    TOOLS["Local tools in target repo<br/>━━━━━━━━━━<br/>tool/notebook/ — build · deploy · smoke-test · fetch<br/>tool/lakehouse/ — list-tables<br/>tool/semantic-model/ — inspect<br/>tool/pipeline/ — manage<br/>tool/workspace/ — init · switch · transfer<br/>tool/data/ — mock-data-generator<br/>tool/validate/ — pipeline-lineage<br/>tool/setup/ — fab-sandbox CLI wrapper<br/>mcp/ — fabric & fabric-graph servers"]:::tool
+    TOOLS["fabric-cli proxy (Bash, target-side)<br/>━━━━━━━━━━<br/>notebook — build · deploy · smoke-test · fetch<br/>lakehouse — list-tables<br/>pipeline — manage<br/>workspace — init · switch · transfer · pick<br/>lint · precommit<br/>━━━━━━━━━━<br/>fabric-server MCP<br/>data_mock_generate · semantic_model_* · pipeline_lineage_check · graph_*"]:::tool
     TOOLS --> FAB
 
     FAB[("Microsoft Fabric<br/>workspace · REST API · CLI")]:::ext
@@ -32,21 +32,29 @@ flowchart TD
 | Colour | Layer | Where it lives in the target |
 |---|---|---|
 | 🟠 Orange | Agents (4) | `.claude/agents/*.md` and `.codex/agents/*.toml` |
-| 🔵 Blue | Skills (14) | `.claude/skills/<name>/SKILL.md`, `.agents/skills/<name>/SKILL.md` |
-| 🟢 Green | Tools (8 dirs) | `tool/<area>/*.py` and `*.sh`/`*.ps1` |
+| 🔵 Blue | Skills (14) | served from the `fabric-server` graph via `graph_get_node('skills/<name>')` |
+| 🟢 Green | Tools | `fabric-cli` subcommands (Bash, target-side `tool/`) + `fabric-server` MCP tools |
 | 🔴 Red | External | Microsoft Fabric workspace (CLI + REST API) |
 
-## What each tool does
+## What each command does
 
-| Tool dir | Scripts | Used by |
-|---|---|---|
-| `tool/notebook/` | `build.py`, `deploy.py`, `smoke-test.{ps1,sh}` | Most data-engineering skills |
-| `tool/data/` | `mock-data-generator.py` | `mock-data`, `fabric-ingest` (when no real source) |
-| `tool/lakehouse/` | `list-tables.py` | `fabric-transform`, `fabric-validate` |
-| `tool/semantic-model/` | `inspect.py` | `semantic-model`, `fabric-model` |
-| `tool/pipeline/` | `manage.py` | `fabric-pipeline` |
-| `tool/workspace/` | `init.py`, `switch.py`, `transfer.py` | `fabric-ops`, all agents at session start |
-| `tool/validate/` | `pipeline-lineage.py` | `fabric-validate`, pre-commit check |
-| `tool/setup/` | `fab-sandbox{,.ps1}`, `fabric-inventory-readonly{,.ps1}`, `setup.{ps1,sh}` | Humans once at install; agents call `fab-sandbox` for every Fabric CLI access |
+`fabric-cli` (Bash, runs the target-side `tool/` scripts):
 
-`tool/setup/setup.{ps1,sh}` and `tool/pre-commit-check.{ps1,sh}` are human-run; agents do not invoke them. `tool/graph/` and `mcp/` are infrastructure for the knowledge-graph layer — see [knowledge-graph.md](knowledge-graph.md).
+| Command | Used by |
+|---|---|
+| `fabric-cli notebook {build,deploy,smoke-test}` | Most data-engineering skills |
+| `fabric-cli lakehouse list-tables` | `fabric-transform`, `fabric-validate` |
+| `fabric-cli pipeline manage` | `fabric-pipeline` |
+| `fabric-cli workspace {init,switch,transfer,pick}` | `fabric-ops`, all agents at session start |
+| `fabric-cli lint` / `fabric-cli precommit` | pre-completion validation |
+
+`fabric-server` MCP (no `ms-fabric-cli` needed):
+
+| Tool | Used by |
+|---|---|
+| `data_mock_generate` | `mock-data`, `fabric-ingest` (when no real source) |
+| `semantic_model_list` / `semantic_model_show` | `semantic-model`, `fabric-model` |
+| `pipeline_lineage_check` | `fabric-validate`, pre-commit check |
+| `graph_*` | all agents (knowledge graph read/write) |
+
+`tool/setup/setup.{ps1,sh}` is human-run at install time; agents do not invoke it. The knowledge graph + MCP tools are served by the `fabric-server` Docker container — see [knowledge-graph.md](knowledge-graph.md).

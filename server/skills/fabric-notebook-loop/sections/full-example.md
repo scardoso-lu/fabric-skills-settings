@@ -51,10 +51,9 @@ except Exception as exc:
 Build, deploy, then smoke test:
 
 ```bash
-python tool/notebook/build.py
-python tool/notebook/deploy.py deploy orders_bronze "$FABRIC_WORKSPACE_ID"
-tool\notebook\smoke-test.ps1 -Notebook orders_bronze     # Windows
-tool/notebook/smoke-test.sh --notebook orders_bronze      # Linux/Mac
+fabric-cli notebook build
+fabric-cli notebook deploy deploy orders_bronze "$FABRIC_WORKSPACE_ID"
+fabric-cli notebook smoke-test --notebook orders_bronze   # cross-platform
 ```
 
 If the run fails, check the STATUS output, fix only the failing cell, then report to the orchestrator and await human approval before the next run.

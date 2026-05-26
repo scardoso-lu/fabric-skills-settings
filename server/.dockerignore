@@ -14,7 +14,6 @@ img/
 tests/
 baseline-snapshot/
 cli/
-packaging/
 node_modules/
 .idea/
 .vscode/

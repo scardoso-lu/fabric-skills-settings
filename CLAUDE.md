@@ -1,6 +1,6 @@
 # Fabric Agent Pack — Claude Contributor Guidance
 
-This repository is the source package and installer for Microsoft Fabric agent profiles. It is not the day-to-day Fabric project workspace. Install a profile into a target repo with `cli/install-fabric-agent` (or `pip install fabric-skills-settings`), then run Claude Code from that target repo root.
+This repository is the source package and installer for Microsoft Fabric agent profiles. It is not the day-to-day Fabric project workspace. Install the CLI with `uv tool install fabric-skills-settings` (or `pip install fabric-skills-settings`). Then run `fabric-agents install --profile claude --target /path/to/repo` and open Claude Code from that target repo root. Use `fabric-cli <group> <cmd>` inside the target for daily helpers.
 
 ## Architecture at a glance
 
@@ -8,7 +8,8 @@ The repo has three top-level packages:
 
 - **`cli/`** — everything installed on the user's laptop: the wheel installer, profile entrypoints + 4 subagents (Claude + Codex), setup scripts, and the target-side tools shipped to `tool/` in the target repo. Tools in `cli/tools/` are invoked via Bash, not MCP.
 - **`server/`** — FastMCP HTTP server (Docker). Serves graph knowledge tools plus fabric helpers that run without ms-fabric-cli. Start it with `docker compose up` from `server/`.
-- **`packaging/validators/`** — source-repo-only validators (`validate-install-package.py`, `validate-agent-guidance.py`). Not installed into target repos.
+
+Source-package invariants (layout + profile guidance) are enforced by pytest modules `tests/test_install_package.py` and `tests/test_agent_guidance.py`, backed by importable logic in `tests/_validation/`.
 
 See [`docs/architecture.md`](docs/architecture.md) for diagrams.
 
@@ -45,11 +46,10 @@ Tools shipped to the target repo's `tool/` dir and invoked via Bash. Fabric-CLI-
 
 | Path | Purpose |
 |---|---|
-| `cli/fabric_agent_installer/` | Pip-installable wheel (`fabric-skills-settings`). Profiles in `_profiles/`, setup in `_setup/`, tools in `_tools/`. |
-| `cli/install-fabric-agent` | CLI shim (mirrors `_installer.py`). |
+| `cli/src/fabric_skills_settings/` | Pip-installable wheel package (`fabric-skills-settings`). Typer CLIs in `cli.py` (`fabric-agents` installer) and `runtime_cli.py` (`fabric-cli` target-side proxy). Subcommands in `commands/`, shared logic in `core/`. Profiles in `_profiles/`, setup in `_setup/`, tools in `_tools/` (bundled at build time). |
 | `cli/profiles/claude/` | Claude-native install assets: `CLAUDE.md`, `.claude/agents/`, `settings.local.json`. |
 | `cli/profiles/codex/` | Codex-native install assets: `AGENTS.md`, `.codex/agents/`, `config.toml`. |
-| `cli/profiles/shared/` | Shared scaffold (`.mcp.json`, `data/sandbox/`, `workspace/`, `.env.example`, `.gitignore.fragment`). |
+| `cli/profiles/shared/` | Shared scaffold (`data/sandbox/`, `workspace/`, `.env.example`, `.gitignore.fragment`). `.mcp.json` is NOT shipped — the target bootstrap writes it with a concrete MCP URL. |
 | `cli/setup/` | `setup.{ps1,sh}` — target bootstrap scripts (shipped to `tool/setup/`). |
 | `cli/tools/` | Target-side tools (shipped to `tool/`): `notebook/`, `pipeline/`, `lakehouse/`, `workspace/`, `lint/`, `precommit/`. |
 | `server/app.py` | FastMCP app — builds and registers all server-side tools. |
@@ -59,8 +59,7 @@ Tools shipped to the target repo's `tool/` dir and invoked via Bash. Fabric-CLI-
 | `server/skills/` | Skill definitions served via the graph. NOT shipped to target repos. |
 | `server/builders/` | Source-only graph builders: `build-graph.py`, `build-agent-capability-graph.py`. |
 | `server/Dockerfile`, `server/docker-compose.yml` | Container definition for local dev. |
-| `packaging/validators/` | Source-repo maintainer validators (not installed in targets). |
-| `tests/` | Unit + integration tests. Run with `uv run --group dev pytest`. |
+| `tests/` | Unit + integration tests, including the source-package validators (`test_install_package.py`, `test_agent_guidance.py`) and their importable logic in `tests/_validation/`. Run with `uv run --group dev pytest`. |
 
 ## Knowledge graph
 
@@ -85,30 +84,31 @@ Always exclude `.venv/` when searching.
 - Keep vendor-specific runtime assets inside their profile folders. No root `.claude/` or `.codex/` directories.
 - Skill source is single-source under `server/skills/`. Do not duplicate elsewhere.
 - Build-time graph code (`server/builders/`) is NOT installed into target repos; only runtime code in `server/graph/` and `server/tools/` runs in Docker.
-- `cli/tools/` is the single source of truth for installable target helpers. `cli/profiles/shared/scaffold/` only carries verbatim scaffold files (`.mcp.json`, `data/sandbox/`, `workspace/`).
-- When changing installer logic, keep `cli/install-fabric-agent` (CLI shim) and `cli/fabric_agent_installer/_installer.py` in sync. Run `uv build` to verify wheel content.
-- If installer refresh must recognize a helper, update `REFRESHABLE_SCAFFOLD_MARKERS` in both installer scripts.
+- `cli/tools/` is the single source of truth for installable target helpers. `cli/profiles/shared/scaffold/` only carries verbatim scaffold files (`data/sandbox/`, `workspace/`); `.mcp.json` is generated by the target bootstrap, not shipped.
+- When changing installer logic, edit modules under `cli/src/fabric_skills_settings/` (Typer CLI in `cli.py`; subcommands in `commands/`; shared logic in `core/`). Run `uv build` to verify wheel content.
+- If installer refresh must recognize a helper, update `REFRESHABLE_SCAFFOLD_MARKERS` in `cli/src/fabric_skills_settings/core/markers.py`.
 - Never commit `.env`, credentials, tokens, connection strings, data files, logs, generated notebook bundles, or `__pycache__/`.
 - Use placeholders only in `.env.example`.
 - Fabric CLI wrappers must not execute caller-controlled binaries.
 - Fabric credentials pass through environment variables or approved secret stores only — never command-line arguments.
 - RTK setup stays pinned to a specific release and verifies downloaded assets against the release checksum.
-- Profile entrypoints (`cli/profiles/claude/CLAUDE.md`, `cli/profiles/codex/AGENTS.md`) must stay ≤ 50 lines with no operational section headings. Enforced by `packaging/validators/validate-agent-guidance.py`.
+- Profile entrypoints (`cli/profiles/claude/CLAUDE.md`, `cli/profiles/codex/AGENTS.md`) must stay ≤ 50 lines with no operational section headings. Enforced by `tests/test_agent_guidance.py` (logic in `tests/_validation/agent_guidance.py`).
 
 ## Required checks
 
-After changing profiles, installer logic, guidance, validation, or installable tooling:
+After changing profiles, installer logic, guidance, validation, or installable tooling, run the test suite — it now includes the layout + agent-guidance validators:
 
 ```bash
-uv run packaging/validators/validate-install-package.py   # layout check
-uv run packaging/validators/validate-agent-guidance.py    # profile line-limit + anchor check
-uv run --group dev pytest                                  # unit tests
+uv run --group dev pytest                                  # all unit tests + validators
+
+# Run just the source-package validators:
+uv run --group dev pytest tests/test_install_package.py tests/test_agent_guidance.py
 ```
 
 For an end-to-end install smoke test against a real target repo:
 ```bash
-python cli/install-fabric-agent --profile all --target <target-repo> --dry-run
-python cli/install-fabric-agent --profile all --target <target-repo> --check
+fabric-agents install --profile all --target <target-repo> --dry-run
+fabric-agents check   --profile all --target <target-repo>
 ```
 
 ## Commit / PR handoff

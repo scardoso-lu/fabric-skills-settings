@@ -41,10 +41,9 @@ nothing the container probably isn't running.
 
 ## Tool surface
 
-`fabric-server` MCP: `graph_get_entry`, `graph_get_node`, `graph_get_linked`,
-`graph_search`, `graph_list_kinds`, `graph_create_node`, `graph_update_node`,
-`graph_delete_node`, `graph_add_edge`, `graph_remove_edge` (writes re-serialize
-atomically); `pipeline_lineage_check` (upload notebooks), `data_mock_generate`,
-`semantic_model_list`, `semantic_model_show`.
-Bash: `python -m tool.lint`, `tool/precommit/pre-commit-check.{sh,ps1}`,
-`tool/notebook/`, `tool/pipeline/`, `tool/lakehouse/`, `tool/workspace/`.
+`fabric-server` MCP: `graph_get_entry`/`get_node`/`get_linked`/`search`/`list_kinds`,
+`graph_create_node`/`update_node`/`delete_node`/`add_edge`/`remove_edge` (atomic),
+`pipeline_lineage_check`, `data_mock_generate`, `semantic_model_list`/`_show`.
+Bash: `fabric-cli` proxies every target-side helper —
+`notebook {build,deploy,smoke-test}`, `pipeline manage`, `lakehouse list-tables`,
+`workspace {init,switch,transfer,pick}`, `lint`, `precommit`. Use `--help` for argv.

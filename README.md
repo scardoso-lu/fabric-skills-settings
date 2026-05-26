@@ -12,64 +12,66 @@ Fabric Agent Pack turns a normal git repository into a guided Microsoft Fabric p
 
 ## Quick start
 
-Both paths give you the same install — a single command, no two-step dance.
+The CLI is published as `fabric-skills-settings` on PyPI. Installing it puts two console scripts on your PATH:
 
-### Option A — pip install (recommended for users)
-
-No git clone required. Install the package and run the CLI directly:
-
-```bash
-pip install fabric-skills-settings
-
-# preview
-install-fabric-agent --profile claude --target /path/to/project-repo --dry-run
-
-# apply
-install-fabric-agent --profile claude --target /path/to/project-repo
-```
-
-### Option B — from source (contributors)
-
-Clone the repo and use the `setup.ps1` / `setup.sh` single-shot CLI. It runs the validators first, then installs.
-
-#### Linux / macOS
-
-```bash
-git clone https://github.com/scardoso-lu/fabric-skills-settings && cd fabric-skills-settings
-
-# preview
-./setup.sh --profile claude --target /path/to/project-repo --dry-run
-
-# apply
-./setup.sh --profile claude --target /path/to/project-repo
-```
-
-#### Windows (PowerShell)
-
-```powershell
-git clone https://github.com/scardoso-lu/fabric-skills-settings; cd fabric-skills-settings
-
-# preview
-.\setup.ps1 -Profile claude -Target C:\path\to\project-repo -DryRun
-
-# apply
-.\setup.ps1 -Profile claude -Target C:\path\to\project-repo
-```
-
-### Common flags
-
-| Flag (bash / PowerShell) | Effect |
+| Command | Role |
 |---|---|
-| `--profile codex \| claude \| all` / `-Profile` | Pick the agent profile (required for install) |
-| `--target <path>` / `-Target` | Target git repository (required for install) |
-| `--dry-run` / `-DryRun` | Preview changes without writing (skips bootstrap) |
-| `--check` / `-Check` | Verify target state, exit 1 if it drifts (skips bootstrap) |
-| `--force` / `-Force` | Overwrite non-managed existing files |
-| `--backup` / `-Backup` | Back up replaced files alongside the originals |
-| `--no-bootstrap` / `-NoBootstrap` | Copy files only; skip the post-install `.venv` + Fabric auth + workspaces.json bootstrap |
-| `--skip-validators` / `-SkipValidators` | Skip the pre-install validator pass (source-clone only) |
-| `--install-tools` / `-InstallTools` | Auto-install `uv` if missing (source-clone wrappers only) |
-| `--help` / `-Help` | Show usage |
+| `fabric-agents` | Install / check / refresh agent profiles in a project repo |
+| `fabric-cli` | Daily Fabric helpers run from a project repo (notebook, pipeline, lakehouse, workspace, lint, precommit) |
+
+### Step 1 — Install the CLI
+
+```bash
+uv tool install fabric-skills-settings        # recommended
+# or
+pip install fabric-skills-settings
+```
+
+
+### Step 2 — Install a profile into your project repo
+
+```bash
+# preview
+fabric-agents install --profile claude --target /path/to/project-repo --dry-run
+
+# apply (also runs the target bootstrap: ms-fabric-cli + creds + workspaces.json)
+fabric-agents install --profile claude --target /path/to/project-repo
+
+# verify drift later
+fabric-agents check --profile claude --target /path/to/project-repo
+```
+
+`fabric-agents install` copies the profile, scaffold, and tool files into the target, then runs the target's bootstrap script (`<target>/tool/setup/setup.{ps1,sh}`) to install `ms-fabric-cli`, prompt for `FABRIC_TENANT_ID` / `CLIENT_ID` / `CLIENT_SECRET`, verify auth, and populate `workspaces.json`. Pass `--no-bootstrap` to skip.
+
+### Step 3 — Daily work inside the project
+
+Once a profile is installed, run the daily helpers via `fabric-cli` from the project root:
+
+```bash
+fabric-cli notebook build  <name>
+fabric-cli notebook deploy <name> <workspace_id>
+fabric-cli pipeline manage list
+fabric-cli lakehouse list-tables
+fabric-cli workspace switch <displayName>
+fabric-cli lint
+fabric-cli precommit
+```
+
+Each subcommand passes its trailing argv through to the underlying `tool/<group>/<script>` in the target repo, so existing flags work unchanged. Use `fabric-cli <group> --help` to see what each script accepts.
+
+### `fabric-agents` flags
+
+| Flag | Effect |
+|---|---|
+| `--profile {codex,claude,all}` / `-p` | Pick the agent profile (required) |
+| `--target <path>` / `-t` | Target git repository (required) |
+| `--dry-run` | Preview changes without writing (install/refresh only) |
+| `--force` | Overwrite non-managed existing files |
+| `--backup` | Back up replaced files alongside the originals |
+| `--no-bootstrap` | Copy files only; skip the post-install Fabric auth + workspaces.json bootstrap (install only) |
+| `--verbose` / `-v` | Debug-level logging |
+| `--quiet` / `-q` | Suppress info logging |
+| `--help` / `-h` | Show usage |
 
 ### Service-principal credentials
 

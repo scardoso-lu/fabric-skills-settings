@@ -12,7 +12,7 @@
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
   },
   "hooks": {
-    "PretoolsUse": [
+    "PreToolUse": [
       {
         "matcher": "Bash",
         "hooks": [
@@ -36,7 +36,6 @@
       "Read(**/*.graph*)"
     ],
     "allow": [
-      "Bash(tools/notebook/smoke-test.sh *)",
       "Bash(git status)",
       "Bash(git diff *)",
       "Bash(git log *)",
@@ -44,36 +43,25 @@
       "Bash(git stash list)",
       "Bash(uv run --group dev pytest)",
       "Bash(uv run --group dev pytest *)",
-      "Bash(uv run tools/notebook/build.py *)",
-      "Bash(uv run tools/notebook/deploy.py *)",
-      "Bash(uv run tools/pipeline/manage.py *)",
-      "Bash(uv run tools/lakehouse/list-tables.py *)",
-      "Bash(python tools/lakehouse/list-tables.py *)",
-      "Bash(python3 tools/lakehouse/list-tables.py *)",
-      "Bash(tools/pre-commit-check.sh)",
-      "Bash(bash tools/pre-commit-check.sh)",
-      "mcp__fabric__fabric_list",
-      "mcp__fabric__fabric_get",
-      "Bash(tools/setup/fab-sandbox.ps1 --version)",
-      "Bash(powershell -File tools/setup/fab-sandbox.ps1 --version)",
-      "Bash(powershell -File tools/setup/fab-sandbox.ps1 api workspaces --output_format json)",
-      "Bash(powershell -ExecutionPolicy Bypass -File tools/notebook/smoke-test.ps1 *)",
-      "Bash(powershell -ExecutionPolicy Bypass -File tools/pre-commit-check.ps1)",
-      "Bash(powershell -File tools/setup/fab-sandbox.ps1 api --help)",
-      "Bash(bash tools/setup/fab-sandbox --version)",
-      "Bash(bash tools/setup/fab-sandbox api workspaces --output_format json)",
-      "Bash(powershell.exe -File tools/setup/fab-sandbox.ps1 --version)",
-      "Bash(powershell.exe -File tools/setup/fab-sandbox.ps1 api workspaces --output_format json)",
-      "mcp__fabric-graph__graph_get_entry",
-      "mcp__fabric-graph__graph_get_node",
-      "mcp__fabric-graph__graph_search",
-      "Bash(python tools/workspace/switch.py *)"
-      
+      "Bash(fabric-cli *)",
+      "mcp__fabric-server__graph_get_entry",
+      "mcp__fabric-server__graph_get_node",
+      "mcp__fabric-server__graph_get_linked",
+      "mcp__fabric-server__graph_search",
+      "mcp__fabric-server__graph_list_kinds",
+      "mcp__fabric-server__graph_create_node",
+      "mcp__fabric-server__graph_update_node",
+      "mcp__fabric-server__graph_delete_node",
+      "mcp__fabric-server__graph_add_edge",
+      "mcp__fabric-server__graph_remove_edge",
+      "mcp__fabric-server__pipeline_lineage_check",
+      "mcp__fabric-server__data_mock_generate",
+      "mcp__fabric-server__semantic_model_list",
+      "mcp__fabric-server__semantic_model_show"
     ]
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
-    "fabric",
-    "fabric-graph"
+    "fabric-server"
   ]
 }

@@ -1,10 +1,10 @@
-# This workflow will upload a Python Package to PyPI when a release is created
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python#publishing-to-package-registries
-
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
+# Publishes the fabric-skills-settings package to PyPI when a GitHub Release is
+# published. The package is a hatchling + hatch-vcs project (version derived
+# from the git tag), built with uv. Console scripts shipped by the wheel:
+# fabric-agents, fabric-cli.
+#
+# For more information see:
+# https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python#publishing-to-package-registries
 
 name: Upload Python Package
 
@@ -16,21 +16,50 @@ permissions:
   contents: read
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # hatch-vcs derives the version from tags — full history is required.
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Sync dependencies (dev group + all extras)
+        run: uv sync --group dev --all-extras
+
+      - name: Run tests + source-package validators
+        # Includes tests/test_install_package.py and tests/test_agent_guidance.py.
+        run: uv run --group dev pytest
+
   release-build:
     runs-on: ubuntu-latest
+    needs:
+      - test
 
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
         with:
-          python-version: "3.x"
+          # uv build invokes hatch-vcs; it needs the tag history to set the version.
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Build release distributions
+        run: uv build
+
+      - name: Verify console scripts are registered in the wheel
         run: |
-          # NOTE: put your own distribution build steps here.
-          python -m pip install build
-          python -m build
+          ep="$(unzip -p dist/*.whl '*/entry_points.txt')"
+          echo "$ep"
+          for script in fabric-agents fabric-cli; do
+            echo "$ep" | grep -q "^${script} =" || { echo "missing console script: ${script}"; exit 1; }
+          done
 
       - name: Upload distributions
         uses: actions/upload-artifact@v4
@@ -50,12 +79,7 @@ jobs:
     # For more information, see: https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment#deployment-protection-rules
     environment:
       name: pypi
-      # OPTIONAL: uncomment and update to include your PyPI project URL in the deployment status:
-      # url: https://pypi.org/p/YOURPROJECT
-      #
-      # ALTERNATIVE: if your GitHub Release name is the PyPI project version string
-      # ALTERNATIVE: exactly, uncomment the following line instead:
-      # url: https://pypi.org/project/YOURPROJECT/${{ github.event.release.name }}
+      url: https://pypi.org/project/fabric-skills-settings/
 
     steps:
       - name: Retrieve release distributions

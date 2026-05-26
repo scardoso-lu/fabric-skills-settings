@@ -1,6 +1,6 @@
 # Knowledge graph — what gets indexed
 
-What the **target repo** has under `memory/` after `setup.ps1` (or `install-fabric-agent`) runs, and what shape it has as a graph. Reads top-down: the agent enters at `entry.md`, then traverses outward to session bootstrap → workflow → skills → rules.
+What the **target repo** has under `memory/` after `fabric-agents install` runs, and what shape it has as a graph. Reads top-down: the agent enters at `entry.md`, then traverses outward to session bootstrap → workflow → skills → rules.
 
 ```mermaid
 flowchart TD
@@ -28,7 +28,7 @@ flowchart TD
     SKILLS["skills/  (14 nodes)<br/>━━━━━━━━━━<br/>data engineering ⇒ fabric-ingest · fabric-transform · fabric-model · fabric-validate<br/>fabric ops ⇒ fabric-notebook-loop · fabric-pipeline · fabric-ops · semantic-model · mock-data<br/>meta ⇒ prd · grill-me · git-commit · caveman · rtk"]:::skill
     SKILLS --> RULES
 
-    RULES["rules/  (4 nodes)<br/>━━━━━━━━━━<br/>security — credentials · PII · secrets<br/>data-engineering — idempotent MERGE · DQ · contracts<br/>fabric-platform — fab-sandbox · workspaces.json<br/>notebook-authoring — kernel · packages · params"]:::rule
+    RULES["rules/  (4 nodes)<br/>━━━━━━━━━━<br/>security — credentials · PII · secrets<br/>data-engineering — idempotent MERGE · DQ · contracts<br/>fabric-platform — fabric-cli · workspaces.json<br/>notebook-authoring — kernel · packages · params"]:::rule
     RULES --> EXTRA
 
     EXTRA["semantic/ · integrations/ · diagnostics/<br/>━━━━━━━━━━<br/>semantic-models.md — list/inspect models<br/>rtk.md — token-optimizer integration<br/>smoke-test-diagnostics.md — failure triage"]:::cat

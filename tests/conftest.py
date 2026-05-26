@@ -10,6 +10,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+# tests/ on path so `from _validation.X import collect_errors` resolves.
+sys.path.insert(0, str(ROOT / "tests"))
 sys.path.insert(0, str(ROOT / "cli" / "tools"))
 sys.path.insert(0, str(ROOT / "cli" / "tools" / "notebook"))
 sys.path.insert(0, str(ROOT / "cli" / "tools" / "pipeline"))
