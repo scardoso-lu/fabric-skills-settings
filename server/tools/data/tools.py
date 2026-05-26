@@ -10,7 +10,7 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 from ...audit import CallTimer
-from ...script_runner import run_script
+from ..utils.script_runner import run_script
 
 _SCRIPT = Path(__file__).resolve().parent / "mock-data-generator.py"
 

@@ -4,17 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# When installed at the target, this script lives at tool/precommit/, so the
-# project root is two directories up.
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-
-PYTHON_BIN="${PYTHON_BIN:-}"
-if [[ -z "$PYTHON_BIN" ]]; then
-  if command -v python3 >/dev/null 2>&1; then PYTHON_BIN="$(command -v python3)"
-  elif command -v python >/dev/null 2>&1; then PYTHON_BIN="$(command -v python)"
-  else echo "python3 or python is required." >&2; exit 127; fi
-fi
+PROJECT_ROOT="$(cd "${FABRIC_TARGET_ROOT:-$PWD}" && pwd)"
 
 log_step() { echo ""; echo "── $* ──────────────────────────────────────"; }
 log_ok()   { echo "✓ $*"; }
@@ -23,7 +13,7 @@ log_err()  { echo "✗ $*" >&2; }
 FAILED=false
 
 log_step "Deterministic lints (tool/lint/)"
-if "$PYTHON_BIN" -m tool.lint --target "$PROJECT_ROOT"; then
+if (cd "$PROJECT_ROOT" && fabric-cli lint --target "$PROJECT_ROOT"); then
   log_ok "lints passed"
 else
   log_err "lints failed"

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .paths import profiles_root, setup_root, tools_root
+from .paths import profiles_root
 
 
 def collect_profile_files(profile: str) -> list[tuple[Path, Path, bool]]:
@@ -42,29 +42,6 @@ def collect_shared_files() -> list[tuple[Path, Path, bool]]:
             if src.is_file() and "__pycache__" not in src.parts and src.suffix not in {".pyc", ".pyo", ".pyd"}:
                 entries.append((src, src.relative_to(scaffold), False))
     entries.append((shared / ".env.example", Path(".env.example"), False))
-    return entries
-
-
-def collect_tool_files() -> list[tuple[Path, Path, bool]]:
-    """cli/setup/ -> target/tool/setup/ and cli/tools/ -> target/tool/."""
-    entries: list[tuple[Path, Path, bool]] = []
-
-    setup = setup_root()
-    if setup.is_dir():
-        for src in sorted(setup.rglob("*")):
-            if not src.is_file() or "__pycache__" in src.parts or src.suffix in {".pyc", ".pyo", ".pyd"}:
-                continue
-            rel_under_setup = Path("setup") / src.relative_to(setup)
-            entries.append((src, Path("tool") / rel_under_setup, False))
-
-    tools = tools_root()
-    if tools.is_dir():
-        for src in sorted(tools.rglob("*")):
-            if not src.is_file() or "__pycache__" in src.parts or src.suffix in {".pyc", ".pyo", ".pyd"}:
-                continue
-            rel_under_tools = src.relative_to(tools)
-            entries.append((src, Path("tool") / rel_under_tools, False))
-
     return entries
 
 

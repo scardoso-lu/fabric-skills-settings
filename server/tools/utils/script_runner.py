@@ -1,7 +1,7 @@
 """Subprocess helper for MCP tool wrappers that shell out to a standalone
 CLI script.
 
-Currently used by server/tools/semantic_model/tools.py to run
+Currently used by semantic_model, validate tools.py to run
 semantic_model/inspect.py. (The data and validate tools build their own
 subprocess invocations because they need bespoke argument/env handling.)
 

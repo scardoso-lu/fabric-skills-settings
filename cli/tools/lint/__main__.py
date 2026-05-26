@@ -22,9 +22,14 @@ from pathlib import Path
 # requiring the package to be on sys.path.
 if __package__ is None or __package__ == "":  # pragma: no cover
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from tool.lint import LINTS  # noqa: E402
-from tool.lint.core import emit_report, run_all  # noqa: E402
+try:
+    from tool.lint import LINTS  # type: ignore  # noqa: E402
+    from tool.lint.core import emit_report, run_all  # type: ignore  # noqa: E402
+except ModuleNotFoundError:  # pragma: no cover - package-bundled script path
+    from lint import LINTS  # type: ignore  # noqa: E402
+    from lint.core import emit_report, run_all  # type: ignore  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:

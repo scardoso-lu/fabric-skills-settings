@@ -84,7 +84,7 @@ class _Validator:
         self._require(p / "shared" / ".env.example")
         self._require(p / "shared" / ".gitignore.fragment")
         # .mcp.json is no longer shipped as a scaffold template — the target
-        # bootstrap (tool/setup/setup.{sh,ps1}) writes it with a concrete URL.
+        # bootstrap (fabric-cli setup) writes it with a concrete URL.
         if (p / "shared" / "scaffold" / ".mcp.json").exists():
             self.errors.append(
                 "profiles/shared/scaffold/.mcp.json must not exist; the bootstrap writes .mcp.json dynamically"
@@ -96,7 +96,6 @@ class _Validator:
         # server/ — MCP server + graph runtime + graph content + graph builders.
         self._require(self.server / "__init__.py")
         self._require(self.server / "app.py")
-        self._require(self.server / "script_runner.py")
         self._require(self.server / "audit.py")
         self._require(self.server / "Dockerfile")
         self._require(self.server / "graph" / "store.py")
@@ -111,7 +110,9 @@ class _Validator:
         self._require(self.tools / "data" / "tools.py")
         self._require(self.tools / "data" / "mock-data-generator.py")
         self._require(self.tools / "graph" / "tools.py")
-        # cli/tools/ — target-side helpers invoked locally via Bash (NOT MCP).
+        self._require(self.tools / "utils" / "script_runner.py")
+
+        # cli/tools/ — package-owned helpers invoked through fabric-cli (NOT MCP).
         self._require(self.cli_tools / "notebook" / "build.py")
         self._require(self.cli_tools / "notebook" / "deploy.py")
         self._require(self.cli_tools / "notebook" / "smoke-test.ps1")
@@ -126,7 +127,8 @@ class _Validator:
         self._require(self.cli_tools / "lint" / "core.py")
         self._require(self.cli_tools / "precommit" / "pre-commit-check.ps1")
         self._require(self.cli_tools / "precommit" / "pre-commit-check.sh")
-        # cli/setup/ — env-setup scripts (shipped to target as tool/setup/).
+
+        # cli/setup/ — env-setup scripts invoked through fabric-cli setup.
         self._require(self.setup / "setup.ps1")
         self._require(self.setup / "setup.sh")
         # Skills live on the server and are served via graph_get_node.
@@ -242,7 +244,7 @@ class _Validator:
                 self.errors.append(
                     f"{rel_path} must not prompt for FABRIC_WORKSPACE_ID; use the workspace_init/workspace_switch MCP tools"
                 )
-            for phrase in ("FABRIC_TENANT_ID", "FABRIC_CLIENT_ID", "FABRIC_CLIENT_SECRET", "FABRIC_SERVER_URL"):
+            for phrase in ("FABRIC_TENANT_ID", "FABRIC_CLIENT_ID", "FABRIC_CLIENT_SECRET", "MCP_SERVER_URL"):
                 if phrase not in text:
                     self.errors.append(f"{rel_path} missing setup contract phrase {phrase!r}")
             # Bootstrap is the sole creator of .mcp.json (no scaffold template ships).

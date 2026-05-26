@@ -10,10 +10,10 @@ links:
 # Tool layout
 
 Two interfaces front everything: the **`fabric-cli`** proxy (Bash, runs the
-target-side `tool/` scripts) and the **`fabric-server`** MCP (graph + a few
+package-owned `fabric-cli` helpers) and the **`fabric-server`** MCP (graph + a few
 Fabric helpers that run without `ms-fabric-cli`).
 
-## `fabric-cli` (Bash, target-side)
+## `fabric-cli` (Bash, package-owned)
 
 | Command | Invoked by | Purpose |
 |---|---|---|
@@ -24,7 +24,7 @@ Fabric helpers that run without `ms-fabric-cli`).
 | `fabric-cli lint` | Developer agent | Deterministic lints (SEC-01 secrets, DE-09 Faker seed); pure Python, no fab |
 | `fabric-cli precommit` | Developer agent | Aggregate pre-commit check before reporting done |
 
-Environment bootstrap (`tool/setup/setup.{ps1,sh}`) is run once by the human at
+Environment bootstrap (`fabric-cli setup`) is run once by the human at
 install time; agents only verify the gate (see [[graph-content/entry]]).
 
 ## `fabric-server` MCP

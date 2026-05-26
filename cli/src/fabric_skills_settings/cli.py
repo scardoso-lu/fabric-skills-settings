@@ -63,7 +63,7 @@ NoBootstrapOption = Annotated[
     bool,
     typer.Option(
         "--no-bootstrap",
-        help="Skip the post-install bootstrap (tool/setup/setup.{ps1,sh}).",
+        help="Skip the post-install bootstrap (fabric-cli setup).",
     ),
 ]
 SelfTestOption = Annotated[
@@ -112,7 +112,7 @@ def install(
     no_bootstrap: NoBootstrapOption = False,
     self_test: SelfTestOption = False,
 ) -> None:
-    """Install profile, scaffold, and tool files into a target repo."""
+    """Install profile and scaffold files into a target repo."""
     rc = install_cmd.run(
         profile=profile.value,
         target=target,

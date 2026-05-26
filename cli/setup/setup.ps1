@@ -13,11 +13,11 @@
 #   4. Prompts for FABRIC_TENANT_ID / CLIENT_ID and writes them to .env.
 #   5. Prompts for FABRIC_CLIENT_SECRET and persists to the user's OS env
 #      (NOT .env - secrets stay in the OS env).
-#   6. Prompts for FABRIC_SERVER_URL and writes it to .env.
-#   7. Prompts for the MCP server URL, writes .mcp.json, and patches
+#   6. Prompts for MCP_SERVER_URL.
+#   7. Writes .mcp.json and patches
 #      .codex/config.toml's [mcp_servers.fabric-server] url (if installed).
 #   8. Verifies SPN auth by calling `fab api workspaces`.
-#   9. Runs tool/workspace/init.py to populate workspaces.json.
+#   9. Runs fabric-cli workspace init to populate workspaces.json.
 #  10. Prompts to select the active workspace.
 
 [CmdletBinding()]
@@ -25,8 +25,8 @@ param()
 
 $ErrorActionPreference = "Stop"
 
-$ScriptDir   = Split-Path -Parent $MyInvocation.MyCommand.Path
-$ProjectRoot = Resolve-Path (Join-Path $ScriptDir "../..")
+$ProjectRootInput = if ($env:FABRIC_TARGET_ROOT) { $env:FABRIC_TARGET_ROOT } else { (Get-Location).Path }
+$ProjectRoot = Resolve-Path -LiteralPath $ProjectRootInput
 $EnvFile     = Join-Path $ProjectRoot ".env"
 $Actions     = [System.Collections.Generic.List[string]]::new()
 
@@ -166,27 +166,21 @@ $env:AZURE_CLIENT_SECRET = $env:FABRIC_CLIENT_SECRET
 
 # -- MCP server URL ----------------------------------------------------------
 Write-Host ""
-Write-Host "-- Fabric MCP server URL"
-if ($env:FABRIC_SERVER_URL) {
-    Write-Host "  FABRIC_SERVER_URL already set - keeping $($env:FABRIC_SERVER_URL)"
+Write-Host "-- MCP server URL"
+if ($env:MCP_SERVER_URL) {
+    Write-Host "  MCP_SERVER_URL already set - keeping $($env:MCP_SERVER_URL)"
+    $mcpServerUrl = $env:MCP_SERVER_URL
 } else {
-    $serverUrl = Read-Host "  FABRIC_SERVER_URL [http://127.0.0.1:8000]"
-    if (-not $serverUrl) { $serverUrl = "http://127.0.0.1:8000" }
-    Write-EnvKey -Key "FABRIC_SERVER_URL" -Value $serverUrl
-    $env:FABRIC_SERVER_URL = $serverUrl
-    $Actions.Add("FABRIC_SERVER_URL written to .env ($serverUrl)")
+    $mcpServerUrl = Read-Host "  MCP_SERVER_URL [http://127.0.0.1:8000]"
+    if (-not $mcpServerUrl) { $mcpServerUrl = "http://127.0.0.1:8000" }
 }
 
 # -- MCP client config (.mcp.json) -------------------------------------------
 # Claude/Codex read .mcp.json to reach the fabric-server MCP. Write it with a
 # concrete URL here (the installer no longer ships a template). The endpoint
-# defaults to <FABRIC_SERVER_URL>/mcp but can be overridden.
-Write-Host ""
-Write-Host "-- MCP server endpoint (.mcp.json)"
+# is always <MCP_SERVER_URL>/mcp.
 $McpJson    = Join-Path $ProjectRoot ".mcp.json"
-$defaultMcp = "$($env:FABRIC_SERVER_URL.TrimEnd('/'))/mcp"
-$mcpUrl     = Read-Host "  MCP server URL [$defaultMcp]"
-if (-not $mcpUrl) { $mcpUrl = $defaultMcp }
+$mcpUrl     = "$($mcpServerUrl.TrimEnd('/'))/mcp"
 $mcpDoc = [ordered]@{
     mcpServers = [ordered]@{
         "fabric-server" = [ordered]@{
@@ -198,9 +192,9 @@ $mcpDoc = [ordered]@{
 $mcpDoc | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $McpJson -Encoding utf8
 $Actions.Add(".mcp.json written ($mcpUrl)")
 
-# Codex reads .codex/config.toml (not .mcp.json). Patch its
-# [mcp_servers.fabric-server] url to the same endpoint, if that profile is
-# installed. The file ships with a default url; we rewrite just that line.
+# Keep Codex's MCP config aligned with the generated .mcp.json endpoint, if
+# the Codex profile is installed. The file ships with a default url; we
+# rewrite just that line.
 $CodexConfig = Join-Path $ProjectRoot ".codex/config.toml"
 if (Test-Path -LiteralPath $CodexConfig) {
     $lines = [System.IO.File]::ReadAllLines($CodexConfig)
@@ -243,37 +237,23 @@ $Actions.Add("SPN auth verified via fab auth login + fab api workspaces")
 # -- Workspace registry ------------------------------------------------------
 Write-Host ""
 Write-Host "-- Workspace registry"
-$WorkspaceInit = Join-Path $ProjectRoot "tool\workspace\init.py"
-if (-not (Test-Path -LiteralPath $WorkspaceInit)) {
-    Write-Error "tool/workspace/init.py not found. The installer must run before setup.ps1 (which installs cli/tools/ into <target>/tool/)."
-    exit 1
-}
-python $WorkspaceInit
+fabric-cli workspace init
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $Actions.Add("workspaces.json refreshed from Fabric API")
 
 # -- Active workspace selection ----------------------------------------------
 # Run pick.py as a sibling script so its stdin stays attached to the parent
 # terminal — interactive prompts only work when stdin is a real TTY.
-$WorkspacePick = Join-Path $ProjectRoot "tool\workspace\pick.py"
-if (Test-Path -LiteralPath $WorkspacePick) {
-    python $WorkspacePick
-    if ($LASTEXITCODE -eq 0) {
-        $Actions.Add("active workspace selected and resource IDs written to .env")
-    } else {
-        Write-Warning "Workspace selection skipped or failed; set it later with python tool/workspace/switch.py."
-        $Actions.Add("active workspace not set (re-run python tool/workspace/switch.py)")
-    }
+fabric-cli workspace pick
+if ($LASTEXITCODE -eq 0) {
+    $Actions.Add("active workspace selected and resource IDs written to .env")
 } else {
-    Write-Warning "tool/workspace/pick.py not found; set the active workspace later with python tool/workspace/switch.py."
-    $Actions.Add("active workspace not set (re-run python tool/workspace/switch.py)")
+    Write-Warning "Workspace selection skipped or failed; set it later with fabric-cli workspace switch."
+    $Actions.Add("active workspace not set (re-run fabric-cli workspace switch)")
 }
 
 Write-Host ""
 Write-Host "Setup complete."
 foreach ($a in $Actions) { Write-Host "- $a" }
 Write-Host ""
-Write-Host "Next: start the Fabric MCP server."
-Write-Host "  cd <fabric-skills-settings>/server"
-Write-Host "  docker compose up --build"
-Write-Host "Then open Claude Code (or Codex) in this project."
+Write-Host "Next: Open Claude Code (or Codex) in this project."

@@ -31,10 +31,10 @@ flowchart TD
     end
 
     subgraph FabricTools["Local domain tools"]
-        TN["tool/notebook/"]
-        TP["tool/pipeline/"]
-        TL["tool/lakehouse/"]
-        TV["tool/validate/"]
+        TN["fabric-cli notebook"]
+        TP["fabric-cli pipeline"]
+        TL["fabric-cli lakehouse"]
+        TV["fabric-cli lint/precommit"]
     end
 
     MSF["Microsoft Fabric Workspace\n(Fabric CLI / REST API)"]
@@ -77,10 +77,10 @@ Subagents are discovered by Claude and Codex from their native profile directori
 | Knowledge graph content | `content/graph-content/` | `memory/graph-content/` |
 | Seed memory | `profiles/shared/memory/` | `memory/` |
 | Target scaffold (data/sandbox/, workspace/, ...) | `profiles/shared/scaffold/` | Target repo root |
-| `.mcp.json` | not shipped — written by `tool/setup/setup.{sh,ps1}` | Target repo root (concrete MCP URL) |
-| Graph artifacts | `dist/.graph/` (source build output, gitignored) | `memory/.graph/` (shipped by installer + rebuilt by `tool/graph/writes.py` on CRUD) |
-| MCP servers | `mcp/` (top-level, parallel to `tool/`) | `mcp/` |
-| Graph runtime | `tool/graph/` | `tool/graph/` |
+| `.mcp.json` | not shipped — written by `fabric-cli setup` | Target repo root (concrete MCP URL) |
+| Graph artifacts | `dist/.graph/` (source build output, gitignored) | served by the Docker MCP server |
+| MCP servers | `server/` | Docker container |
+| Graph runtime | `server/graph/` | Docker container |
 | Source-package CLI | `cli/src/fabric_skills_settings/` | installed as the `fabric-skills-settings` wheel |
 | Source-package validators | `tests/test_install_package.py`, `tests/test_agent_guidance.py` (+ `tests/_validation/`) | **not installed** (maintainer pytest) |
 
@@ -91,8 +91,8 @@ console scripts:
 
 | Command | Role |
 |---|---|
-| `fabric-agents` | Typer installer with `install` / `check` / `refresh` subcommands. Writes profile, scaffold, and tool files into a target repo, then runs the target bootstrap. |
-| `fabric-cli` | Typer proxy for target-side helpers — `notebook`, `pipeline`, `lakehouse`, `workspace`, `lint`, `precommit`. Run from the target repo root. |
+| `fabric-agents` | Typer installer with `install` / `check` / `refresh` subcommands. Writes profile and scaffold files into a target repo, then runs the target bootstrap. |
+| `fabric-cli` | Typer proxy for package-owned helpers — `setup`, `notebook`, `pipeline`, `lakehouse`, `workspace`, `lint`, `precommit`. Run from the target repo root. |
 
 Install the package itself with:
 
@@ -111,7 +111,7 @@ fabric-agents refresh --profile claude --target /path/to/project
 ```
 
 After the install copies files, the installer automatically invokes
-`<target>/tool/setup/setup.{ps1,sh}` to finish the bootstrap: create `.venv`,
+`fabric-cli setup` from the target root to finish the bootstrap: install local tools,
 install Fabric CLI helpers (`ms-fabric-cli`, `Faker`, `pandas`, `networkx`,
 `rank-bm25`, RTK), prompt for any missing `FABRIC_TENANT_ID` /
 `FABRIC_CLIENT_ID` / `FABRIC_CLIENT_SECRET`, verify auth via
@@ -127,10 +127,10 @@ flowchart TD
 
     INST["fabric_skills_settings.commands.install<br/>copy files into target"]
     INST --> TGT
-    TGT["target/<br/>CLAUDE.md · mcp/ · tool/ · memory/ · .mcp.json · ..."]
+    TGT["target/<br/>CLAUDE.md · workspace/ · data/sandbox/ · .mcp.json · ..."]
     TGT --> BOOT
 
-    BOOT["target/tool/setup/setup.{ps1,sh}<br/>.venv · Fabric CLI helpers · RTK<br/>prompt for FABRIC_* credentials<br/>tool/workspace/init.py → workspaces.json"]
+    BOOT["fabric-cli setup<br/>Fabric CLI helpers · RTK<br/>prompt for FABRIC_* credentials<br/>fabric-cli workspace init → workspaces.json"]
     INST -.->|"--no-bootstrap · --dry-run · --check"| DONE
     BOOT --> DONE
 
@@ -158,12 +158,12 @@ fabric-skills-settings/
 │       ├── validate-install-package.py
 │       └── validate-agent-guidance.py
 │
-├── tool/                                Fabric runtime helpers (single source of truth)
+├── cli/tools/                           Fabric runtime helpers bundled into fabric-cli
 │   ├── data/  graph/  lakehouse/  notebook/  pipeline/  semantic-model/
 │   ├── setup/  validate/  workspace/
 │   └── pre-commit-check.{ps1,sh}
 │
-├── mcp/                                 MCP servers (top-level, parallel to tool/)
+├── server/                              MCP server, graph runtime, tools, and content
 │   ├── server.py                        fabric MCP — wraps the Fabric CLI
 │   └── graph-server.py                  fabric-graph MCP — knowledge graph
 │
@@ -202,13 +202,12 @@ Disappeared as part of the redesign: `bin/`, `build/`, `rules/` at root, `profil
 <target-repo>/
 ├── CLAUDE.md  or  AGENTS.md             from profiles/{claude,codex}/  (hard-minimal stub)
 ├── .env.example  .gitignore             managed block
-├── .mcp.json                            written by tool/setup/setup.{sh,ps1} (concrete MCP URL)
+├── .mcp.json                            written by fabric-cli setup (concrete MCP URL)
 │
 ├── .claude/                             agents/, skills/, settings.local.json   (claude profile)
 ├── .codex/                              agents/, config.toml                    (codex profile)
 ├── .agents/skills/                      same skills as .claude/skills/          (codex profile)
 │
-├── tool/                                Fabric runtime helpers
 ├── mcp/                                 MCP servers (server.py, graph-server.py)
 │
 ├── memory/                              runtime persistence root

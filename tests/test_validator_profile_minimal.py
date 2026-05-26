@@ -67,8 +67,7 @@ def _make_baseline_source_repo(root: Path) -> None:
     (gc / "entry.md").write_text(
         "# entry\n"
         "Mandatory setup gate\n"
-        "tool\\setup\\setup.ps1\n"
-        "tool/setup/setup.sh\n"
+        "fabric-cli setup\n"
         "FABRIC_WORKSPACE_ID\n"
         "docker compose up\n"
         "graph_get_entry\n"
