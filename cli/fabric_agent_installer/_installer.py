@@ -125,11 +125,11 @@ def collect_tool_files() -> list[tuple[Path, Path, bool]]:
     """Walk cli/setup/ + cli/tools/ and copy each file to the target's tool/.
 
     cli/setup/ → target/tool/setup/ (env-setup scripts).
-    cli/tools/ → target/tool/ (Fabric helpers that require ms-fabric-cli to
-        be installed locally on the user's laptop: notebook/, pipeline/,
-        lakehouse/, workspace/). These are NOT MCP tools — Claude invokes
-        them via the Bash tool. Server-side tools (lint, validate, data,
-        precommit, semantic_model, graph) live in server/ and don't ship.
+    cli/tools/ → target/tool/ (target-side helpers invoked locally via Bash,
+        NOT MCP): notebook/, pipeline/, lakehouse/, workspace/ require
+        ms-fabric-cli; lint/ and precommit/ are pure-Python deterministic
+        checks. Server-side tools (validate, data, semantic_model, graph)
+        live in server/ and don't ship.
     """
     entries: list[tuple[Path, Path, bool]] = []
 

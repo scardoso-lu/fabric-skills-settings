@@ -95,18 +95,14 @@ def validate_required(errors: list[str]) -> None:
     # server/tools/ — MCP-exposed helpers that don't need ms-fabric-cli.
     require(TOOLS / "semantic_model" / "tools.py", errors)
     require(TOOLS / "semantic_model" / "inspect.py", errors)
-    require(TOOLS / "lint" / "tools.py", errors)
-    require(TOOLS / "lint" / "__init__.py", errors)
     require(TOOLS / "validate" / "tools.py", errors)
     require(TOOLS / "validate" / "pipeline-lineage.py", errors)
     require(TOOLS / "data" / "tools.py", errors)
     require(TOOLS / "data" / "mock-data-generator.py", errors)
-    require(TOOLS / "precommit" / "tools.py", errors)
-    require(TOOLS / "precommit" / "pre-commit-check.ps1", errors)
-    require(TOOLS / "precommit" / "pre-commit-check.sh", errors)
     require(TOOLS / "graph" / "tools.py", errors)
-    # cli/tools/ — ms-fabric-cli-dependent helpers; shipped to target as tool/
-    # and invoked locally via Bash (NOT MCP).
+    # cli/tools/ — target-side helpers, shipped to target as tool/ and
+    # invoked locally via Bash (NOT MCP). Fabric-CLI-dependent helpers plus
+    # the deterministic lint scaffold + pre-commit aggregator.
     require(CLI_TOOLS / "notebook" / "build.py", errors)
     require(CLI_TOOLS / "notebook" / "deploy.py", errors)
     require(CLI_TOOLS / "notebook" / "smoke-test.ps1", errors)
@@ -117,6 +113,10 @@ def validate_required(errors: list[str]) -> None:
     require(CLI_TOOLS / "workspace" / "switch.py", errors)
     require(CLI_TOOLS / "workspace" / "transfer.py", errors)
     require(CLI_TOOLS / "workspace" / "pick.py", errors)
+    require(CLI_TOOLS / "lint" / "__init__.py", errors)
+    require(CLI_TOOLS / "lint" / "core.py", errors)
+    require(CLI_TOOLS / "precommit" / "pre-commit-check.ps1", errors)
+    require(CLI_TOOLS / "precommit" / "pre-commit-check.sh", errors)
     # cli/setup/ — env-setup scripts (shipped to target as tool/setup/).
     require(SETUP / "setup.ps1", errors)
     require(SETUP / "setup.sh", errors)

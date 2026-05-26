@@ -1,8 +1,9 @@
-"""Smoke tests for the local-helper MCP wrappers (lint/validate/workspace/data/precommit).
+"""Smoke tests for the server-side local-helper MCP wrappers.
 
-These verify each wrapper module registers the expected tools and that the
-tools dispatch correctly. Subprocess-based tools mock out subprocess.run;
-the lint wrapper exercises the real in-process lint engine on a tmp tree.
+After the client/server split, the deterministic lint scaffold and the
+pre-commit aggregator moved to ``cli/tools/`` and are invoked locally via
+Bash (NOT MCP). The remaining server-side wrappers are validate (pipeline
+lineage check) and data (mock generator).
 """
 
 from __future__ import annotations
@@ -19,8 +20,6 @@ sys.path.insert(0, str(ROOT))
 from mcp.server.fastmcp import FastMCP  # noqa: E402
 
 from server.tools.data import tools as data_tools  # noqa: E402
-from server.tools.lint import tools as lint_tools  # noqa: E402
-from server.tools.precommit import tools as precommit_tools  # noqa: E402
 from server.tools.validate import tools as validate_tools  # noqa: E402
 
 
@@ -43,47 +42,6 @@ def _fake_subprocess_ok(stdout: str = "ok", returncode: int = 0):
         return _Result()
 
     return patch("subprocess.run", side_effect=_fake_run), captured
-
-
-# ── lint ──────────────────────────────────────────────────────────────────────
-
-
-def test_lint_tools_registers_lint_run():
-    mcp = FastMCP("test")
-    lint_tools.register(mcp)
-    assert set(_tools(mcp)) == {"lint_run"}
-
-
-def test_lint_run_clean_target_returns_pass(tmp_path):
-    (tmp_path / "workspace" / "demo").mkdir(parents=True)
-    (tmp_path / "workspace" / "demo" / "bronze.py").write_text(
-        '# %% [contract]\nimport os\nuser = os.environ["DEMO_USER"]\n',
-        encoding="utf-8",
-    )
-    mcp = FastMCP("test")
-    lint_tools.register(mcp)
-    result = _tools(mcp)["lint_run"](target_dir=str(tmp_path))
-    assert "PASS" in result
-    assert "exit code" not in result
-
-
-def test_lint_run_dirty_target_reports_findings(tmp_path):
-    (tmp_path / "workspace" / "demo").mkdir(parents=True)
-    (tmp_path / "workspace" / "demo" / "bronze.py").write_text(
-        'password = "hunter2-not-a-placeholder"\n', encoding="utf-8"
-    )
-    mcp = FastMCP("test")
-    lint_tools.register(mcp)
-    result = _tools(mcp)["lint_run"](target_dir=str(tmp_path))
-    assert "SEC-01" in result
-    assert "exit code: 1" in result
-
-
-def test_lint_run_rejects_missing_target():
-    mcp = FastMCP("test")
-    lint_tools.register(mcp)
-    with pytest.raises(RuntimeError, match="does not exist"):
-        _tools(mcp)["lint_run"](target_dir="/nonexistent/path/xyz")
 
 
 # ── validate ──────────────────────────────────────────────────────────────────
@@ -190,27 +148,3 @@ def test_data_mock_generate_rejects_dual_schema(tmp_path):
         _tools(mcp)["data_mock_generate"](
             target_dir=str(tmp_path), schema="[]", schema_file="x.json"
         )
-
-
-# ── precommit (aggregate) ─────────────────────────────────────────────────────
-
-
-def test_precommit_tools_registers_precommit_run():
-    mcp = FastMCP("test")
-    precommit_tools.register(mcp)
-    assert set(_tools(mcp)) == {"precommit_run"}
-
-
-def test_precommit_run_aggregates_lint_and_pipeline_lineage(tmp_path):
-    (tmp_path / "workspace" / "demo").mkdir(parents=True)
-    (tmp_path / "workspace" / "demo" / "ok.py").write_text(
-        '# %%\nimport os\nx = os.environ["X"]\n', encoding="utf-8"
-    )
-    mcp = FastMCP("test")
-    precommit_tools.register(mcp)
-    ctx, _ = _fake_subprocess_ok("pipeline-lineage clean\n", returncode=0)
-    with ctx:
-        out = _tools(mcp)["precommit_run"](target_dir=str(tmp_path))
-    assert "Pipeline staging-path" in out
-    assert "Deterministic lints" in out
-    assert "passed" in out.lower()

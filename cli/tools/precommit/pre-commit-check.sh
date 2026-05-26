@@ -5,7 +5,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# When installed at the target, this script lives at tool/precommit/, so the
+# project root is two directories up.
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 PYTHON_BIN="${PYTHON_BIN:-}"
 if [[ -z "$PYTHON_BIN" ]]; then
@@ -19,14 +21,6 @@ log_ok()   { echo "✓ $*"; }
 log_err()  { echo "✗ $*" >&2; }
 
 FAILED=false
-
-log_step "Pipeline staging-path consistency"
-if "$PYTHON_BIN" "${SCRIPT_DIR}/validate/pipeline-lineage.py"; then
-  log_ok "pipeline-lineage passed"
-else
-  log_err "pipeline-lineage failed"
-  FAILED=true
-fi
 
 log_step "Deterministic lints (tool/lint/)"
 if "$PYTHON_BIN" -m tool.lint --target "$PROJECT_ROOT"; then
@@ -43,3 +37,7 @@ if [[ "$FAILED" == "true" ]]; then
   exit 1
 fi
 log_ok "All pre-commit checks passed"
+echo ""
+echo "Note: pipeline staging-path consistency is checked via the"
+echo "      pipeline_lineage_check MCP tool — call it from your agent"
+echo "      after changing staging-path constants."

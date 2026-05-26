@@ -3,7 +3,8 @@
 
 $ErrorActionPreference = "Stop"
 $ScriptDir   = $PSScriptRoot
-$ProjectRoot = Resolve-Path (Join-Path $ScriptDir "..")
+# Installed at the target as tool/precommit/, so the project root is two levels up.
+$ProjectRoot = Resolve-Path (Join-Path $ScriptDir "..\..")
 $failed      = $false
 
 $python = if ($env:PYTHON_BIN) { $env:PYTHON_BIN } else {
@@ -16,11 +17,6 @@ function Write-Step { Write-Host ""; Write-Host "── $args ──────
 function Write-Ok   { Write-Host "v $args" }
 function Write-Err  { Write-Host "x $args" -ForegroundColor Red }
 
-Write-Step "Pipeline staging-path consistency"
-& $python "$ScriptDir\validate\pipeline-lineage.py"
-if ($LASTEXITCODE -eq 0) { Write-Ok "pipeline-lineage passed" }
-else { Write-Err "pipeline-lineage failed"; $failed = $true }
-
 Write-Step "Deterministic lints (tool/lint/)"
 & $python -m tool.lint --target "$ProjectRoot"
 if ($LASTEXITCODE -eq 0) { Write-Ok "lints passed" }
@@ -30,3 +26,7 @@ Write-Host ""
 Write-Host "════════════════════════════════════════════"
 if ($failed) { Write-Err "Pre-commit checks failed"; exit 1 }
 Write-Ok "All pre-commit checks passed"
+Write-Host ""
+Write-Host "Note: pipeline staging-path consistency is checked via the"
+Write-Host "      pipeline_lineage_check MCP tool — call it from your agent"
+Write-Host "      after changing staging-path constants."

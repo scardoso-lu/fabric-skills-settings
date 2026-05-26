@@ -44,6 +44,11 @@ def test_cli_layout():
     assert (cli / "tools" / "workspace" / "init.py").is_file()
     assert (cli / "tools" / "workspace" / "switch.py").is_file()
     assert (cli / "tools" / "workspace" / "transfer.py").is_file()
+    # Deterministic lints + pre-commit aggregator also live target-side now.
+    assert (cli / "tools" / "lint" / "__init__.py").is_file()
+    assert (cli / "tools" / "lint" / "core.py").is_file()
+    assert (cli / "tools" / "precommit" / "pre-commit-check.sh").is_file()
+    assert (cli / "tools" / "precommit" / "pre-commit-check.ps1").is_file()
 
 
 # ── server/ : MCP servers + graph runtime + graph content + graph builders ───
@@ -63,10 +68,8 @@ def test_server_layout():
     assert (server / "content" / "rules" / "security.md").is_file()
     assert (server / "tools" / "semantic_model" / "inspect.py").is_file()
     assert (server / "tools" / "graph" / "tools.py").is_file()
-    assert (server / "tools" / "lint" / "__init__.py").is_file()
     assert (server / "tools" / "validate" / "pipeline-lineage.py").is_file()
     assert (server / "tools" / "data" / "mock-data-generator.py").is_file()
-    assert (server / "tools" / "precommit" / "pre-commit-check.sh").is_file()
     assert (server / "builders" / "build-graph.py").is_file()
     assert (server / "skills" / "rtk" / "SKILL.md").is_file()
     assert (server / "skills" / "fabric-transform" / "SKILL.md").is_file()
@@ -77,6 +80,9 @@ def test_server_layout():
     assert not (server / "tools" / "pipeline").exists()
     assert not (server / "tools" / "lakehouse").exists()
     assert not (server / "tools" / "workspace").exists()
+    # Lint + pre-commit moved to cli/tools/ — server no longer registers them.
+    assert not (server / "tools" / "lint").exists()
+    assert not (server / "tools" / "precommit").exists()
 
 
 # ── Legacy roots that should be gone ──────────────────────────────────────────

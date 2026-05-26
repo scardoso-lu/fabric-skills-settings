@@ -39,10 +39,12 @@ nothing the container probably isn't running.
    edits. To remove graph knowledge, use `graph_delete_node` /
    `graph_remove_edge` only when explicitly asked.
 
-## Graph tool surface
+## Tool surface
 
-Read: `graph_get_entry`, `graph_get_node`, `graph_get_linked`,
-`graph_search`, `graph_list_kinds`.
-Write: `graph_create_node`, `graph_update_node`, `graph_delete_node`,
-`graph_add_edge`, `graph_remove_edge`. All write operations
-re-serialize the graph atomically.
+`fabric-server` MCP: `graph_get_entry`, `graph_get_node`, `graph_get_linked`,
+`graph_search`, `graph_list_kinds`, `graph_create_node`, `graph_update_node`,
+`graph_delete_node`, `graph_add_edge`, `graph_remove_edge` (writes re-serialize
+atomically); `pipeline_lineage_check` (upload notebooks), `data_mock_generate`,
+`semantic_model_list`, `semantic_model_show`.
+Bash: `python -m tool.lint`, `tool/precommit/pre-commit-check.{sh,ps1}`,
+`tool/notebook/`, `tool/pipeline/`, `tool/lakehouse/`, `tool/workspace/`.
