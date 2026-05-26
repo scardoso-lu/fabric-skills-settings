@@ -18,10 +18,6 @@ services:
       PORT: "8000"
       HOST: "0.0.0.0"
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      FABRIC_TENANT_ID: ${FABRIC_TENANT_ID:-}
-      FABRIC_CLIENT_ID: ${FABRIC_CLIENT_ID:-}
-      FABRIC_CLIENT_SECRET: ${FABRIC_CLIENT_SECRET:-}
-      FABRIC_WORKSPACE_ID: ${FABRIC_WORKSPACE_ID:-}
     ports:
       - "127.0.0.1:8000:8000"
     restart: unless-stopped

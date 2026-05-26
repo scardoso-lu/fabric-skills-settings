@@ -29,7 +29,7 @@ skills:
 
 ---
 
-Validate independently. The **fabric-validate** skill is owned by tester; fetch its workflow with `graph_get_node('skills/fabric-validate')` before writing or running DQ checks. Use `graph_get_node('skills/fabric-ops')` to look up lakehouse-inspection patterns when checking for schema drift or contract alignment, and run `fabric-cli lakehouse list-tables` from the project root to read current schemas.
+Validate independently. The **fabric-validate** skill is owned by tester; fetch its workflow with `graph_get_node('skills/fabric-validate')` before writing or running DQ checks. Use `graph_get_node('skills/fabric-ops')` to look up lakehouse-inspection patterns when checking for schema drift or contract alignment, and run `fabric-vibe lakehouse list-tables` from the project root to read current schemas.
 
 Minimum checks when applicable:
 

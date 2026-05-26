@@ -84,7 +84,7 @@ class _Validator:
         self._require(p / "shared" / ".env.example")
         self._require(p / "shared" / ".gitignore.fragment")
         # .mcp.json is no longer shipped as a scaffold template — the target
-        # bootstrap (fabric-cli setup) writes it with a concrete URL.
+        # bootstrap (fabric-vibe setup) writes it with a concrete URL.
         if (p / "shared" / "scaffold" / ".mcp.json").exists():
             self.errors.append(
                 "profiles/shared/scaffold/.mcp.json must not exist; the bootstrap writes .mcp.json dynamically"
@@ -112,7 +112,7 @@ class _Validator:
         self._require(self.tools / "graph" / "tools.py")
         self._require(self.tools / "utils" / "script_runner.py")
 
-        # cli/tools/ — package-owned helpers invoked through fabric-cli (NOT MCP).
+        # cli/tools/ — package-owned helpers invoked through fabric-vibe (NOT MCP).
         self._require(self.cli_tools / "notebook" / "build.py")
         self._require(self.cli_tools / "notebook" / "deploy.py")
         self._require(self.cli_tools / "notebook" / "smoke-test.ps1")
@@ -128,7 +128,7 @@ class _Validator:
         self._require(self.cli_tools / "precommit" / "pre-commit-check.ps1")
         self._require(self.cli_tools / "precommit" / "pre-commit-check.sh")
 
-        # cli/setup/ — env-setup scripts invoked through fabric-cli setup.
+        # cli/setup/ — env-setup scripts invoked through fabric-vibe setup.
         self._require(self.setup / "setup.ps1")
         self._require(self.setup / "setup.sh")
         # Skills live on the server and are served via graph_get_node.

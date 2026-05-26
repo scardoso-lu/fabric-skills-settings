@@ -14,22 +14,22 @@ Deploy and smoke test are **separate steps**. The smoke test never deploys.
 
 ```bash
 # 0. Confirm active workspace (every session, before any build or deploy)
-fabric-cli workspace switch list
+fabric-vibe workspace switch list
 # Stop. Ask: "Active workspace is '<displayName>'. Confirm to proceed?"
 # Do not run notebook build or deploy until the human confirms.
 # To deploy to a different workspace instead, use workspace transfer:
-#   fabric-cli workspace transfer --notebook <name> --to <displayName>
+#   fabric-vibe workspace transfer --notebook <name> --to <displayName>
 
 # 1. Author locally
 # Edit workspace/<topic>/my_notebook.py with # %% markers.
 
 # 2. Build and deploy (run whenever the source changes).
-fabric-cli notebook build
-fabric-cli notebook deploy deploy my_notebook "$FABRIC_WORKSPACE_ID"
+fabric-vibe notebook build
+fabric-vibe notebook deploy deploy my_notebook "$FABRIC_WORKSPACE_ID"
 
 # 3. Smoke test — triggers a job execution on the already-deployed notebook and monitors it.
 #    Never builds or deploys. Always runs against whatever is currently in Fabric.
-#    fabric-cli notebook smoke-test --notebook my_notebook   (cross-platform)
+#    fabric-vibe notebook smoke-test --notebook my_notebook   (cross-platform)
 
 # 4. Report STATUS to orchestrator and STOP.
 #    - STATUS: Completed → PASS. Proceed to step 5.
@@ -39,9 +39,9 @@ fabric-cli notebook deploy deploy my_notebook "$FABRIC_WORKSPACE_ID"
 
 # 5. After PASS — fetch the Fabric bundle and report. Do NOT commit.
 #    The human commits via the Fabric UI Git integration.
-fabric-cli notebook deploy fetch my_notebook "$FABRIC_WORKSPACE_ID"
+fabric-vibe notebook deploy fetch my_notebook "$FABRIC_WORKSPACE_ID"
 # Before reporting complete, run pre-commit validation:
-#   fabric-cli precommit   (cross-platform)
+#   fabric-vibe precommit   (cross-platform)
 # Report to orchestrator: fetch complete. Human commits via Fabric UI.
 ```
 
@@ -51,22 +51,22 @@ fabric-cli notebook deploy fetch my_notebook "$FABRIC_WORKSPACE_ID"
 
 ```bash
 # Build: workspace/<topic>/name.py → fabric_notebooks/<topic>/name.Notebook/
-fabric-cli notebook build
+fabric-vibe notebook build
 
 # Deploy built artifact to Fabric (no run)
-fabric-cli notebook deploy deploy my_notebook "$FABRIC_WORKSPACE_ID"
+fabric-vibe notebook deploy deploy my_notebook "$FABRIC_WORKSPACE_ID"
 
 # Execute already-deployed notebook (trigger + monitor, no build/deploy) — used by notebook smoke-test
-fabric-cli notebook deploy exec my_notebook "$FABRIC_WORKSPACE_ID"
+fabric-vibe notebook deploy exec my_notebook "$FABRIC_WORKSPACE_ID"
 
 # Fetch current Fabric definition → workspace/<topic>/<name>.Notebook/ (standalone sync)
-fabric-cli notebook deploy fetch my_notebook "$FABRIC_WORKSPACE_ID"
+fabric-vibe notebook deploy fetch my_notebook "$FABRIC_WORKSPACE_ID"
 
 # Monitor an existing job instance (debugging)
-fabric-cli notebook deploy monitor "$FABRIC_WORKSPACE_ID" <item_id> <job_instance_id>
+fabric-vibe notebook deploy monitor "$FABRIC_WORKSPACE_ID" <item_id> <job_instance_id>
 
 # One-shot full cycle (deploy + exec + fetch) — for initial bring-up only, not for repeated testing
-fabric-cli notebook deploy run my_notebook "$FABRIC_WORKSPACE_ID"
+fabric-vibe notebook deploy run my_notebook "$FABRIC_WORKSPACE_ID"
 ```
 
 ## Cell Structure

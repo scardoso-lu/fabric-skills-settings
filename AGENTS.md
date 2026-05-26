@@ -1,6 +1,6 @@
 # Fabric Agent Pack — Codex Contributor Guidance
 
-This repository is the source package and installer for Microsoft Fabric agent profiles. It is not the day-to-day Fabric project workspace. Install the CLI with `uv tool install fabric-skills-settings` (or `pip install fabric-skills-settings`). Then run `fabric-agents install --profile codex --target /path/to/repo` and open Codex from that target repo root. Use `fabric-cli <group> <cmd>` inside the target for daily helpers.
+This repository is the source package and installer for Microsoft Fabric agent profiles. It is not the day-to-day Fabric project workspace. Install the CLI with `uv tool install fabric-vibecoding-settings` (or `pip install fabric-vibecoding-settings`). Then run `fabric-vibecoding-agents install --profile codex --target /path/to/repo` and open Codex from that target repo root. Use `fabric-vibe <group> <cmd>` inside the target for daily helpers.
 
 ## Architecture at a glance
 
@@ -29,7 +29,7 @@ The server has **no filesystem access** to the user's project. `pipeline_lineage
 
 ## CLI / Bash tool capabilities (`cli/tools/` → installed as `tool/`)
 
-Tools shipped to the target repo's `tool/` dir and invoked via Bash. Fabric-CLI-dependent helpers require `ms-fabric-cli` (`uv tool install ms-fabric-cli`) and SPN credentials in `.env`:
+Tools shipped to the target repo's `tool/` dir and invoked via Bash. Fabric helper commands that talk to Fabric require `ms-fabric-cli` (`uv tool install ms-fabric-cli`) and SPN credentials in `.env`:
 
 | Path | Description |
 |---|---|
@@ -46,7 +46,7 @@ Tools shipped to the target repo's `tool/` dir and invoked via Bash. Fabric-CLI-
 
 | Path | Purpose |
 |---|---|
-| `cli/src/fabric_skills_settings/` | Pip-installable wheel package (`fabric-skills-settings`). Typer CLIs in `cli.py` (`fabric-agents` installer) and `runtime_cli.py` (`fabric-cli` target-side proxy). Subcommands in `commands/`, shared logic in `core/`. Profiles in `_profiles/`, setup in `_setup/`, tools in `_tools/` (bundled at build time). |
+| `cli/src/fabric_skills_settings/` | Pip-installable wheel package (`fabric-vibecoding-settings`). Typer CLIs in `cli.py` (`fabric-vibecoding-agents` installer) and `runtime_cli.py` (`fabric-vibe` target-side proxy). Subcommands in `commands/`, shared logic in `core/`. Profiles in `_profiles/`, setup in `_setup/`, tools in `_tools/` (bundled at build time). |
 | `cli/profiles/claude/` | Claude-native install assets: `CLAUDE.md`, `.claude/agents/`, `settings.local.json`. |
 | `cli/profiles/codex/` | Codex-native install assets: `AGENTS.md`, `.codex/agents/`, `config.toml`. |
 | `cli/profiles/shared/` | Shared scaffold (`data/sandbox/`, `workspace/`, `.env.example`, `.gitignore.fragment`). `.mcp.json` is NOT shipped — the target bootstrap writes it with a concrete MCP URL. |
@@ -107,8 +107,8 @@ uv run --group dev pytest tests/test_install_package.py tests/test_agent_guidanc
 
 For an end-to-end install smoke test against a real target repo:
 ```bash
-fabric-agents install --profile all --target <target-repo> --dry-run
-fabric-agents check   --profile all --target <target-repo>
+fabric-vibecoding-agents install --profile all --target <target-repo> --dry-run
+fabric-vibecoding-agents check   --profile all --target <target-repo>
 ```
 
 ## Commit / PR handoff

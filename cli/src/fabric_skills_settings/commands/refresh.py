@@ -1,4 +1,4 @@
-"""`fabric-agents refresh` — re-copy managed files without re-running bootstrap.
+"""`fabric-vibecoding-agents refresh` — re-copy managed files without re-running bootstrap.
 
 Equivalent to `install --no-bootstrap`, but documents intent: use this after a
 package upgrade to pick up updates to managed files in an existing target.

@@ -1,8 +1,8 @@
-"""`fabric-cli` - package-owned runtime proxy.
+"""`fabric-vibe` - package-owned runtime proxy.
 
 Single Typer dispatcher that subprocess-calls helpers bundled in the installed
 package. Each subcommand passes trailing argv through to the underlying script
-unchanged. The CWD is preserved, so users run `fabric-cli ...` from inside
+unchanged. The CWD is preserved, so users run `fabric-vibe ...` from inside
 their project repo.
 """
 
@@ -22,7 +22,7 @@ from .core.version_check import update_notice
 from .logging_config import setup_logging
 
 app = typer.Typer(
-    name="fabric-cli",
+    name="fabric-vibe",
     help="Run package-owned Fabric helpers for the current target repo.",
     add_completion=False,
     no_args_is_help=True,
@@ -44,7 +44,7 @@ _IS_WINDOWS = platform.system() == "Windows"
 
 def _version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"fabric-cli {__version__}")
+        typer.echo(f"fabric-vibe {__version__}")
         raise typer.Exit()
 
 

@@ -43,7 +43,7 @@
       "Bash(git stash list)",
       "Bash(uv run --group dev pytest)",
       "Bash(uv run --group dev pytest *)",
-      "Bash(fabric-cli *)",
+      "Bash(fabric-vibe *)",
       "mcp__fabric-server__graph_get_entry",
       "mcp__fabric-server__graph_get_node",
       "mcp__fabric-server__graph_get_linked",

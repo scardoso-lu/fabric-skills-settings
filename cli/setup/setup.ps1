@@ -17,7 +17,7 @@
 #   7. Writes .mcp.json and patches
 #      .codex/config.toml's [mcp_servers.fabric-server] url (if installed).
 #   8. Verifies SPN auth by calling `fab api workspaces`.
-#   9. Runs fabric-cli workspace init to populate workspaces.json.
+#   9. Runs fabric-vibe workspace init to populate workspaces.json.
 #  10. Prompts to select the active workspace.
 
 [CmdletBinding()]
@@ -237,19 +237,19 @@ $Actions.Add("SPN auth verified via fab auth login + fab api workspaces")
 # -- Workspace registry ------------------------------------------------------
 Write-Host ""
 Write-Host "-- Workspace registry"
-fabric-cli workspace init
+fabric-vibe workspace init
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $Actions.Add("workspaces.json refreshed from Fabric API")
 
 # -- Active workspace selection ----------------------------------------------
 # Run pick.py as a sibling script so its stdin stays attached to the parent
 # terminal — interactive prompts only work when stdin is a real TTY.
-fabric-cli workspace pick
+fabric-vibe workspace pick
 if ($LASTEXITCODE -eq 0) {
     $Actions.Add("active workspace selected and resource IDs written to .env")
 } else {
-    Write-Warning "Workspace selection skipped or failed; set it later with fabric-cli workspace switch."
-    $Actions.Add("active workspace not set (re-run fabric-cli workspace switch)")
+    Write-Warning "Workspace selection skipped or failed; set it later with fabric-vibe workspace switch."
+    $Actions.Add("active workspace not set (re-run fabric-vibe workspace switch)")
 }
 
 Write-Host ""

@@ -13,7 +13,7 @@ log_err()  { echo "✗ $*" >&2; }
 FAILED=false
 
 log_step "Deterministic lints (tool/lint/)"
-if (cd "$PROJECT_ROOT" && fabric-cli lint --target "$PROJECT_ROOT"); then
+if (cd "$PROJECT_ROOT" && fabric-vibe lint --target "$PROJECT_ROOT"); then
   log_ok "lints passed"
 else
   log_err "lints failed"

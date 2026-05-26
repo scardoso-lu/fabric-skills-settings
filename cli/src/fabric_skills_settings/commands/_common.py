@@ -93,7 +93,7 @@ def _remove_obsolete_claude_settings(target: Path, options: WriteOptions) -> lis
 
 
 def _remove_obsolete_tool_files(target: Path, options: WriteOptions) -> list[str]:
-    """Remove old package-owned target helpers; fabric-cli now runs bundled tools."""
+    """Remove old package-owned target helpers; fabric-vibe now runs bundled tools."""
     operations: list[str] = []
     for rel in (Path("tool/setup/setup.ps1"), Path("tool/setup/setup.sh")):
         old = target / rel

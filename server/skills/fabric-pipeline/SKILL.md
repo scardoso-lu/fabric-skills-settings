@@ -30,31 +30,31 @@ description: Create, deploy, and test a Fabric Data Factory pipeline that chains
 
 ```bash
 # 0. Confirm active workspace (every session, before any pipeline action)
-fabric-cli workspace switch list
+fabric-vibe workspace switch list
 # Stop. Ask: "Active workspace is '<displayName>'. Confirm to proceed?"
 # Do not run pipeline manage until the human confirms.
 # To deploy to a different workspace instead, use workspace transfer:
-#   fabric-cli workspace transfer --pipeline <topic> --to <displayName>
+#   fabric-vibe workspace transfer --pipeline <topic> --to <displayName>
 
 # Full cycle: auto-discover notebooks, create/update pipeline, run, and monitor
-fabric-cli pipeline manage test --topic lux_energy_price
+fabric-vibe pipeline manage test --topic lux_energy_price
 
 # Create or update only (no run)
-fabric-cli pipeline manage create --topic lux_energy_price
+fabric-vibe pipeline manage create --topic lux_energy_price
 
 # Explicit ordered list (use when auto-discover picks up the wrong notebooks)
-fabric-cli pipeline manage create --topic lux_energy_price \
+fabric-vibe pipeline manage create --topic lux_energy_price \
     --notebooks download_lux_energy_price,bronze_lux_energy_price,dq_bronze_lux_energy_price
 
 # Trigger an already-deployed pipeline (no monitoring)
-fabric-cli pipeline manage run --pipeline pipeline_lux_energy_price
+fabric-vibe pipeline manage run --pipeline pipeline_lux_energy_price
 
 # Monitor an existing run to completion
-fabric-cli pipeline manage status \
+fabric-vibe pipeline manage status \
     --pipeline pipeline_lux_energy_price --instance <job-instance-id>
 
 # List all data pipelines in the workspace
-fabric-cli pipeline manage list
+fabric-vibe pipeline manage list
 ```
 
 ## Activity Ordering

@@ -5,10 +5,15 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-MANAGED_BEGIN = "<!-- BEGIN MANAGED BY fabric-skills-settings -->"
-MANAGED_END = "<!-- END MANAGED BY fabric-skills-settings -->"
-GITIGNORE_BEGIN = "# BEGIN MANAGED BY fabric-skills-settings"
-GITIGNORE_END = "# END MANAGED BY fabric-skills-settings"
+MANAGED_BEGIN = "<!-- BEGIN MANAGED BY fabric-vibecoding-settings -->"
+MANAGED_END = "<!-- END MANAGED BY fabric-vibecoding-settings -->"
+GITIGNORE_BEGIN = "# BEGIN MANAGED BY fabric-vibecoding-settings"
+GITIGNORE_END = "# END MANAGED BY fabric-vibecoding-settings"
+
+LEGACY_MANAGED_BEGIN = "<!-- BEGIN MANAGED BY fabric-skills-settings -->"
+LEGACY_MANAGED_END = "<!-- END MANAGED BY fabric-skills-settings -->"
+LEGACY_GITIGNORE_BEGIN = "# BEGIN MANAGED BY fabric-skills-settings"
+LEGACY_GITIGNORE_END = "# END MANAGED BY fabric-skills-settings"
 
 REFRESHABLE_PLACEHOLDER_FILES = {Path(".env.example")}
 REFRESHABLE_SCAFFOLD_MARKERS: dict[Path, str] = {
@@ -53,7 +58,10 @@ def has_managed_marker(path: Path) -> bool:
     if not path.exists() or not path.is_file():
         return False
     text = path.read_text(encoding="utf-8", errors="ignore")
-    return MANAGED_BEGIN in text and MANAGED_END in text
+    return (
+        (MANAGED_BEGIN in text and MANAGED_END in text)
+        or (LEGACY_MANAGED_BEGIN in text and LEGACY_MANAGED_END in text)
+    )
 
 
 def has_non_placeholder_env_values(path: Path) -> bool:

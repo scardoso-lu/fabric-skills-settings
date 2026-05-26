@@ -20,7 +20,7 @@ $EnvFile     = Join-Path $ProjectRoot ".env"
 if ($Help -or (-not $Notebook)) {
     @'
 Usage:
-  fabric-cli notebook smoke-test -Notebook <name>
+  fabric-vibe notebook smoke-test -Notebook <name>
 
 Options:
   -Notebook     Stem name of the notebook (e.g. bronze_electricity_day_ahead_prices).
@@ -29,7 +29,7 @@ Options:
 
 Preconditions:
   - Run from the repository root.
-  - The notebook is already deployed (run: fabric-cli notebook deploy deploy <name> <workspace_id>).
+  - The notebook is already deployed (run: fabric-vibe notebook deploy deploy <name> <workspace_id>).
   - fab is authenticated (run: fab auth login).
   - FABRIC_WORKSPACE_ID is set in .env.
 '@
@@ -57,5 +57,5 @@ if (-not $WorkspaceId) {
     exit 1
 }
 
-fabric-cli notebook deploy exec $Notebook $WorkspaceId
+fabric-vibe notebook deploy exec $Notebook $WorkspaceId
 exit $LASTEXITCODE

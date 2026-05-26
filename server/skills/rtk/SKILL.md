@@ -20,7 +20,7 @@ Prefix every shell command with `rtk`. RTK applies its filter if one exists; oth
 |---|---|
 | Git | `rtk git status` · `rtk git log` · `rtk git diff` |
 | Python / ruff | `rtk pytest` · `rtk ruff check` · `rtk pip` |
-| Fabric helpers | `rtk fabric-cli notebook ...` · `rtk fabric-cli workspace ...` · `rtk fabric-cli pipeline manage ...` |
+| Fabric helpers | `rtk fabric-vibe notebook ...` · `rtk fabric-vibe workspace ...` · `rtk fabric-vibe pipeline manage ...` |
 | Files | `rtk ls` · `rtk find` · `rtk grep` |
 | Build | `rtk tsc` · `rtk cargo build` |
 

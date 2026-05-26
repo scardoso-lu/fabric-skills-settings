@@ -31,10 +31,10 @@ flowchart TD
     end
 
     subgraph FabricTools["Local domain tools"]
-        TN["fabric-cli notebook"]
-        TP["fabric-cli pipeline"]
-        TL["fabric-cli lakehouse"]
-        TV["fabric-cli lint/precommit"]
+        TN["fabric-vibe notebook"]
+        TP["fabric-vibe pipeline"]
+        TL["fabric-vibe lakehouse"]
+        TV["fabric-vibe lint/precommit"]
     end
 
     MSF["Microsoft Fabric Workspace\n(Fabric CLI / REST API)"]
@@ -77,41 +77,41 @@ Subagents are discovered by Claude and Codex from their native profile directori
 | Knowledge graph content | `content/graph-content/` | `memory/graph-content/` |
 | Seed memory | `profiles/shared/memory/` | `memory/` |
 | Target scaffold (data/sandbox/, workspace/, ...) | `profiles/shared/scaffold/` | Target repo root |
-| `.mcp.json` | not shipped — written by `fabric-cli setup` | Target repo root (concrete MCP URL) |
+| `.mcp.json` | not shipped — written by `fabric-vibe setup` | Target repo root (concrete MCP URL) |
 | Graph artifacts | `dist/.graph/` (source build output, gitignored) | served by the Docker MCP server |
 | MCP servers | `server/` | Docker container |
 | Graph runtime | `server/graph/` | Docker container |
-| Source-package CLI | `cli/src/fabric_skills_settings/` | installed as the `fabric-skills-settings` wheel |
+| Source-package CLI | `cli/src/fabric_skills_settings/` | installed as the `fabric-vibecoding-settings` wheel |
 | Source-package validators | `tests/test_install_package.py`, `tests/test_agent_guidance.py` (+ `tests/_validation/`) | **not installed** (maintainer pytest) |
 
 ## Setup CLI — install path
 
-The CLI is published as `fabric-skills-settings` on PyPI and exposes two
+The CLI is published as `fabric-vibecoding-settings` on PyPI and exposes two
 console scripts:
 
 | Command | Role |
 |---|---|
-| `fabric-agents` | Typer installer with `install` / `check` / `refresh` subcommands. Writes profile and scaffold files into a target repo, then runs the target bootstrap. |
-| `fabric-cli` | Typer proxy for package-owned helpers — `setup`, `notebook`, `pipeline`, `lakehouse`, `workspace`, `lint`, `precommit`. Run from the target repo root. |
+| `fabric-vibecoding-agents` | Typer installer with `install` / `check` / `refresh` subcommands. Writes profile and scaffold files into a target repo, then runs the target bootstrap. |
+| `fabric-vibe` | Typer proxy for package-owned helpers — `setup`, `notebook`, `pipeline`, `lakehouse`, `workspace`, `lint`, `precommit`. Run from the target repo root. |
 
 Install the package itself with:
 
 ```bash
-uv tool install fabric-skills-settings        # recommended
+uv tool install fabric-vibecoding-settings        # recommended
 # or
-pip install fabric-skills-settings
+pip install fabric-vibecoding-settings
 ```
 
 Then install a profile into your project repo:
 
 ```bash
-fabric-agents install --profile claude --target /path/to/project
-fabric-agents check   --profile claude --target /path/to/project
-fabric-agents refresh --profile claude --target /path/to/project
+fabric-vibecoding-agents install --profile claude --target /path/to/project
+fabric-vibecoding-agents check   --profile claude --target /path/to/project
+fabric-vibecoding-agents refresh --profile claude --target /path/to/project
 ```
 
 After the install copies files, the installer automatically invokes
-`fabric-cli setup` from the target root to finish the bootstrap: install local tools,
+`fabric-vibe setup` from the target root to finish the bootstrap: install local tools,
 install Fabric CLI helpers (`ms-fabric-cli`, `Faker`, `pandas`, `networkx`,
 `rank-bm25`, RTK), prompt for any missing `FABRIC_TENANT_ID` /
 `FABRIC_CLIENT_ID` / `FABRIC_CLIENT_SECRET`, verify auth via
@@ -120,9 +120,9 @@ to skip — `--dry-run` and the `check` subcommand skip implicitly.
 
 ```mermaid
 flowchart TD
-    PIP["uv tool install fabric-skills-settings<br/>(or pip install)"]
+    PIP["uv tool install fabric-vibecoding-settings<br/>(or pip install)"]
     PIP --> CLI
-    CLI["fabric-agents install --profile X --target Y"]
+    CLI["fabric-vibecoding-agents install --profile X --target Y"]
     CLI --> INST
 
     INST["fabric_skills_settings.commands.install<br/>copy files into target"]
@@ -130,7 +130,7 @@ flowchart TD
     TGT["target/<br/>CLAUDE.md · workspace/ · data/sandbox/ · .mcp.json · ..."]
     TGT --> BOOT
 
-    BOOT["fabric-cli setup<br/>Fabric CLI helpers · RTK<br/>prompt for FABRIC_* credentials<br/>fabric-cli workspace init → workspaces.json"]
+    BOOT["fabric-vibe setup<br/>Fabric CLI helpers · RTK<br/>prompt for FABRIC_* credentials<br/>fabric-vibe workspace init → workspaces.json"]
     INST -.->|"--no-bootstrap · --dry-run · --check"| DONE
     BOOT --> DONE
 
@@ -142,7 +142,7 @@ flowchart TD
 ### Source repository (this repo)
 
 ```text
-fabric-skills-settings/
+fabric-vibecoding-settings/
 ├── README.md  CLAUDE.md  AGENTS.md  LICENSE  pyproject.toml  uv.lock  .gitignore
 │
 ├── cli/                                 installable assets
@@ -158,7 +158,7 @@ fabric-skills-settings/
 │       ├── validate-install-package.py
 │       └── validate-agent-guidance.py
 │
-├── cli/tools/                           Fabric runtime helpers bundled into fabric-cli
+├── cli/tools/                           Fabric runtime helpers bundled into fabric-vibe
 │   ├── data/  graph/  lakehouse/  notebook/  pipeline/  semantic-model/
 │   ├── setup/  validate/  workspace/
 │   └── pre-commit-check.{ps1,sh}
@@ -196,13 +196,13 @@ fabric-skills-settings/
 
 Disappeared as part of the redesign: `bin/`, `build/`, `rules/` at root, `profiles/shared/project-layout/`, `profiles/shared/graph-content/`, `tool/mcp/`, source-side `memory/.graph/`.
 
-### Installed target repository (what `fabric-agents install` produces)
+### Installed target repository (what `fabric-vibecoding-agents install` produces)
 
 ```text
 <target-repo>/
 ├── CLAUDE.md  or  AGENTS.md             from profiles/{claude,codex}/  (hard-minimal stub)
 ├── .env.example  .gitignore             managed block
-├── .mcp.json                            written by fabric-cli setup (concrete MCP URL)
+├── .mcp.json                            written by fabric-vibe setup (concrete MCP URL)
 │
 ├── .claude/                             agents/, skills/, settings.local.json   (claude profile)
 ├── .codex/                              agents/, config.toml                    (codex profile)

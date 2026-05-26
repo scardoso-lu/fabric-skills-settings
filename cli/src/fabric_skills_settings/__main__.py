@@ -4,4 +4,4 @@ from __future__ import annotations
 
 from fabric_skills_settings.cli import app
 
-app(prog_name="fabric-agents")
+app(prog_name="fabric-vibecoding-agents")

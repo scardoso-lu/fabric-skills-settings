@@ -27,35 +27,35 @@ Never assume a 202 means the operation completed.
 
 ## FP-02: Authentication
 
-Authentication is a one-time human step performed by `fabric-cli setup`,
+Authentication is a one-time human step performed by `fabric-vibe setup`,
 which logs the service
 principal in and writes credentials to `.env` + the OS environment. Agents
 **never** run login/token commands or pass credentials on the command line —
 they only verify the setup gate (see [[graph-content/entry]]).
 
-For workspace and item operations, go through the `fabric-cli` proxy and the
+For workspace and item operations, go through the `fabric-vibe` proxy and the
 `fabric-server` MCP tools — never call the Fabric CLI directly from rules:
 
-- Workspace / resource discovery: `fabric-cli workspace init`
-- Active workspace + resource IDs: `fabric-cli workspace switch <displayName>`
-- Notebook / pipeline / lakehouse operations: the matching `fabric-cli` subcommands (FP-03, FP-04)
+- Workspace / resource discovery: `fabric-vibe workspace init`
+- Active workspace + resource IDs: `fabric-vibe workspace switch <displayName>`
+- Notebook / pipeline / lakehouse operations: the matching `fabric-vibe` subcommands (FP-03, FP-04)
 
 ## FP-03: Notebook Authoring
 
 - Author in local `.py` files using `# %%` cell markers
-- Build to `.Notebook` format with `fabric-cli notebook build`
-- Deploy via REST API: `fabric-cli notebook deploy deploy <name> <workspace_id>`
-- Full loop: `fabric-cli notebook smoke-test --notebook <name>` (reads `FABRIC_WORKSPACE_ID` from `.env`)
-- Raw `fab import` and `fab job run` require an interactive Windows console — do not use them in automated or non-interactive environments. Use `fabric-cli notebook deploy` and `fabric-cli notebook smoke-test`.
+- Build to `.Notebook` format with `fabric-vibe notebook build`
+- Deploy via REST API: `fabric-vibe notebook deploy deploy <name> <workspace_id>`
+- Full loop: `fabric-vibe notebook smoke-test --notebook <name>` (reads `FABRIC_WORKSPACE_ID` from `.env`)
+- Raw `fab import` and `fab job run` require an interactive Windows console — do not use them in automated or non-interactive environments. Use `fabric-vibe notebook deploy` and `fabric-vibe notebook smoke-test`.
 - `tags` metadata is stripped by the REST API — do not rely on tags for parameter injection
 - Notebook cells must end with `\n` to prevent visual merge issues
 
 ## FP-04: Debugging Job Runs
 
-Use `fabric-cli notebook deploy monitor` for real-time status polling:
+Use `fabric-vibe notebook deploy monitor` for real-time status polling:
 
 ```bash
-fabric-cli notebook deploy monitor <workspace_id> <item_id> <job_instance_id>
+fabric-vibe notebook deploy monitor <workspace_id> <item_id> <job_instance_id>
 ```
 
 For detailed error traces, open the Fabric portal: Activities → Notebook runs → select the failed run.
