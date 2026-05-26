@@ -18,6 +18,7 @@ import typer
 
 from . import __version__
 from .core.paths import setup_root, tools_root
+from .core.version_check import update_notice
 from .logging_config import setup_logging
 
 app = typer.Typer(
@@ -57,6 +58,10 @@ def _root(
     quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Suppress info logging.")] = False,
 ) -> None:
     setup_logging(verbose=verbose, quiet=quiet)
+    if not quiet:
+        notice = update_notice(__version__)
+        if notice:
+            typer.secho(notice, fg=typer.colors.YELLOW, err=True)
 
 
 def _require_tool_script(rel: Path) -> Path:

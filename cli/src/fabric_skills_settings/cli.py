@@ -18,6 +18,7 @@ from . import __version__
 from .commands import check as check_cmd
 from .commands import install as install_cmd
 from .commands import refresh as refresh_cmd
+from .core.version_check import update_notice
 from .logging_config import setup_logging
 
 
@@ -100,6 +101,10 @@ def _root(
     quiet: QuietOption = False,
 ) -> None:
     setup_logging(verbose=verbose, quiet=quiet)
+    if not quiet:
+        notice = update_notice(__version__)
+        if notice:
+            typer.secho(notice, fg=typer.colors.YELLOW, err=True)
 
 
 @app.command()
