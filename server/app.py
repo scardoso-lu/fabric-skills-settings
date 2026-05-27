@@ -8,18 +8,13 @@ user's laptop as plain CLI commands (Claude invokes them via Bash).
 
 from __future__ import annotations
 
-import base64
+import json
 import os
 import time
-from datetime import datetime, timezone
+import uuid
 from pathlib import Path
 
-from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
-from mcp.server.auth.provider import AccessToken, TokenVerifier
-from mcp.server.auth.settings import AuthSettings
+import jwt  # PyJWT
 from mcp.server.fastmcp import FastMCP
 from starlette.middleware.cors import CORSMiddleware
 
@@ -28,153 +23,34 @@ from .tools.graph import tools as graph_tools
 from .tools.semantic_model import tools as semantic_model_tools
 from .tools.validate import tools as validate_tools
 
-TOKEN_PREFIX = "fvmcp_rsa_"
+_JWT_ALGORITHM = "HS256"
+_JWT_EXPIRY_SECONDS = 3600  # 1 hour
+_LOGIN_PATH = "/auth/login"
+_REFRESH_PATH = "/auth/refresh"
 
 
-def _b64url_decode(value: str) -> bytes:
-    padding_bytes = "=" * (-len(value) % 4)
-    return base64.urlsafe_b64decode((value + padding_bytes).encode("ascii"))
+def _load_api_keys() -> set[str]:
+    """Load valid API keys from FABRIC_MCP_API_KEYS (comma-sep) or FABRIC_MCP_API_KEYS_FILE."""
+    keys: set[str] = set()
+    env_val = os.environ.get("FABRIC_MCP_API_KEYS", "").strip()
+    if env_val:
+        for k in env_val.split(","):
+            k = k.strip()
+            if k:
+                keys.add(k)
+    file_path = os.environ.get("FABRIC_MCP_API_KEYS_FILE", "").strip()
+    if file_path:
+        p = Path(file_path)
+        if p.is_file():
+            for line in p.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    keys.add(line)
+    return keys
 
 
-def _load_public_key(value: str) -> RSAPublicKey:
-    key_text = value.strip()
-    if "BEGIN PUBLIC KEY" in key_text:
-        key_bytes = key_text.replace("\\n", "\n").encode("utf-8")
-        public_key = serialization.load_pem_public_key(key_bytes)
-    else:
-        key_bytes = base64.b64decode(key_text)
-        public_key = serialization.load_der_public_key(key_bytes)
-    if not isinstance(public_key, RSAPublicKey):
-        raise ValueError("public key material must be an RSA public key")
-    return public_key
-
-
-def _normalize_email(value: str) -> str:
-    return value.strip().lower()
-
-
-def claimed_email(token: str) -> str | None:
-    """Return the (unverified) email a token claims, or None if malformed."""
-    if not token.startswith(TOKEN_PREFIX) or "." not in token:
-        return None
-    payload_b64 = token.removeprefix(TOKEN_PREFIX).split(".", 1)[0]
-    try:
-        return _normalize_email(_b64url_decode(payload_b64).decode("utf-8"))
-    except (ValueError, UnicodeDecodeError):
-        return None
-
-
-def verify_signed_email(token: str, public_key: RSAPublicKey) -> str | None:
-    """Return the signed email if the token is a valid signature, else None."""
-    if not token.startswith(TOKEN_PREFIX) or "." not in token:
-        return None
-
-    payload_b64, signature_b64 = token.removeprefix(TOKEN_PREFIX).split(".", 1)
-    try:
-        email = _b64url_decode(payload_b64).decode("utf-8")
-        signature = _b64url_decode(signature_b64)
-    except (ValueError, UnicodeDecodeError):
-        return None
-
-    try:
-        public_key.verify(
-            signature,
-            payload_b64.encode("ascii"),
-            padding.PSS(
-                mgf=padding.MGF1(hashes.SHA256()),
-                salt_length=padding.PSS.MAX_LENGTH,
-            ),
-            hashes.SHA256(),
-        )
-    except InvalidSignature:
-        return None
-    return _normalize_email(email)
-
-
-class SignedEmailTokenVerifier(TokenVerifier):
-    """Authenticate users by an RSA-signed email bound to a per-user key.
-
-    Each user registers one public key under their email. A token is accepted
-    only if it claims email X and is signed by the key registered for X, so no
-    user can impersonate another's email. Each authenticated email is appended
-    to a simple registry file so the admin can see who is using the server.
-    """
-
-    def __init__(
-        self,
-        public_keys: dict[str, RSAPublicKey],
-        emails_file: Path | None = None,
-        cache_ttl_seconds: int = 300,
-    ) -> None:
-        self._public_keys = {_normalize_email(k): v for k, v in public_keys.items()}
-        self._emails_file = emails_file
-        self._cache_ttl_seconds = cache_ttl_seconds
-        self._accepted_tokens: dict[str, tuple[float, str]] = {}
-        self._seen_emails: set[str] = set()
-        self._load_seen_emails()
-
-    async def verify_token(self, token: str) -> AccessToken | None:
-        now = time.monotonic()
-        cached = self._accepted_tokens.get(token)
-        if cached and cached[0] > now:
-            return self._access_token(cached[1])
-
-        email = claimed_email(token)
-        if email is None:
-            return None
-        public_key = self._public_keys.get(email)
-        if public_key is None:
-            return None
-        if verify_signed_email(token, public_key) != email:
-            return None
-
-        self._record_email(email)
-        self._accepted_tokens[token] = (now + self._cache_ttl_seconds, email)
-        return self._access_token(email)
-
-    def _load_seen_emails(self) -> None:
-        if self._emails_file is None or not self._emails_file.exists():
-            return
-        for line in self._emails_file.read_text(encoding="utf-8").splitlines():
-            parts = line.split()
-            if parts:
-                self._seen_emails.add(parts[-1])
-
-    def _record_email(self, email: str) -> None:
-        if email in self._seen_emails:
-            return
-        self._seen_emails.add(email)
-        if self._emails_file is None:
-            return
-        try:
-            self._emails_file.parent.mkdir(parents=True, exist_ok=True)
-            with self._emails_file.open("a", encoding="utf-8") as handle:
-                handle.write(f"{datetime.now(timezone.utc).isoformat()} {email}\n")
-        except OSError:
-            pass
-
-    @staticmethod
-    def _access_token(email: str) -> AccessToken:
-        return AccessToken(token=email, client_id=email, scopes=["mcp"])
-
-
-def _public_key_map() -> dict[str, RSAPublicKey]:
-    """Load a {email: public_key} map from a directory of <email>.pem files."""
-    keys_dir = os.environ.get("FABRIC_MCP_PUBLIC_KEYS_DIR", "").strip()
-    if not keys_dir:
-        return {}
-    directory = Path(keys_dir)
-    if not directory.is_dir():
-        return {}
-    return {
-        _normalize_email(path.stem): _load_public_key(path.read_text(encoding="utf-8"))
-        for path in sorted(directory.glob("*.pem"))
-    }
-
-
-def _emails_file() -> Path | None:
-    configured = os.environ.get("FABRIC_MCP_EMAILS_FILE", "").strip()
-    return Path(configured) if configured else None
+def _jwt_secret() -> str:
+    return os.environ.get("FABRIC_MCP_JWT_SECRET", "").strip()
 
 
 def _resource_server_url() -> str:
@@ -187,34 +63,201 @@ def _resource_server_url() -> str:
     return f"http://{public_host}:{port}"
 
 
+class JtiStore:
+    """Track issued JTIs to prevent replay of revoked or forged tokens."""
+
+    def __init__(self) -> None:
+        self._store: dict[str, float] = {}  # jti -> expiry (unix timestamp)
+
+    def issue(self, jti: str, expiry: float) -> None:
+        self._store[jti] = expiry
+        self._purge()
+
+    def revoke(self, jti: str) -> None:
+        self._store.pop(jti, None)
+
+    def is_valid(self, jti: str) -> bool:
+        exp = self._store.get(jti)
+        return exp is not None and time.time() < exp
+
+    def _purge(self) -> None:
+        now = time.time()
+        stale = [j for j, e in self._store.items() if e <= now]
+        for j in stale:
+            del self._store[j]
+
+
+def _mint_jwt(sub: str, secret: str, jti_store: JtiStore) -> tuple[str, float]:
+    """Return (encoded_jwt, expires_at_unix_timestamp)."""
+    jti = str(uuid.uuid4())
+    now = time.time()
+    expiry = now + _JWT_EXPIRY_SECONDS
+    payload = {
+        "sub": sub,
+        "jti": jti,
+        "iat": now,
+        "exp": expiry,
+        "iss": "fabric-mcp-server",
+    }
+    token = jwt.encode(payload, secret, algorithm=_JWT_ALGORITHM)
+    jti_store.issue(jti, expiry)
+    return token, expiry
+
+
+def _decode_jwt(token: str, secret: str, jti_store: JtiStore) -> dict | None:
+    """Return the verified payload dict, or None if invalid / expired / replayed."""
+    try:
+        payload = jwt.decode(token, secret, algorithms=[_JWT_ALGORITHM])
+    except jwt.PyJWTError:
+        return None
+    jti = payload.get("jti", "")
+    if not jti_store.is_valid(jti):
+        return None
+    return payload
+
+
+async def _read_body(receive, max_bytes: int = 16_384) -> bytes:
+    body = b""
+    while True:
+        event = await receive()
+        if event["type"] == "http.request":
+            body += event.get("body", b"")
+            if len(body) > max_bytes:
+                raise ValueError("request body too large")
+            if not event.get("more_body", False):
+                break
+        elif event["type"] == "http.disconnect":
+            break
+    return body
+
+
+async def _send_json(send, data: dict, status: int) -> None:
+    body = json.dumps(data).encode("utf-8")
+    await send({
+        "type": "http.response.start",
+        "status": status,
+        "headers": [
+            (b"content-type", b"application/json"),
+            (b"content-length", str(len(body)).encode()),
+        ],
+    })
+    await send({"type": "http.response.body", "body": body})
+
+
+class FabricAuthMiddleware:
+    """Pure-ASGI middleware: handles /auth/login, /auth/refresh, and JWT validation.
+
+    All non-auth paths require Authorization: Bearer <jwt>. The JWT is obtained
+    by POSTing {"api_key": "..."} to /auth/login. Refresh via POST /auth/refresh
+    with the current token in the Authorization header — the old JTI is revoked,
+    preventing replay of the superseded token.
+    """
+
+    def __init__(self, app, *, api_keys: set[str], secret: str, jti_store: JtiStore) -> None:
+        self.app = app
+        self._api_keys = api_keys
+        self._secret = secret
+        self._jti_store = jti_store
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+
+        if scope["type"] == "http":
+            path = scope.get("path", "")
+            if path == _LOGIN_PATH:
+                await self._login(receive, send)
+                return
+            if path == _REFRESH_PATH:
+                await self._refresh(scope, receive, send)
+                return
+
+        token = self._extract_token(scope)
+        if not token:
+            if scope["type"] == "http":
+                await _send_json(send, {"error": "missing_token"}, 401)
+            return
+
+        payload = _decode_jwt(token, self._secret, self._jti_store)
+        if payload is None:
+            if scope["type"] == "http":
+                await _send_json(send, {"error": "invalid_token"}, 401)
+            return
+
+        await self.app(scope, receive, send)
+
+    async def _login(self, receive, send) -> None:
+        try:
+            body = await _read_body(receive)
+            data = json.loads(body)
+        except (ValueError, json.JSONDecodeError):
+            await _send_json(send, {"error": "invalid_request"}, 400)
+            return
+        api_key = data.get("api_key", "")
+        if not api_key or api_key not in self._api_keys:
+            await _send_json(send, {"error": "invalid_api_key"}, 401)
+            return
+        token, expiry = _mint_jwt("client", self._secret, self._jti_store)
+        await _send_json(send, {"token": token, "expires_at": expiry, "token_type": "Bearer"}, 200)
+
+    async def _refresh(self, scope, receive, send) -> None:
+        await _read_body(receive)  # consume body to keep ASGI lifecycle clean
+        old_token = self._extract_token(scope)
+        if not old_token:
+            await _send_json(send, {"error": "missing_token"}, 401)
+            return
+        old_payload = _decode_jwt(old_token, self._secret, self._jti_store)
+        if old_payload is None:
+            await _send_json(send, {"error": "invalid_token"}, 401)
+            return
+        self._jti_store.revoke(old_payload["jti"])
+        token, expiry = _mint_jwt(old_payload.get("sub", "client"), self._secret, self._jti_store)
+        await _send_json(send, {"token": token, "expires_at": expiry, "token_type": "Bearer"}, 200)
+
+    @staticmethod
+    def _extract_token(scope) -> str | None:
+        headers = {k.lower(): v for k, v in scope.get("headers", [])}
+        auth = headers.get(b"authorization", b"").decode("utf-8", errors="replace")
+        if auth.startswith("Bearer ") and len(auth) > 7:
+            return auth[7:]
+        return None
+
+
 def build_app():
     """Construct the FastMCP app, register every tool, return the ASGI app.
 
-    When per-user public keys are configured (FABRIC_MCP_PUBLIC_KEYS_DIR holds
-    one <email>.pem per user), FastMCP requires an RSA-signed email token for
-    MCP access. The server stores only public keys; each client keeps its own
-    private key and signs its email, which is accepted only against that user's
-    registered key. Authenticated emails are appended to FABRIC_MCP_EMAILS_FILE.
+    Auth is enabled when FABRIC_MCP_API_KEYS_FILE or FABRIC_MCP_API_KEYS contains
+    at least one valid API key. Clients call POST /auth/login with {"api_key": "..."}
+    to receive a 1-hour JWT. The JWT must be presented as Authorization: Bearer <token>
+    on every subsequent request. Clients refresh via POST /auth/refresh (old JTI is
+    revoked, blocking replay of the superseded token). When no API keys are configured
+    the server accepts all requests — suitable for local single-user dev.
     """
-    public_keys = _public_key_map()
-    auth_settings = None
-    token_verifier = None
-    if public_keys:
-        resource_url = _resource_server_url()
-        auth_settings = AuthSettings(
-            issuer_url=resource_url,
-            resource_server_url=resource_url,
-            required_scopes=["mcp"],
-        )
-        token_verifier = SignedEmailTokenVerifier(public_keys, emails_file=_emails_file())
-
-    mcp = FastMCP("fabric-server", auth=auth_settings, token_verifier=token_verifier)
+    mcp = FastMCP("fabric-server")
     graph_tools.register(mcp)
     semantic_model_tools.register(mcp)
     validate_tools.register(mcp)
     data_tools.register(mcp)
 
     app = mcp.streamable_http_app()
+
+    api_keys = _load_api_keys()
+    if api_keys:
+        secret = _jwt_secret()
+        if not secret:
+            raise RuntimeError(
+                "FABRIC_MCP_JWT_SECRET must be set when API key auth is enabled. "
+                "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+        jti_store = JtiStore()
+        # FabricAuthMiddleware added first (inner); CORSMiddleware added last (outermost).
+        app.add_middleware(
+            FabricAuthMiddleware,
+            api_keys=api_keys,
+            secret=secret,
+            jti_store=jti_store,
+        )
 
     origins_raw = os.environ.get("FABRIC_CORS_ORIGINS", "*").strip()
     allow_origins = [o.strip() for o in origins_raw.split(",") if o.strip()] or ["*"]

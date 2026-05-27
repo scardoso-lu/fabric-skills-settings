@@ -16,10 +16,10 @@
 #   6. Prompts for MCP_SERVER_URL.
 #   7. Writes .mcp.json and patches .codex/config.toml's [mcp_servers.fabric-server]
 #      url (if installed).
-#   8. Runs fabric-vibe auth refresh, which generates an RSA private key (stored
-#      in .env as FABRIC_MCP_API_PRIVATE_KEY), writes the signed MCP token into
-#      the client headers, and prints the public key to share with the MCP
-#      server admin (added to the server's FABRIC_MCP_API_PUBLIC_KEY list).
+#   8. Prompts for FABRIC_MCP_API_KEY (from server admin) and persists it to the
+#      OS user environment (registry). Runs fabric-vibe auth refresh, which calls
+#      /auth/login with the API key, receives a short-lived JWT, and writes it
+#      into the MCP client headers.
 #   9. Verifies SPN auth by calling `fab api workspaces`.
 #  10. Runs fabric-vibe workspace init to populate workspaces.json.
 #  11. Prompts to select the active workspace.
@@ -179,21 +179,27 @@ if ($env:MCP_SERVER_URL) {
     if (-not $mcpServerUrl) { $mcpServerUrl = "http://127.0.0.1:8000" }
 }
 
-# -- MCP identity email ------------------------------------------------------
-# fabric-vibe auth refresh signs this email with the generated private key.
+# -- MCP API key -------------------------------------------------------------
+# The MCP server validates this key and issues a short-lived JWT. fabric-vibe
+# auth refresh reads FABRIC_MCP_API_KEY, calls /auth/login, and injects the JWT
+# into the MCP client headers. The key is persisted to the OS user environment
+# (registry), not to .env, so it is never committed to the repository.
 Write-Host ""
-Write-Host "-- MCP identity email"
-if ($env:FABRIC_MCP_USER_EMAIL) {
-    Write-Host "  FABRIC_MCP_USER_EMAIL already set - keeping $($env:FABRIC_MCP_USER_EMAIL)"
+Write-Host "-- MCP API key"
+if ($env:FABRIC_MCP_API_KEY) {
+    Write-Host "  FABRIC_MCP_API_KEY already set - skipping"
 } else {
-    $userEmail = Read-Host "  Your email (identity for MCP auth)"
-    if (-not $userEmail) { Write-Error "An email is required for MCP auth."; exit 1 }
-    $env:FABRIC_MCP_USER_EMAIL = $userEmail
+    $ss     = Read-Host "  FABRIC_MCP_API_KEY (get from MCP server admin; input hidden)" -AsSecureString
+    $apiKey = [System.Net.NetworkCredential]::new("", $ss).Password
+    if (-not $apiKey) { Write-Error "FABRIC_MCP_API_KEY is required for MCP auth."; exit 1 }
+    [System.Environment]::SetEnvironmentVariable("FABRIC_MCP_API_KEY", $apiKey, "User")
+    $env:FABRIC_MCP_API_KEY = $apiKey
+    $Actions.Add("FABRIC_MCP_API_KEY persisted to OS user environment (registry)")
 }
 
 # -- MCP client config (.mcp.json) -------------------------------------------
-# Write url only; fabric-vibe auth refresh generates the RSA key pair under
-# ~/.fabric-vibecoding and writes the signed token into MCP client headers below.
+# Write url only; fabric-vibe auth refresh calls /auth/login with FABRIC_MCP_API_KEY
+# and writes the returned JWT into the MCP client headers below.
 $McpJson = Join-Path $ProjectRoot ".mcp.json"
 $mcpUrl  = "$($mcpServerUrl.TrimEnd('/'))/mcp"
 $mcpDoc  = [ordered]@{ mcpServers = [ordered]@{ "fabric-server" = [ordered]@{ type = "http"; url = $mcpUrl } } }

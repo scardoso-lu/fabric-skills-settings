@@ -10,7 +10,6 @@ requires-python = ">=3.10"
 readme = "README.md"
 license = { text = "MIT" }
 dependencies = [
-    "cryptography>=42",
     "typer>=0.12",
     "rich>=13.7",
 ]
@@ -20,7 +19,7 @@ fabric-vibecoding-agents = "fabric_skills_settings.cli:app"
 fabric-vibe = "fabric_skills_settings.runtime_cli:app"
 
 [dependency-groups]
-dev = ["pytest>=8", "Faker>=26", "mimesis>=18", "scikit-learn>=1.5", "pandas>=2", "networkx>=3.2", "rank_bm25>=0.2.2"]
+dev = ["pytest>=8", "Faker>=26", "mimesis>=18", "scikit-learn>=1.5", "pandas>=2", "networkx>=3.2", "rank_bm25>=0.2.2", "PyJWT>=2.8", "mcp>=1.0", "uvicorn>=0.30"]
 
 [project.optional-dependencies]
 graph = ["networkx>=3.2", "rank_bm25>=0.2.2"]
@@ -30,6 +29,7 @@ server = [
     "pydantic>=2.7",
     "networkx>=3.2",
     "rank_bm25>=0.2.2",
+    "PyJWT>=2.8",
 ]
 
 [tool.pytest.ini_options]

@@ -14,12 +14,12 @@
 #   4. Prompts for FABRIC_TENANT_ID / CLIENT_ID and writes them to .env.
 #   5. Prompts for FABRIC_CLIENT_SECRET and persists to the user's shell
 #      profile (NOT .env — secrets stay in the OS env).
-#   6. Prompts for MCP_SERVER_URL and the user's email.
+#   6. Prompts for MCP_SERVER_URL and the FABRIC_MCP_API_KEY (from server admin).
+#      The API key is persisted to the shell profile (chmod 600), not .env.
 #   7. Writes .mcp.json and patches .codex/config.toml's [mcp_servers.fabric-server]
 #      url (if installed).
-#   8. Runs fabric-vibe auth refresh, which generates an RSA key pair under
-#      ~/.fabric-vibecoding, signs the email into the MCP client headers, and
-#      prints the public key to share with the MCP server admin.
+#   8. Runs fabric-vibe auth refresh, which calls /auth/login with the API key,
+#      receives a short-lived JWT, and writes it into the MCP client headers.
 #   9. Verifies SPN auth by calling `fab api workspaces`.
 #  10. Runs fabric-vibe workspace init to populate workspaces.json.
 #  11. Prompts to select the active workspace.
@@ -205,21 +205,27 @@ else
   mcp_server_url="${mcp_server_url:-http://127.0.0.1:8000}"
 fi
 
-# ── MCP identity email ────────────────────────────────────────────────────────
-# fabric-vibe auth refresh signs this email with the generated private key.
+# ── MCP API key ───────────────────────────────────────────────────────────────
+# The MCP server validates this key and issues a short-lived JWT. fabric-vibe
+# auth refresh reads FABRIC_MCP_API_KEY, calls /auth/login, and injects the JWT
+# into the MCP client headers. The key is persisted to the shell profile (chmod
+# 600), not to .env, so it is never committed to the repository.
 echo ""
-echo "-- MCP identity email"
-if [[ -n "${FABRIC_MCP_USER_EMAIL:-}" ]]; then
-  echo "  FABRIC_MCP_USER_EMAIL already set — keeping ${FABRIC_MCP_USER_EMAIL}"
+echo "-- MCP API key"
+if [[ -n "${FABRIC_MCP_API_KEY:-}" ]]; then
+  echo "  FABRIC_MCP_API_KEY already set — skipping"
 else
-  read -rp "  Your email (identity for MCP auth): " FABRIC_MCP_USER_EMAIL
-  [[ -z "$FABRIC_MCP_USER_EMAIL" ]] && { echo "An email is required for MCP auth." >&2; exit 1; }
+  read -rsp "  FABRIC_MCP_API_KEY (get from MCP server admin; input hidden): " api_key
+  echo
+  [[ -z "$api_key" ]] && { echo "FABRIC_MCP_API_KEY is required for MCP auth." >&2; exit 1; }
+  export FABRIC_MCP_API_KEY="$api_key"
+  persist_secret "FABRIC_MCP_API_KEY" "$api_key"
+  actions+=("FABRIC_MCP_API_KEY persisted to shell profile (chmod 600)")
 fi
-export FABRIC_MCP_USER_EMAIL
 
 # ── MCP client config (.mcp.json) ─────────────────────────────────────────────
-# Write url only; fabric-vibe auth refresh generates the RSA key pair under
-# ~/.fabric-vibecoding and writes the signed token into MCP client headers below.
+# Write url only; fabric-vibe auth refresh calls /auth/login with FABRIC_MCP_API_KEY
+# and writes the returned JWT into the MCP client headers below.
 MCP_JSON="${PROJECT_ROOT}/.mcp.json"
 mcp_url="${mcp_server_url%/}/mcp"
 cat > "$MCP_JSON" <<EOF

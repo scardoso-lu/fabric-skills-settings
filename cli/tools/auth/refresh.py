@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
-"""Generate an MCP identity key pair and sign the user's email for MCP auth.
+"""Fetch a short-lived JWT from the MCP server using FABRIC_MCP_API_KEY.
 
-The MCP server authenticates users by an RSA-signed email. On first run this
-command generates an unencrypted RSA key pair under ~/.fabric-vibecoding/,
-prompts for the user's email, signs the email with the private key, and writes
-the signed string into the Claude/Codex MCP configuration as the bearer token.
-
-The user shares the printed PUBLIC key with the MCP server admin. The admin
-drops it into the server's public-keys directory; the server then accepts the
-signed email and records the email in its user registry file.
+Saves the JWT into the Claude and Codex MCP client configuration files so
+Claude Code and Codex pick it up on next session load. The token is reused
+until close to expiry, then refreshed automatically. Run `fabric-vibe auth
+refresh` any time you need a fresh token.
 
 Usage:
-    fabric-vibe auth refresh [--email you@example.com]
+    fabric-vibe auth refresh [--server-url https://host:port]
 """
 
 from __future__ import annotations
@@ -21,109 +17,134 @@ import json
 import os
 import re
 import sys
+import time
+import urllib.error
+import urllib.request
+from datetime import datetime
 from pathlib import Path
 
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
-
 ROOT = Path.cwd()
-TOKEN_PREFIX = "fvmcp_rsa_"
-KEY_SIZE = 3072
 
-KEY_DIR = Path.home() / ".fabric-vibecoding"
-PRIVATE_KEY_FILE = KEY_DIR / "fabric-mcp-private-key.pem"
-EMAIL_FILE = KEY_DIR / "email"
+_STATE_DIR = Path.home() / ".fabric-vibecoding"
+_TOKEN_FILE = _STATE_DIR / "mcp-token.json"
+_REFRESH_MARGIN = 300  # refresh when fewer than 5 min remain
 
 
-def _b64url_encode(value: bytes) -> str:
-    return base64.urlsafe_b64encode(value).decode("ascii").rstrip("=")
+# ── JWT expiry helper (no external deps) ─────────────────────────────────────
+
+def _jwt_expiry(token: str) -> float | None:
+    """Extract the exp claim from a JWT payload without verifying the signature."""
+    try:
+        parts = token.split(".")
+        if len(parts) != 3:
+            return None
+        padding = "=" * (-len(parts[1]) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(parts[1] + padding).decode("utf-8"))
+        return float(payload["exp"])
+    except Exception:
+        return None
 
 
-def load_or_create_keypair(key_dir: Path = KEY_DIR) -> tuple[RSAPrivateKey, bool]:
-    """Return (private_key, created). Generate and persist on first run."""
-    private_file = key_dir / PRIVATE_KEY_FILE.name
-    if private_file.exists():
-        key = serialization.load_pem_private_key(private_file.read_bytes(), password=None)
-        if not isinstance(key, RSAPrivateKey):
-            raise SystemExit(f"{private_file} must contain an RSA private key")
-        return key, False
+# ── Persisted token ───────────────────────────────────────────────────────────
 
-    key_dir.mkdir(parents=True, exist_ok=True)
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=KEY_SIZE)
-    private_file.write_bytes(
-        private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption(),
-        )
+def _load_saved_token() -> tuple[str, float] | tuple[None, None]:
+    if not _TOKEN_FILE.exists():
+        return None, None
+    try:
+        data = json.loads(_TOKEN_FILE.read_text(encoding="utf-8"))
+        return data.get("token"), float(data.get("expires_at", 0))
+    except Exception:
+        return None, None
+
+
+def _save_token(token: str, expires_at: float) -> None:
+    _STATE_DIR.mkdir(parents=True, exist_ok=True)
+    _TOKEN_FILE.write_text(
+        json.dumps({"token": token, "expires_at": expires_at}), encoding="utf-8"
     )
     try:
-        os.chmod(private_file, 0o600)
+        os.chmod(_TOKEN_FILE, 0o600)
     except OSError:
         pass
-    return private_key, True
 
 
-def write_public_key_file(key_dir: Path, private_key: RSAPrivateKey, email: str) -> Path:
-    """Write the shareable public key as <email>.pem and return its path."""
-    key_dir.mkdir(parents=True, exist_ok=True)
-    path = key_dir / f"{email}.pem"
-    path.write_text(public_key_pem(private_key), encoding="utf-8")
-    return path
+# ── Server URL resolution ─────────────────────────────────────────────────────
 
-
-def public_key_pem(private_key: RSAPrivateKey) -> str:
-    return private_key.public_key().public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    ).decode("utf-8")
-
-
-def _valid_email(value: str) -> bool:
-    return bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value))
-
-
-def resolve_email(argv: list[str], key_dir: Path = KEY_DIR) -> str:
-    """Resolve the user email from --email, env, saved file, or a prompt."""
-    email = ""
-    if "--email" in argv:
-        idx = argv.index("--email")
+def _resolve_server_url(argv: list[str], root: Path) -> str:
+    """Resolve MCP server base URL from --server-url arg, env, or .mcp.json."""
+    if "--server-url" in argv:
+        idx = argv.index("--server-url")
         if idx + 1 < len(argv):
-            email = argv[idx + 1].strip()
-    if not email:
-        email = os.environ.get("FABRIC_MCP_USER_EMAIL", "").strip()
-    if not email:
-        saved = key_dir / "email"
-        if saved.exists():
-            email = saved.read_text(encoding="utf-8").strip()
-    if not email:
+            return argv[idx + 1].rstrip("/")
+    url = os.environ.get("MCP_SERVER_URL", "").strip().rstrip("/")
+    if url:
+        return url
+    mcp_json = root / ".mcp.json"
+    if mcp_json.exists():
         try:
-            email = input("  Your email (identity for MCP auth): ").strip()
-        except EOFError:
-            email = ""
-    if not _valid_email(email):
-        raise SystemExit(
-            "A valid email is required. Pass --email you@example.com, set "
-            "FABRIC_MCP_USER_EMAIL, or enter one when prompted."
-        )
-    key_dir.mkdir(parents=True, exist_ok=True)
-    (key_dir / "email").write_text(email + "\n", encoding="utf-8")
-    return email
+            doc = json.loads(mcp_json.read_text(encoding="utf-8-sig"))
+            raw = doc.get("mcpServers", {}).get("fabric-server", {}).get("url", "")
+            if raw:
+                return raw.rstrip("/").removesuffix("/mcp")
+        except Exception:
+            pass
+    return "http://127.0.0.1:8000"
 
 
-def sign_email(private_key: RSAPrivateKey, email: str) -> str:
-    payload_b64 = _b64url_encode(email.encode("utf-8"))
-    signature = private_key.sign(
-        payload_b64.encode("ascii"),
-        padding.PSS(
-            mgf=padding.MGF1(hashes.SHA256()),
-            salt_length=padding.PSS.MAX_LENGTH,
-        ),
-        hashes.SHA256(),
+# ── Token fetch / refresh ─────────────────────────────────────────────────────
+
+def _post(url: str, body: bytes, headers: dict[str, str]) -> tuple[int, dict]:
+    req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return resp.status, json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        try:
+            return exc.code, json.loads(exc.read().decode("utf-8"))
+        except Exception:
+            return exc.code, {"error": exc.reason}
+    except Exception as exc:
+        raise SystemExit(f"Cannot reach MCP server at {url}: {exc}") from exc
+
+
+def _fetch_token(server_url: str, api_key: str) -> tuple[str, float]:
+    """POST to /auth/login, return (jwt, expires_at). Exits on failure."""
+    status, body = _post(
+        f"{server_url}/auth/login",
+        json.dumps({"api_key": api_key}).encode("utf-8"),
+        {"Content-Type": "application/json"},
     )
-    return f"{TOKEN_PREFIX}{payload_b64}.{_b64url_encode(signature)}"
+    if status == 404:
+        raise SystemExit(
+            "Server returned 404 for /auth/login — auth may be disabled on this server.\n"
+            "If the server requires authentication, check FABRIC_MCP_API_KEY and MCP_SERVER_URL."
+        )
+    if status != 200:
+        raise SystemExit(f"Login failed ({status}): {body.get('error', body)}")
+    token = body.get("token", "")
+    if not token:
+        raise SystemExit(f"Server returned no token: {body}")
+    expires_at = body.get("expires_at") or _jwt_expiry(token) or (time.time() + 3600)
+    return token, float(expires_at)
 
+
+def _refresh_token(server_url: str, current_token: str) -> tuple[str, float] | tuple[None, None]:
+    """POST to /auth/refresh. Returns (new_token, expires_at) or (None, None) on failure."""
+    status, body = _post(
+        f"{server_url}/auth/refresh",
+        b"",
+        {"Content-Type": "application/json", "Authorization": f"Bearer {current_token}"},
+    )
+    if status != 200:
+        return None, None
+    token = body.get("token", "")
+    if not token:
+        return None, None
+    expires_at = body.get("expires_at") or _jwt_expiry(token) or (time.time() + 3600)
+    return token, float(expires_at)
+
+
+# ── Config injection ──────────────────────────────────────────────────────────
 
 def update_mcp_json(root: Path, token: str) -> None:
     mcp_json = root / ".mcp.json"
@@ -153,7 +174,7 @@ def update_codex_config(root: Path, token: str) -> None:
             text,
             flags=re.MULTILINE | re.DOTALL,
         )
-        if f'Authorization = "Bearer' not in text:
+        if 'Authorization = "Bearer' not in text:
             text = re.sub(
                 r"(\[mcp_servers\.fabric-server\.headers\])",
                 rf"\1\n{auth_line}",
@@ -165,26 +186,50 @@ def update_codex_config(root: Path, token: str) -> None:
     print("  Updated .codex/config.toml")
 
 
+# ── Entry point ───────────────────────────────────────────────────────────────
+
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
 
-    private_key, created = load_or_create_keypair()
-    email = resolve_email(argv)
-    token = sign_email(private_key, email)
+    api_key = os.environ.get("FABRIC_MCP_API_KEY", "").strip()
+    if not api_key:
+        print(
+            "  FABRIC_MCP_API_KEY is not set.\n"
+            "  If your MCP server requires authentication, ask the admin for an API key\n"
+            "  and set it in your shell profile:\n"
+            "    export FABRIC_MCP_API_KEY=<key>\n"
+            "  then re-run: fabric-vibe auth refresh\n"
+            "  If running locally without server auth, no token is needed."
+        )
+        return 0
+
+    server_url = _resolve_server_url(argv, ROOT)
+    token: str | None = None
+    expires_at: float = 0.0
+
+    saved_token, saved_expiry = _load_saved_token()
+    if saved_token and saved_expiry:
+        time_left = saved_expiry - time.time()
+        if time_left > _REFRESH_MARGIN:
+            token, expires_at = saved_token, saved_expiry
+            print(f"  Reusing existing token (expires in {int(time_left // 60)} min)")
+        elif time_left > 0:
+            new_tok, new_exp = _refresh_token(server_url, saved_token)
+            if new_tok:
+                token, expires_at = new_tok, new_exp  # type: ignore[assignment]
+                print("  Token refreshed via /auth/refresh")
+
+    if not token:
+        token, expires_at = _fetch_token(server_url, api_key)
+        print("  New JWT obtained from MCP server")
+
+    _save_token(token, expires_at)
     update_mcp_json(ROOT, token)
     update_codex_config(ROOT, token)
-    public_key_file = write_public_key_file(KEY_DIR, private_key, email)
 
-    print()
-    if created:
-        print(f"Generated a new RSA key pair under {KEY_DIR}.")
-    print(f"Signed identity for {email} written to the MCP client headers.")
-    print("Reload your Claude Code / Codex session to pick up the MCP token.")
-    print()
-    print("Send this public key file to your MCP server admin. Its name is already")
-    print("set to your email, which is how the server links the key to you:")
-    print()
-    print(f"  {public_key_file}")
+    expiry_str = datetime.fromtimestamp(expires_at).strftime("%Y-%m-%d %H:%M:%S")
+    print(f"\nMCP token written to client config. Expires: {expiry_str}")
+    print("Reload your Claude Code / Codex session to pick up the new token.")
     return 0
 
 

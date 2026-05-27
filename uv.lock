@@ -240,7 +240,6 @@ wheels = [
 name = "fabric-vibecoding-settings"
 source = { editable = "." }
 dependencies = [
-    { name = "cryptography" },
     { name = "rich" },
     { name = "typer" },
 ]
@@ -256,6 +255,7 @@ server = [
     { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pydantic" },
+    { name = "pyjwt" },
     { name = "rank-bm25" },
     { name = "uvicorn" },
 ]
@@ -263,24 +263,27 @@ server = [
 [package.dev-dependencies]
 dev = [
     { name = "faker" },
+    { name = "mcp" },
     { name = "mimesis" },
     { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "pandas", version = "3.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pyjwt" },
     { name = "pytest" },
     { name = "rank-bm25" },
     { name = "scikit-learn", version = "1.7.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "scikit-learn", version = "1.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "uvicorn" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "cryptography", specifier = ">=42" },
     { name = "mcp", marker = "extra == 'server'", specifier = ">=1.0" },
     { name = "networkx", marker = "extra == 'graph'", specifier = ">=3.2" },
     { name = "networkx", marker = "extra == 'server'", specifier = ">=3.2" },
     { name = "pydantic", marker = "extra == 'server'", specifier = ">=2.7" },
+    { name = "pyjwt", marker = "extra == 'server'", specifier = ">=2.8" },
     { name = "rank-bm25", marker = "extra == 'graph'", specifier = ">=0.2.2" },
     { name = "rank-bm25", marker = "extra == 'server'", specifier = ">=0.2.2" },
     { name = "rich", specifier = ">=13.7" },
@@ -292,12 +295,15 @@ provides-extras = ["graph", "server"]
 [package.metadata.requires-dev]
 dev = [
     { name = "faker", specifier = ">=26" },
+    { name = "mcp", specifier = ">=1.0" },
     { name = "mimesis", specifier = ">=18" },
     { name = "networkx", specifier = ">=3.2" },
     { name = "pandas", specifier = ">=2" },
+    { name = "pyjwt", specifier = ">=2.8" },
     { name = "pytest", specifier = ">=8" },
     { name = "rank-bm25", specifier = ">=0.2.2" },
     { name = "scikit-learn", specifier = ">=1.5" },
+    { name = "uvicorn", specifier = ">=0.30" },
 ]
 
 [[package]]

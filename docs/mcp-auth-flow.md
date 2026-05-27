@@ -1,94 +1,122 @@
 # MCP auth flow
 
-The `fabric-server` FastMCP server uses **RSA-signed email tokens** for MCP access. Auth is opt-in: if `FABRIC_MCP_PUBLIC_KEYS_DIR` is not set the server accepts unauthenticated requests, falling back to host-only port protection.
+The `fabric-server` FastMCP server uses **API-key + JWT** authentication. Auth is opt-in: if neither `FABRIC_MCP_API_KEYS_FILE` nor `FABRIC_MCP_API_KEYS` is set, the server accepts unauthenticated requests (local single-user dev mode).
 
 ## Overview
 
 ```
 Client (user's laptop)                   Server (Docker 127.0.0.1:8000)
 ─────────────────────                    ───────────────────────────────
-~/.fabric-vibecoding/
-  fabric-mcp-private-key.pem  ──signs──► bearer token in .mcp.json
-  <email>.pem ─────────────────────────► server/keys/<email>.pem (admin deploys)
-                                              │
-                                         SignedEmailTokenVerifier
-                                              │  verify RSA-PSS signature
-                                              │  email from token must match key
-                                              ▼
-                                         /data/authenticated-emails.txt (audit)
+FABRIC_MCP_API_KEY                       config/api-keys.txt
+  (from shell profile)                     (admin-managed list)
+        │                                        │
+        ▼                                        ▼
+POST /auth/login ──{"api_key": "..."} ──► validate key
+        ◄── {"token": "<jwt>", ...} ─────── mint JWT (1 h, signed HS256)
+        │                                   JtiStore: record jti
+        ▼
+Bearer <jwt> injected into
+  .mcp.json + .codex/config.toml
+        │
+        ▼
+MCP request ──► FabricAuthMiddleware
+                  verify signature
+                  check exp (PyJWT)
+                  check jti in JtiStore
+                        ▼
+                  tool executed
 ```
 
-## Token format
+## Token lifecycle
 
-```
-fvmcp_rsa_<email_b64url>.<signature_b64url>
+| Step | Client | Server |
+|---|---|---|
+| **Login** | POST `/auth/login` with `{"api_key": "..."}` | Validates key, mints JWT, records jti |
+| **Request** | `Authorization: Bearer <jwt>` | Checks signature, `exp`, jti in JtiStore |
+| **Refresh** | POST `/auth/refresh` with current Bearer token | Revokes old jti, mints new JWT |
+| **Expiry** | Automatic via `fabric-vibe auth refresh` | Purges stale JTIs on next issue |
+
+## JWT claims
+
+```json
+{
+  "sub": "client",
+  "jti": "<uuid4>",
+  "iat": 1234567890,
+  "exp": 1234571490,
+  "iss": "fabric-mcp-server"
+}
 ```
 
-- `fvmcp_rsa_` — fixed prefix
-- `<email_b64url>` — URL-safe base64 (no padding) of the raw email string
-- `<signature_b64url>` — URL-safe base64 (no padding) of the RSA-PSS SHA-256 signature over the b64url-encoded email bytes
+Signed with HS256 using `FABRIC_MCP_JWT_SECRET`. Expiry: **1 hour**.
 
 ## Client side — `fabric-vibe auth refresh`
 
-Driven by `cli/tools/auth/refresh.py`, called by `setup.sh` / `setup.ps1` at bootstrap and re-runnable at any time.
+Driven by `cli/tools/auth/refresh.py`. Called by `setup.sh` / `setup.ps1` at bootstrap and re-runnable at any time.
 
 ```mermaid
 sequenceDiagram
     participant User
     participant CLI as fabric-vibe auth refresh
-    participant FS as ~/.fabric-vibecoding/
+    participant FS as ~/.fabric-vibecoding/mcp-token.json
     participant CFG as .mcp.json / .codex/config.toml
+    participant Srv as MCP server /auth/*
 
-    User->>CLI: fabric-vibe auth refresh [--email you@example.com]
-    CLI->>FS: load fabric-mcp-private-key.pem (or generate 3072-bit RSA key pair)
-    FS-->>CLI: RSAPrivateKey
-    CLI->>CLI: resolve email (--email flag → FABRIC_MCP_USER_EMAIL → saved file → prompt)
-    CLI->>CLI: sign email with RSA-PSS SHA-256 → fvmcp_rsa_<email_b64>.<sig_b64>
-    CLI->>FS: write <email>.pem (public key, shareable)
-    CLI->>CFG: patch .mcp.json headers.Authorization = "Bearer <token>"
-    CLI->>CFG: patch .codex/config.toml [mcp_servers.fabric-server] headers.Authorization
-    CLI-->>User: print path to <email>.pem → share with MCP server admin
+    User->>CLI: fabric-vibe auth refresh
+    CLI->>CLI: read FABRIC_MCP_API_KEY from env
+    CLI->>FS: load saved token (if any)
+    alt token still fresh (>5 min remaining)
+        FS-->>CLI: token
+        CLI->>CFG: patch Authorization header
+    else token expiring soon
+        CLI->>Srv: POST /auth/refresh (Bearer <old_token>)
+        Srv-->>CLI: new JWT (old JTI revoked)
+        CLI->>FS: save new token
+        CLI->>CFG: patch Authorization header
+    else no saved token / refresh failed
+        CLI->>Srv: POST /auth/login (api_key)
+        Srv-->>CLI: new JWT
+        CLI->>FS: save token
+        CLI->>CFG: patch Authorization header
+    end
 ```
 
-Key files written (all under `~/.fabric-vibecoding/`):
+## Server side — `FabricAuthMiddleware`
 
-| File | Contents | Who sees it |
-|---|---|---|
-| `fabric-mcp-private-key.pem` | 3072-bit RSA private key, PKCS8, unencrypted, `chmod 600` | Never leaves the user's machine |
-| `<email>.pem` | Matching RSA public key, SubjectPublicKeyInfo PEM | Sent to MCP server admin |
-
-The token is re-generated on every run of `auth refresh`. The private key is reused across refreshes.
-
-## Server side — `SignedEmailTokenVerifier`
-
-Implemented in `server/app.py`. Auth is wired into FastMCP's `TokenVerifier` interface.
+Implemented in `server/app.py` as a pure ASGI middleware wrapping the FastMCP app.
 
 ```mermaid
 sequenceDiagram
     participant Agent as Claude Code / Codex
-    participant Server as fabric-server
-    participant Verifier as SignedEmailTokenVerifier
-    participant Keys as FABRIC_MCP_PUBLIC_KEYS_DIR/
+    participant CORS as CORSMiddleware (outer)
+    participant Auth as FabricAuthMiddleware (inner)
+    participant MCP as FastMCP app
 
-    Agent->>Server: POST /mcp  Authorization: Bearer fvmcp_rsa_<email_b64>.<sig_b64>
-    Server->>Verifier: verify_token(token)
-    Verifier->>Verifier: parse token → claimed email
-    Verifier->>Keys: load <email>.pem (cached in memory)
-    Verifier->>Verifier: RSA-PSS verify signature against payload_b64 bytes
-    alt signature valid + email matches registered key
-        Verifier-->>Server: AccessToken(token=email, scopes=["mcp"])
-        Server-->>Agent: tool result
-        Verifier->>Verifier: append "timestamp email" to FABRIC_MCP_EMAILS_FILE
-    else invalid token or unknown email
-        Server-->>Agent: 401 Unauthorized
+    Agent->>CORS: POST /mcp  Authorization: Bearer <jwt>
+    CORS->>Auth: forward
+    Auth->>Auth: extract Bearer token
+    Auth->>Auth: jwt.decode (signature + exp)
+    Auth->>Auth: JtiStore.is_valid(jti)
+    alt valid token
+        Auth->>MCP: forward request
+        MCP-->>Agent: tool result
+    else invalid / expired / replayed
+        Auth-->>Agent: 401 {"error": "invalid_token"}
     end
 ```
 
-### Key validation rules
+### Replay prevention
 
-- The token claims email X; the server looks up the public key **registered under email X specifically** — a token signed by user B's key cannot impersonate user A's email.
-- Accepted tokens are cached for 300 seconds (TTL) to avoid re-verifying on every tool call.
-- Auth is **disabled entirely** when `FABRIC_MCP_PUBLIC_KEYS_DIR` is unset or empty — the server accepts all requests (local dev / single-user setups).
+Each JWT contains a unique `jti` (UUID4). The `JtiStore` tracks all issued JTIs with their expiry timestamps:
+
+- **Login / Refresh**: new jti added to JtiStore
+- **Refresh**: old jti immediately revoked — a captured old token can no longer be replayed
+- **Expiry**: stale JTIs purged lazily on the next `issue()` call
+- **Forged tokens**: unknown jti → rejected even if signature were somehow valid
+
+### Auth opt-out
+
+Auth is **disabled entirely** when `FABRIC_MCP_API_KEYS_FILE` is unset and `FABRIC_MCP_API_KEYS` is empty — the `FabricAuthMiddleware` is not added to the app, and `/auth/login` returns 404.
 
 ## Server configuration
 
@@ -99,44 +127,46 @@ services:
   server:
     environment:
       MCP_SERVER_URL: ${MCP_SERVER_URL:-http://127.0.0.1:8000}
-      FABRIC_MCP_PUBLIC_KEYS_DIR: /keys
-      FABRIC_MCP_EMAILS_FILE: /data/authenticated-emails.txt
+      FABRIC_MCP_API_KEYS_FILE: /config/api-keys.txt
+      FABRIC_MCP_JWT_SECRET: ${FABRIC_MCP_JWT_SECRET}
     volumes:
-      - ./keys:/keys:ro     # one <email>.pem per authorised user
-      - ./data:/data        # audit log persisted on host
+      - ./config/api-keys.txt:/config/api-keys.txt:ro  # admin-managed
+      - ./data:/data
     ports:
       - "127.0.0.1:8000:8000"
 ```
-
-The `./keys/` directory on the host is where the admin drops the PEM files sent by users after running `fabric-vibe auth refresh`. No server restart is needed — the key map is re-read on startup; to add a new user, restart the container after adding the file.
 
 ### Environment variables
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `FABRIC_MCP_PUBLIC_KEYS_DIR` | _(unset)_ | Path to directory of `<email>.pem` files. Auth disabled when unset. |
-| `FABRIC_MCP_EMAILS_FILE` | _(unset)_ | Append-only audit log of authenticated emails. Skipped when unset. |
-| `MCP_SERVER_URL` | derived from `HOST`+`PORT` | Used as the OAuth resource server URL in `AuthSettings`. |
+| `FABRIC_MCP_API_KEYS_FILE` | _(unset)_ | Path to file with one API key per line. Auth enabled when set. |
+| `FABRIC_MCP_API_KEYS` | _(unset)_ | Comma-separated API keys (alternative to file). |
+| `FABRIC_MCP_JWT_SECRET` | _(required when auth enabled)_ | HS256 signing secret. Generate: `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `MCP_SERVER_URL` | derived from `HOST`+`PORT` | Informational — returned in auth responses. |
 | `FABRIC_CORS_ORIGINS` | `*` | Comma-separated allowed CORS origins. Tighten for non-local deployments. |
+
+### Admin API key management
+
+Create `server/config/api-keys.txt` on the host. One key per line. Lines starting with `#` are comments:
+
+```
+# Fabric MCP API keys — one per line, one per user
+user-alice-abc123def456
+user-bob-789xyz...
+```
+
+Give each user their key. They set `FABRIC_MCP_API_KEY=<key>` in their shell profile (setup script handles this). Restart the container after adding or removing keys.
 
 ## Setup flow (end to end)
 
-`setup.sh` / `setup.ps1` runs `fabric-vibe auth refresh` as the final step before workspace init:
+`setup.sh` / `setup.ps1` runs `fabric-vibe auth refresh` as part of the MCP token step:
 
-1. Prompt for `FABRIC_MCP_USER_EMAIL`
+1. Prompt for `FABRIC_MCP_API_KEY` (secret, persisted to shell profile / OS registry, **not** `.env`)
 2. Write `.mcp.json` with the MCP URL (no auth header yet)
-3. Call `fabric-vibe auth refresh --email <email>`
-   - generates / loads RSA key pair
-   - signs email → bearer token
+3. Call `fabric-vibe auth refresh`
+   - reads `FABRIC_MCP_API_KEY` from env
+   - POST `/auth/login` → receives JWT
+   - saves JWT to `~/.fabric-vibecoding/mcp-token.json`
    - patches `.mcp.json` and `.codex/config.toml` with `Authorization: Bearer <token>`
-   - prints path to `~/.fabric-vibecoding/<email>.pem`
-4. User sends the PEM file to the MCP server admin
-5. Admin drops it into `server/keys/` and restarts the container
-
-## Audit logging
-
-Every tool call is logged as a structured JSON line by `server/audit.py`. Argument values are never logged raw — only a SHA-256 (first 16 chars) hash. Separately, every newly authenticated email is appended to `FABRIC_MCP_EMAILS_FILE`:
-
-```
-2026-05-27T20:00:00+00:00 you@example.com
-```
+4. User is ready to run Claude Code / Codex against the MCP server

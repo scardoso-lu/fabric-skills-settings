@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import time
 from pathlib import Path
 
 import pytest
-
 
 ROOT = Path(__file__).resolve().parents[1]
 AUTH_REFRESH = ROOT / "cli" / "tools" / "auth" / "refresh.py"
@@ -19,72 +19,118 @@ def _load_auth_refresh():
     return module
 
 
-def test_keypair_generated_under_home_and_reused(tmp_path):
+# ── JWT expiry helper ─────────────────────────────────────────────────────────
+
+def test_jwt_expiry_decoded_from_token():
+    import base64
     mod = _load_auth_refresh()
-    key_dir = tmp_path / ".fabric-vibecoding"
-
-    first_key, created_first = mod.load_or_create_keypair(key_dir)
-    assert created_first is True
-    assert (key_dir / "fabric-mcp-private-key.pem").exists()
-
-    second_key, created_second = mod.load_or_create_keypair(key_dir)
-    assert created_second is False
-    assert mod.public_key_pem(second_key) == mod.public_key_pem(first_key)
+    future = time.time() + 3600
+    payload_json = json.dumps({"exp": future, "sub": "x"}).encode()
+    b64 = base64.urlsafe_b64encode(payload_json).decode().rstrip("=")
+    fake_token = f"header.{b64}.signature"
+    result = mod._jwt_expiry(fake_token)
+    assert result is not None
+    assert abs(result - future) < 1
 
 
-def test_public_key_written_as_email_named_file(tmp_path):
+def test_jwt_expiry_returns_none_for_invalid():
     mod = _load_auth_refresh()
-    key_dir = tmp_path / ".fabric-vibecoding"
-    private_key, _ = mod.load_or_create_keypair(key_dir)
-
-    path = mod.write_public_key_file(key_dir, private_key, "alice@example.com")
-    assert path == key_dir / "alice@example.com.pem"
-    assert path.read_text(encoding="utf-8").startswith("-----BEGIN PUBLIC KEY-----")
+    assert mod._jwt_expiry("not.a.token") is None
+    assert mod._jwt_expiry("onlyone") is None
 
 
-def test_resolve_email_prefers_arg_then_persists(tmp_path, monkeypatch):
+# ── Token persistence ─────────────────────────────────────────────────────────
+
+def test_save_and_load_token(tmp_path, monkeypatch):
     mod = _load_auth_refresh()
-    monkeypatch.delenv("FABRIC_MCP_USER_EMAIL", raising=False)
-    key_dir = tmp_path / ".fabric-vibecoding"
+    monkeypatch.setattr(mod, "_STATE_DIR", tmp_path / ".fabric-vibecoding")
+    monkeypatch.setattr(mod, "_TOKEN_FILE", tmp_path / ".fabric-vibecoding" / "mcp-token.json")
 
-    email = mod.resolve_email(["--email", "alice@example.com"], key_dir)
-    assert email == "alice@example.com"
-    assert (key_dir / "email").read_text(encoding="utf-8").strip() == "alice@example.com"
-
-    # Saved email is reused when no arg/env is provided.
-    assert mod.resolve_email([], key_dir) == "alice@example.com"
+    mod._save_token("my-jwt-token", 9999999.0)
+    saved_token, saved_expiry = mod._load_saved_token()
+    assert saved_token == "my-jwt-token"
+    assert saved_expiry == 9999999.0
 
 
-def test_resolve_email_rejects_invalid(tmp_path, monkeypatch):
+def test_load_token_returns_none_when_no_file(tmp_path, monkeypatch):
     mod = _load_auth_refresh()
-    monkeypatch.delenv("FABRIC_MCP_USER_EMAIL", raising=False)
-    with pytest.raises(SystemExit, match="valid email"):
-        mod.resolve_email(["--email", "not-an-email"], tmp_path / ".fabric-vibecoding")
+    monkeypatch.setattr(mod, "_TOKEN_FILE", tmp_path / "nonexistent.json")
+    token, expiry = mod._load_saved_token()
+    assert token is None
+    assert expiry is None
 
 
-def test_sign_email_hydrates_mcp_configs(tmp_path):
+# ── Server URL resolution ─────────────────────────────────────────────────────
+
+def test_resolve_server_url_from_mcp_json(tmp_path):
     mod = _load_auth_refresh()
-    key_dir = tmp_path / ".fabric-vibecoding"
-    private_key, _ = mod.load_or_create_keypair(key_dir)
-    token = mod.sign_email(private_key, "alice@example.com")
-    assert token.startswith("fvmcp_rsa_")
+    (tmp_path / ".mcp.json").write_text(
+        json.dumps({"mcpServers": {"fabric-server": {"type": "http", "url": "http://host:9000/mcp"}}}),
+        encoding="utf-8",
+    )
+    url = mod._resolve_server_url([], tmp_path)
+    assert url == "http://host:9000"
 
-    root = tmp_path / "repo"
-    (root / ".codex").mkdir(parents=True)
-    (root / ".mcp.json").write_text(
+
+def test_resolve_server_url_from_arg(tmp_path):
+    mod = _load_auth_refresh()
+    url = mod._resolve_server_url(["--server-url", "https://myserver.example.com"], tmp_path)
+    assert url == "https://myserver.example.com"
+
+
+def test_resolve_server_url_default_fallback(tmp_path):
+    mod = _load_auth_refresh()
+    url = mod._resolve_server_url([], tmp_path)
+    assert url == "http://127.0.0.1:8000"
+
+
+# ── Config injection ──────────────────────────────────────────────────────────
+
+def test_update_mcp_json_injects_bearer_token(tmp_path):
+    mod = _load_auth_refresh()
+    token = "my.jwt.token"
+    (tmp_path / ".mcp.json").write_text(
         json.dumps({"mcpServers": {"fabric-server": {"type": "http", "url": "http://x/mcp"}}}),
         encoding="utf-8",
     )
-    (root / ".codex" / "config.toml").write_text(
+    mod.update_mcp_json(tmp_path, token)
+    doc = json.loads((tmp_path / ".mcp.json").read_text(encoding="utf-8"))
+    assert doc["mcpServers"]["fabric-server"]["headers"]["Authorization"] == f"Bearer {token}"
+
+
+def test_update_codex_config_injects_bearer_token(tmp_path):
+    mod = _load_auth_refresh()
+    token = "my.jwt.token"
+    (tmp_path / ".codex").mkdir()
+    (tmp_path / ".codex" / "config.toml").write_text(
         '[mcp_servers.fabric-server]\nurl = "http://x/mcp"\n',
         encoding="utf-8",
     )
+    mod.update_codex_config(tmp_path, token)
+    text = (tmp_path / ".codex" / "config.toml").read_text(encoding="utf-8")
+    assert "[mcp_servers.fabric-server.headers]" in text
+    assert f'Authorization = "Bearer {token}"' in text
 
-    mod.update_mcp_json(root, token)
-    mod.update_codex_config(root, token)
 
-    mcp_doc = json.loads((root / ".mcp.json").read_text(encoding="utf-8"))
-    assert mcp_doc["mcpServers"]["fabric-server"]["headers"]["Authorization"] == f"Bearer {token}"
-    codex_config = (root / ".codex" / "config.toml").read_text(encoding="utf-8")
-    assert "[mcp_servers.fabric-server.headers]" in codex_config
-    assert f'Authorization = "Bearer {token}"' in codex_config
+def test_update_codex_config_replaces_existing_token(tmp_path):
+    mod = _load_auth_refresh()
+    (tmp_path / ".codex").mkdir()
+    (tmp_path / ".codex" / "config.toml").write_text(
+        '[mcp_servers.fabric-server.headers]\nAuthorization = "Bearer old.token.here"\n',
+        encoding="utf-8",
+    )
+    mod.update_codex_config(tmp_path, "new.jwt.token")
+    text = (tmp_path / ".codex" / "config.toml").read_text(encoding="utf-8")
+    assert 'Authorization = "Bearer new.jwt.token"' in text
+    assert "old.token.here" not in text
+
+
+# ── main: skips gracefully when API key not set ───────────────────────────────
+
+def test_main_exits_cleanly_when_no_api_key(monkeypatch, capsys):
+    mod = _load_auth_refresh()
+    monkeypatch.delenv("FABRIC_MCP_API_KEY", raising=False)
+    result = mod.main([])
+    assert result == 0
+    captured = capsys.readouterr()
+    assert "FABRIC_MCP_API_KEY" in captured.out

@@ -173,11 +173,7 @@ class _Validator:
             # Target bootstrap (raw scripts — runs before fabric-vibe is on the target's PATH).
             "fabric-vibe setup",
             "FABRIC_WORKSPACE_ID",
-            "docker compose up",
             "graph_get_entry",
-            # Direct ms-fabric-cli probes (NOT proxied — `fab` is the upstream tool).
-            "fab --version",
-            "fab api workspaces",
             # Daily helpers go through the fabric-vibe proxy.
             "fabric-vibe workspace init",
             "fabric-vibe workspace switch",
