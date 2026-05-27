@@ -137,9 +137,9 @@ This binds the server to `127.0.0.1:8000`, so it is reachable from your machine 
 
 ## Learn more
 
-- [docs/workflow.md](docs/workflow.md) — agent → skill → tool → Fabric flow, focused on what you get in the target repo.
-- [docs/knowledge-graph.md](docs/knowledge-graph.md) — what's indexed under `memory/` and the `graph_*` MCP surface the agents call.
-- [docs/architecture.md](docs/architecture.md) — full source-vs-target picture: MCP servers, folder layout, setup CLI, and the redesign migration notes.
+- [docs/architecture.md](docs/architecture.md) — components, install flow, agents, MCP tools, Bash helpers, and folder layout.
+- [docs/mcp-auth-flow.md](docs/mcp-auth-flow.md) — how `.mcp.json` is written, the host-only auth model, CORS, and audit logging.
+- [docs/networkx-flow.md](docs/networkx-flow.md) — knowledge-graph build, BM25 + 1-hop re-rank, and the atomic write path.
 
 
 ## Example result
