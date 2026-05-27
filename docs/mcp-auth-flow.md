@@ -10,7 +10,7 @@ Auth is opt-in: when `FABRIC_MCP_PUBLIC_KEYS_DIR` is unset the server accepts al
 Client (user's laptop)                    Server (Docker 127.0.0.1:8000)
 ──────────────────────                    ───────────────────────────────
 ~/.fabric-vibecoding/
-  fabric-mcp-private-key.pem  ──signs──►  Bearer fvmcp_rsa_<email_b64>.<sig_b64>
+  fabric-mcp-private-key.pem  ──signs──►  signed string in .mcp.json / config.toml
   <email>.pem  ──────────────────────────► server/keys/<email>.pem  (admin deploys)
                                                │
                                           verify RSA-PSS signature:
@@ -20,7 +20,7 @@ Client (user's laptop)                    Server (Docker 127.0.0.1:8000)
                                           /data/authenticated-emails.txt (audit)
 ```
 
-## Bearer credential format
+## Signed credential format
 
 ```
 fvmcp_rsa_<email_b64url>.<signature_b64url>
@@ -31,6 +31,8 @@ fvmcp_rsa_<email_b64url>.<signature_b64url>
 - `<signature_b64url>` — URL-safe base64 (no padding) of the RSA-PSS SHA-256 signature over `<email_b64url>` (i.e. the ASCII bytes of the already-encoded email)
 
 This is a **custom format**, not a JWT. The server never decodes a header or validates expiry — it only checks whether the signature is valid for the public key registered under the claimed email.
+
+The signed string is stored **as-is** in the MCP client configs — no `Bearer` wrapper needed.
 
 ## Client side — `fabric-vibe auth refresh`
 
@@ -49,9 +51,9 @@ sequenceDiagram
     CLI->>CLI: resolve email (--email flag → FABRIC_MCP_USER_EMAIL → saved file → prompt)
     CLI->>CLI: sign email_b64url with RSA-PSS SHA-256 → fvmcp_rsa_<email_b64>.<sig_b64>
     CLI->>FS: write <email>.pem (public key — share with server admin)
-    CLI->>CFG: write .mcp.json headers.Authorization = "Bearer fvmcp_rsa_..."
-    CLI->>CFG: patch .codex/config.toml [mcp_servers.fabric-server] headers.Authorization
-    CLI-->>User: print path to ~./fabric-vibecoding/<email>.pem
+    CLI->>CFG: write signed string into .mcp.json headers
+    CLI->>CFG: write signed string into .codex/config.toml [mcp_servers.fabric-server.headers]
+    CLI-->>User: print path to ~/.fabric-vibecoding/<email>.pem
 ```
 
 Key files written (all under `~/.fabric-vibecoding/`):
@@ -62,6 +64,34 @@ Key files written (all under `~/.fabric-vibecoding/`):
 | `<email>.pem` | Matching RSA public key, SubjectPublicKeyInfo PEM | No — send to server admin |
 
 The signed credential is re-generated on every `auth refresh` run. The private key is reused across refreshes unless deleted manually.
+
+### What goes into the MCP configs
+
+`.mcp.json` (Claude Code):
+```json
+{
+  "mcpServers": {
+    "fabric-server": {
+      "type": "http",
+      "url": "http://127.0.0.1:8000/mcp",
+      "headers": {
+        "Authorization": "fvmcp_rsa_<email_b64>.<sig_b64>"
+      }
+    }
+  }
+}
+```
+
+`.codex/config.toml` (Codex):
+```toml
+[mcp_servers.fabric-server]
+url = "http://127.0.0.1:8000/mcp"
+
+[mcp_servers.fabric-server.headers]
+Authorization = "fvmcp_rsa_<email_b64>.<sig_b64>"
+```
+
+No `Bearer` prefix — the `fvmcp_rsa_` prefix is itself the scheme identifier. The server checks for it directly.
 
 ## Server side — `SignedEmailTokenVerifier`
 
@@ -74,7 +104,7 @@ sequenceDiagram
     participant Verifier as SignedEmailTokenVerifier
     participant Keys as FABRIC_MCP_PUBLIC_KEYS_DIR/
 
-    Agent->>Server: POST /mcp  Authorization: Bearer fvmcp_rsa_<email_b64>.<sig_b64>
+    Agent->>Server: POST /mcp  Authorization: fvmcp_rsa_<email_b64>.<sig_b64>
     Server->>Verifier: verify_token(credential)
     Verifier->>Verifier: decode email from <email_b64>
     Verifier->>Keys: load <email>.pem for that email
@@ -131,7 +161,7 @@ services:
 2. Write `.mcp.json` with the MCP URL (no auth header yet)
 3. Call `fabric-vibe auth refresh --email <email>`
    - generates / loads RSA key pair under `~/.fabric-vibecoding/`
-   - signs the email, writes the `Authorization: Bearer …` header into `.mcp.json` and `.codex/config.toml`
+   - signs the email, writes the signed string into the `Authorization` header field in `.mcp.json` and `.codex/config.toml` (no `Bearer` prefix)
    - prints the path to `~/.fabric-vibecoding/<email>.pem`
 4. User sends the PEM file to the MCP server admin
 5. Admin places it in `server/keys/` and restarts the container
