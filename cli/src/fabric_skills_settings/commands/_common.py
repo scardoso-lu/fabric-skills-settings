@@ -16,8 +16,8 @@ from ..core.profiles import (
 )
 
 
-def resolve_target(target: str, allow_package_dir: bool = False) -> Path:
-    path = Path(target).expanduser().resolve()
+def resolve_target(target: str | None, allow_package_dir: bool = False) -> Path:
+    path = Path(target).expanduser().resolve() if target else Path.cwd()
     if not path.exists() or not path.is_dir():
         raise SystemExit(f"Target does not exist or is not a directory: {path}")
     if not _is_git_repo(path):

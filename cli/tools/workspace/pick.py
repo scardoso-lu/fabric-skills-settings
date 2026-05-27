@@ -25,9 +25,17 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path.cwd()
 REGISTRY = ROOT / "workspaces.json"
-SWITCH = ROOT / "tool" / "workspace" / "switch.py"
+
+# Locate switch.py via the installed package's tools_root() so this works
+# whether invoked from the installed wheel or directly from the target repo.
+try:
+    from fabric_skills_settings.core.paths import tools_root as _tools_root
+    SWITCH = _tools_root() / "workspace" / "switch.py"
+except ImportError:
+    # Running directly from target repo's tool/ directory
+    SWITCH = Path(__file__).resolve().parent / "switch.py"
 
 
 def main() -> int:

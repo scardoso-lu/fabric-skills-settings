@@ -1,222 +1,164 @@
 # Architecture
 
-Fabric Agent Pack installs two MCP servers into every target repository. Together they give Claude Code and Codex a structured way to discover project knowledge and act against a Microsoft Fabric workspace.
+Fabric Agent Pack installs agent profiles (Claude Code and Codex) into a target repository and provides a shared FastMCP knowledge-graph server. There is **one** MCP server: `fabric-server`, running in Docker. Fabric CLI–dependent helpers (`fab`, notebook, pipeline, workspace) are plain Python scripts invoked via Bash from the user's laptop through the `fabric-vibe` proxy CLI.
 
-| Server | Role | Module |
+## Components
+
+| Component | What it is | Where it runs |
 |---|---|---|
-| `fabric` | Wraps the Fabric CLI: list/get items, authenticated REST API calls. | `mcp/server.py` |
-| `fabric-graph` | RAG knowledge graph: BM25 + 1-hop edge-aware read tools and full CRUD over nodes and edges. | `mcp/graph-server.py` |
+| `fabric-vibecoding-agents` | Typer CLI — `install` / `check` / `refresh` profiles into a target repo | User's laptop |
+| `fabric-vibe` | Typer proxy — dispatches `notebook`, `pipeline`, `lakehouse`, `workspace`, `lint`, `precommit`, `setup` to packaged helpers | User's laptop |
+| `fabric-server` | FastMCP HTTP server — graph, validate, data, semantic-model tools | Docker container (port 8000) |
+| Agents (4) | `orchestrator`, `developer`, `tester`, `operator` — native subagents installed under `.claude/agents/` and `.codex/agents/` | Claude Code / Codex |
+| `.mcp.json` | Points Claude/Codex at `<MCP_SERVER_URL>/mcp` — written by `setup.sh` / `setup.ps1` at bootstrap time | Target repo root |
 
-The installed `CLAUDE.md` / `AGENTS.md` entrypoints are minimal (~30 lines). They tell the agent to call `graph_get_entry` first and then traverse the graph; all operational knowledge — setup gate, session-start order, workflow steps, skills, tools, rules — is encoded as graph nodes, not as static markdown for the agent to read directly.
+## High-level flow
 
 ```mermaid
 flowchart TD
-    CC["Claude Code"]
+    H([Human])
 
-    subgraph Agents["Agents (sub-agents)"]
-        ORC["Orchestrator"]
-        DEV["Developer"]
-        TST["Tester"]
-        OPS["Operator"]
+    subgraph Laptop["User's laptop"]
+        CC["Claude Code / Codex"]
+        subgraph Agents["Native subagents"]
+            ORC["orchestrator"]
+            DEV["developer"]
+            TST["tester"]
+            OPS["operator"]
+        end
+        FV["fabric-vibe (Bash tools)\nnotebook · pipeline · lakehouse\nworkspace · lint · precommit"]
+        FAB["ms-fabric-cli (fab)\nFabric REST API"]
     end
 
-    subgraph MCP["Local MCP Servers"]
-        FAB["fabric MCP server\nmcp/server.py"]
-        GRF["fabric-graph MCP server\nmcp/graph-server.py\n(BM25 + 1-hop search + CRUD)"]
+    subgraph Docker["Docker container — fabric-server"]
+        MCP["FastMCP HTTP\n/mcp (port 8000)"]
+        TOOLS["graph_* · pipeline_lineage_check\ndata_mock_generate · semantic_model_*"]
+        GRAPH["dist/.graph/\ngraph.json + graph-bm25.pkl\n(baked at image build time;\nrebuilt atomically on CRUD writes)"]
     end
 
-    subgraph GraphStore["memory/.graph/ (target runtime; source-side build outputs live at dist/.graph/)"]
-        GJ["graph.json"]
-        BM["graph-bm25.pkl"]
-    end
+    FABRIC["Microsoft Fabric\n(REST API / workspace)"]
 
-    subgraph FabricTools["Local domain tools"]
-        TN["fabric-vibe notebook"]
-        TP["fabric-vibe pipeline"]
-        TL["fabric-vibe lakehouse"]
-        TV["fabric-vibe lint/precommit"]
-    end
+    H --> CC
+    CC --> Agents
+    CC -->|"MCP — .mcp.json"| MCP
+    MCP --> TOOLS
+    TOOLS --> GRAPH
 
-    MSF["Microsoft Fabric Workspace\n(Fabric CLI / REST API)"]
-
-    CC -->|spawns| Agents
-    CC -->|MCP| FAB
-    CC -->|MCP| GRF
-
-    FAB -->|Fabric CLI / REST| MSF
-    FAB -->|invokes| FabricTools
-    FabricTools -->|Fabric CLI / REST| MSF
-
-    GRF -->|reads| GraphStore
-    GRF -->|CRUD write → atomic rebuild| GraphStore
-
+    CC -->|"Bash"| FV
+    FV --> FAB
+    FAB --> FABRIC
 ```
 
+## CLI — install path
 
-## Subagents
-
-Four native subagents are installed alongside the entrypoint:
-
-| Subagent | Owns | Reports to |
-|---|---|---|
-| `orchestrator` | Scoping, routing, human handoff | Human |
-| `developer` | Notebooks, transforms, models, pipelines | `orchestrator` |
-| `tester` | DQ, schema drift, RI, metric sanity | `orchestrator` |
-| `operator` | Security review, secrets, access, supply chain | `orchestrator` |
-
-Subagents are discovered by Claude and Codex from their native profile directories (`.claude/agents/*.md`, `.codex/agents/*.toml`). They are not primary graph nodes — the capability graph in `memory/.graph/agent-capabilities.json` is a derived inspection artifact only.
-
-## Where things live
-
-| Concern | Source (this repo) | Installed location (target repo) |
-|---|---|---|
-| Entry instructions | `profiles/claude/CLAUDE.md`, `profiles/codex/AGENTS.md` | Target repo root |
-| Subagents | `profiles/{claude,codex}/agents/` | `.claude/agents/`, `.codex/agents/` |
-| Skills | `profiles/skills/` | `.claude/skills/`, `.agents/skills/` |
-| Rules | `content/rules/*.md` | `memory/rules/*.md` |
-| Knowledge graph content | `content/graph-content/` | `memory/graph-content/` |
-| Seed memory | `profiles/shared/memory/` | `memory/` |
-| Target scaffold (data/sandbox/, workspace/, ...) | `profiles/shared/scaffold/` | Target repo root |
-| `.mcp.json` | not shipped — written by `fabric-vibe setup` | Target repo root (concrete MCP URL) |
-| Graph artifacts | `dist/.graph/` (source build output, gitignored) | served by the Docker MCP server |
-| MCP servers | `server/` | Docker container |
-| Graph runtime | `server/graph/` | Docker container |
-| Source-package CLI | `cli/src/fabric_skills_settings/` | installed as the `fabric-vibecoding-settings` wheel |
-| Source-package validators | `tests/test_install_package.py`, `tests/test_agent_guidance.py` (+ `tests/_validation/`) | **not installed** (maintainer pytest) |
-
-## Setup CLI — install path
-
-The CLI is published as `fabric-vibecoding-settings` on PyPI and exposes two
-console scripts:
+The package is published as `fabric-vibecoding-settings` and exposes two console scripts:
 
 | Command | Role |
 |---|---|
-| `fabric-vibecoding-agents` | Typer installer with `install` / `check` / `refresh` subcommands. Writes profile and scaffold files into a target repo, then runs the target bootstrap. |
-| `fabric-vibe` | Typer proxy for package-owned helpers — `setup`, `notebook`, `pipeline`, `lakehouse`, `workspace`, `lint`, `precommit`. Run from the target repo root. |
-
-Install the package itself with:
+| `fabric-vibecoding-agents` | `install` / `check` / `refresh` agent profiles and scaffold into a target repo |
+| `fabric-vibe` | Target-side proxy for package-owned helpers |
 
 ```bash
-uv tool install fabric-vibecoding-settings        # recommended
-# or
-pip install fabric-vibecoding-settings
-```
-
-Then install a profile into your project repo:
-
-```bash
+uv tool install fabric-vibecoding-settings
 fabric-vibecoding-agents install --profile claude --target /path/to/project
 fabric-vibecoding-agents check   --profile claude --target /path/to/project
 fabric-vibecoding-agents refresh --profile claude --target /path/to/project
 ```
 
-After the install copies files, the installer automatically invokes
-`fabric-vibe setup` from the target root to finish the bootstrap: install local tools,
-install Fabric CLI helpers (`ms-fabric-cli`, `Faker`, `pandas`, `networkx`,
-`rank-bm25`, RTK), prompt for any missing `FABRIC_TENANT_ID` /
-`FABRIC_CLIENT_ID` / `FABRIC_CLIENT_SECRET`, verify auth via
-`fab api workspaces`, and populate `workspaces.json`. Pass `--no-bootstrap`
-to skip — `--dry-run` and the `check` subcommand skip implicitly.
+`--target` is required. After copying files, `install` automatically invokes `fabric-vibe setup` (i.e. `setup.sh` / `setup.ps1`) unless `--no-bootstrap` is given.
 
 ```mermaid
 flowchart TD
-    PIP["uv tool install fabric-vibecoding-settings<br/>(or pip install)"]
-    PIP --> CLI
-    CLI["fabric-vibecoding-agents install --profile X --target Y"]
-    CLI --> INST
-
-    INST["fabric_skills_settings.commands.install<br/>copy files into target"]
-    INST --> TGT
-    TGT["target/<br/>CLAUDE.md · workspace/ · data/sandbox/ · .mcp.json · ..."]
-    TGT --> BOOT
-
-    BOOT["fabric-vibe setup<br/>Fabric CLI helpers · RTK<br/>prompt for FABRIC_* credentials<br/>fabric-vibe workspace init → workspaces.json"]
-    INST -.->|"--no-bootstrap · --dry-run · --check"| DONE
-    BOOT --> DONE
-
-    DONE([target ready — open in Claude Code / Codex])
+    PIP["uv tool install fabric-vibecoding-settings"]
+    PIP --> CLI["fabric-vibecoding-agents install --profile X --target Y"]
+    CLI --> INST["Copy profiles + scaffold into target"]
+    INST --> BOOT["fabric-vibe setup\n(setup.sh / setup.ps1)\n• Install rtk, ms-fabric-cli\n• Prompt FABRIC_TENANT_ID / CLIENT_ID / CLIENT_SECRET\n• Prompt MCP_SERVER_URL\n• Write .mcp.json and patch .codex/config.toml\n• fab auth login → fab api workspaces\n• fabric-vibe workspace init + pick"]
+    INST -.->|"--no-bootstrap / --dry-run / check"| DONE
+    BOOT --> DONE([Target ready — open in Claude Code or Codex])
 ```
 
-## Folder structure
+## Agents (installed into target)
 
-### Source repository (this repo)
+| Subagent | Owns |
+|---|---|
+| `orchestrator` | Scope, route, human handoff |
+| `developer` | Notebooks, transforms, models, pipelines |
+| `tester` | DQ, schema drift, RI, metric sanity |
+| `operator` | Security review, secrets, access |
+
+Claude agents live in `.claude/agents/*.md`; Codex agents in `.codex/agents/*.toml`.
+
+## MCP server tools
+
+`fabric-server` (`server/app.py`) registers four tool groups:
+
+| Group | Tools |
+|---|---|
+| Graph | `graph_get_entry`, `graph_get_node`, `graph_get_linked`, `graph_search`, `graph_list_kinds`, `graph_create_node`, `graph_update_node`, `graph_delete_node`, `graph_add_edge`, `graph_remove_edge` |
+| Validate | `pipeline_lineage_check` |
+| Data | `data_mock_generate` |
+| Semantic model | `semantic_model_list`, `semantic_model_show` |
+
+The server has **no filesystem access** to the user's project. `pipeline_lineage_check` accepts uploaded file contents; `data_mock_generate` requires a `target_dir` mounted into the container.
+
+## Bash tools (fabric-vibe, invoked via Bash not MCP)
+
+| Command | What it drives |
+|---|---|
+| `fabric-vibe notebook build` | `cli/tools/notebook/build.py` |
+| `fabric-vibe notebook deploy` | `cli/tools/notebook/deploy.py` |
+| `fabric-vibe notebook smoke-test` | `cli/tools/notebook/smoke-test.{sh,ps1}` |
+| `fabric-vibe pipeline manage` | `cli/tools/pipeline/manage.py` |
+| `fabric-vibe lakehouse list-tables` | `cli/tools/lakehouse/list-tables.py` |
+| `fabric-vibe workspace init/switch/transfer/pick` | `cli/tools/workspace/*.py` |
+| `fabric-vibe lint` | `cli/tools/lint/__main__.py` |
+| `fabric-vibe precommit` | `cli/tools/precommit/pre-commit-check.{sh,ps1}` |
+| `fabric-vibe setup` | `cli/setup/setup.{sh,ps1}` |
+
+## Source layout
 
 ```text
 fabric-vibecoding-settings/
-├── README.md  CLAUDE.md  AGENTS.md  LICENSE  pyproject.toml  uv.lock  .gitignore
-│
-├── cli/                                 installable assets
-│   ├── src/fabric_skills_settings/      pip-installable wheel package
-│   │   ├── __init__.py  __main__.py  cli.py
+├── cli/
+│   ├── src/fabric_skills_settings/   pip wheel (fabric-vibecoding-settings)
+│   │   ├── cli.py                    fabric-vibecoding-agents Typer CLI
+│   │   ├── runtime_cli.py            fabric-vibe Typer proxy
 │   │   ├── commands/{install,check,refresh}.py
-│   │   └── core/{files,gitignore,profiles,bootstrap,markers,paths}.py
-│   ├── builders/                        source-only graph builders
-│   │   ├── build-graph.py
-│   │   ├── build-agent-capability-graph.py
-│   │   └── graph_build/                 build-time-only modules (visualize, agent_capabilities)
-│   └── validators/                      source-only validators
-│       ├── validate-install-package.py
-│       └── validate-agent-guidance.py
+│   │   └── core/{files,gitignore,profiles,bootstrap,markers,paths,version_check}.py
+│   ├── profiles/
+│   │   ├── claude/                   CLAUDE.md, agents/*.md, settings.local.json
+│   │   ├── codex/                    AGENTS.md, agents/*.toml, config.toml
+│   │   └── shared/                   .env.example, .gitignore.fragment, scaffold/
+│   ├── setup/                        setup.sh, setup.ps1
+│   └── tools/                        notebook/, pipeline/, lakehouse/, workspace/, lint/, precommit/
 │
-├── cli/tools/                           Fabric runtime helpers bundled into fabric-vibe
-│   ├── data/  graph/  lakehouse/  notebook/  pipeline/  semantic-model/
-│   ├── setup/  validate/  workspace/
-│   └── pre-commit-check.{ps1,sh}
+├── server/
+│   ├── app.py                        FastMCP app — registers all tool groups
+│   ├── __main__.py                   uvicorn entrypoint (python -m server)
+│   ├── audit.py                      structured JSON audit log
+│   ├── tools/{graph,validate,data,semantic_model}/
+│   ├── graph/{store,search,builder,writes,extract,schema,lock}.py
+│   ├── content/                      knowledge-graph source markdown
+│   ├── skills/                       skill SKILL.md files
+│   ├── builders/                     build-graph.py (build-time only)
+│   ├── Dockerfile
+│   └── docker-compose.yml
 │
-├── server/                              MCP server, graph runtime, tools, and content
-│   ├── server.py                        fabric MCP — wraps the Fabric CLI
-│   └── graph-server.py                  fabric-graph MCP — knowledge graph
-│
-├── content/                             installable content sources
-│   ├── rules/                           security, data-engineering, fabric-platform, notebook-authoring
-│   └── graph-content/                   entry.md, session/, workflow/, layout/, indexes/,
-│                                        integrations/, diagnostics/, semantic/
-│
-├── profiles/
-│   ├── claude/                          CLAUDE.md, agents/, settings.local.json
-│   ├── codex/                           AGENTS.md, agents/, config.toml
-│   ├── skills/                          shared skill source (installed to both .claude/ and .agents/)
-│   └── shared/
-│       ├── .env.example  .gitignore.fragment
-│       ├── memory/                      seed memory (.gitkeep, skill-fixes/) → target memory/
-│       └── scaffold/                    target-only scaffolding (data/sandbox/, workspace/);
-│                                        .mcp.json is NOT here — the bootstrap writes it
-│
-├── dist/                                build outputs
-│   ├── .graph/                          source-side knowledge-graph artifacts (gitignored)
-│   │   ├── graph.json  graph-bm25.pkl
-│   │   ├── materialized-graph.{html,svg}
-│   │   └── agent-capabilities.{html,json}
-│   └── *.whl  *.tar.gz                  wheel + sdist from `uv build`
-│
-├── docs/
-│   └── architecture.md
-└── tests/                               pytest suite (includes test_layout.py)
+├── tests/                            pytest suite + _validation/ helpers
+└── docs/
 ```
 
-Disappeared as part of the redesign: `bin/`, `build/`, `rules/` at root, `profiles/shared/project-layout/`, `profiles/shared/graph-content/`, `tool/mcp/`, source-side `memory/.graph/`.
-
-### Installed target repository (what `fabric-vibecoding-agents install` produces)
+## Installed target layout (what install produces)
 
 ```text
 <target-repo>/
-├── CLAUDE.md  or  AGENTS.md             from profiles/{claude,codex}/  (hard-minimal stub)
-├── .env.example  .gitignore             managed block
-├── .mcp.json                            written by fabric-vibe setup (concrete MCP URL)
-│
-├── .claude/                             agents/, skills/, settings.local.json   (claude profile)
-├── .codex/                              agents/, config.toml                    (codex profile)
-├── .agents/skills/                      same skills as .claude/skills/          (codex profile)
-│
-├── mcp/                                 MCP servers (server.py, graph-server.py)
-│
-├── memory/                              runtime persistence root
-│   ├── .graph/                          shipped pre-built; rebuilt on CRUD writes
-│   ├── rules/                           from content/rules/
-│   ├── graph-content/                   from content/graph-content/
-│   ├── skill-fixes/
-│   ├── notebook-authoring.md            from scaffold/memory/
-│   └── pipeline-authoring.md
-│
-├── contracts/  data/sandbox/  workspace/   scaffold placeholders
+├── CLAUDE.md   (claude profile) / AGENTS.md   (codex profile)
+├── .env.example  .gitignore
+├── .mcp.json                         written by setup — concrete MCP URL
+├── .claude/agents/*.md               claude subagents
+├── .claude/settings.local.json
+├── .codex/agents/*.toml              codex subagents
+├── .codex/config.toml                codex MCP config (url updated by setup)
+├── data/sandbox/
+└── workspace/
 ```

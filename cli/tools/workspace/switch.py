@@ -21,7 +21,7 @@ import json
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path.cwd()
 REGISTRY = ROOT / "workspaces.json"
 ENV_FILE = ROOT / ".env"
 

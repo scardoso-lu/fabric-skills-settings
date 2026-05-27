@@ -14,12 +14,15 @@
 #   4. Prompts for FABRIC_TENANT_ID / CLIENT_ID and writes them to .env.
 #   5. Prompts for FABRIC_CLIENT_SECRET and persists to the user's shell
 #      profile (NOT .env — secrets stay in the OS env).
-#   6. Prompts for MCP_SERVER_URL.
-#   7. Writes .mcp.json and patches
-#      .codex/config.toml's [mcp_servers.fabric-server] url (if installed).
-#   8. Verifies SPN auth by calling `fab api workspaces`.
-#   9. Runs fabric-vibe workspace init to populate workspaces.json.
-#  10. Prompts to select the active workspace.
+#   6. Prompts for MCP_SERVER_URL and the user's email.
+#   7. Writes .mcp.json and patches .codex/config.toml's [mcp_servers.fabric-server]
+#      url (if installed).
+#   8. Runs fabric-vibe auth refresh, which generates an RSA key pair under
+#      ~/.fabric-vibecoding, signs the email into the MCP client headers, and
+#      prints the public key to share with the MCP server admin.
+#   9. Verifies SPN auth by calling `fab api workspaces`.
+#  10. Runs fabric-vibe workspace init to populate workspaces.json.
+#  11. Prompts to select the active workspace.
 
 set -euo pipefail
 
@@ -202,10 +205,21 @@ else
   mcp_server_url="${mcp_server_url:-http://127.0.0.1:8000}"
 fi
 
-# ── MCP client config (.mcp.json) ───────────────────────────────────────────────
-# Claude/Codex read .mcp.json to reach the fabric-server MCP. Write it with a
-# concrete URL here (the installer no longer ships a template). The endpoint
-# is always <MCP_SERVER_URL>/mcp.
+# ── MCP identity email ────────────────────────────────────────────────────────
+# fabric-vibe auth refresh signs this email with the generated private key.
+echo ""
+echo "-- MCP identity email"
+if [[ -n "${FABRIC_MCP_USER_EMAIL:-}" ]]; then
+  echo "  FABRIC_MCP_USER_EMAIL already set — keeping ${FABRIC_MCP_USER_EMAIL}"
+else
+  read -rp "  Your email (identity for MCP auth): " FABRIC_MCP_USER_EMAIL
+  [[ -z "$FABRIC_MCP_USER_EMAIL" ]] && { echo "An email is required for MCP auth." >&2; exit 1; }
+fi
+export FABRIC_MCP_USER_EMAIL
+
+# ── MCP client config (.mcp.json) ─────────────────────────────────────────────
+# Write url only; fabric-vibe auth refresh generates the RSA key pair under
+# ~/.fabric-vibecoding and writes the signed token into MCP client headers below.
 MCP_JSON="${PROJECT_ROOT}/.mcp.json"
 mcp_url="${mcp_server_url%/}/mcp"
 cat > "$MCP_JSON" <<EOF
@@ -220,9 +234,7 @@ cat > "$MCP_JSON" <<EOF
 EOF
 actions+=(".mcp.json written (${mcp_url})")
 
-# Keep Codex's MCP config aligned with the generated .mcp.json endpoint, if
-# the Codex profile is installed. The file ships with a default url; we
-# rewrite just that line.
+# Keep Codex's MCP config url aligned (auth header written by fabric-vibe auth refresh).
 CODEX_CONFIG="${PROJECT_ROOT}/.codex/config.toml"
 if [[ -f "$CODEX_CONFIG" ]]; then
   _codex_tmp="$(mktemp)"
@@ -233,6 +245,15 @@ if [[ -f "$CODEX_CONFIG" ]]; then
     { print }
   ' "$CODEX_CONFIG" > "$_codex_tmp" && mv "$_codex_tmp" "$CODEX_CONFIG"
   actions+=(".codex/config.toml MCP url set (${mcp_url})")
+fi
+
+# ── MCP client token ──────────────────────────────────────────────────────────
+echo ""
+echo "-- MCP client token"
+if fabric-vibe auth refresh; then
+  actions+=("MCP token written to MCP client headers")
+else
+  echo "  MCP token refresh failed; run 'fabric-vibe auth refresh' manually." >&2
 fi
 
 # ── Authenticate ──────────────────────────────────────────────────────────────

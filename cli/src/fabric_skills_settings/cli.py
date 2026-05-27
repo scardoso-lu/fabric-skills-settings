@@ -45,8 +45,8 @@ ProfileOption = Annotated[
     ),
 ]
 TargetOption = Annotated[
-    str,
-    typer.Option("--target", "-t", help="Target git repository path."),
+    str | None,
+    typer.Option("--target", "-t", help="Target git repository path. Defaults to current directory."),
 ]
 DryRunOption = Annotated[
     bool,
@@ -110,7 +110,7 @@ def _root(
 @app.command()
 def install(
     profile: ProfileOption,
-    target: TargetOption,
+    target: TargetOption = None,
     dry_run: DryRunOption = False,
     force: ForceOption = False,
     backup: BackupOption = False,
@@ -133,7 +133,7 @@ def install(
 @app.command()
 def check(
     profile: ProfileOption,
-    target: TargetOption,
+    target: TargetOption = None,
     self_test: SelfTestOption = False,
 ) -> None:
     """Verify target state; exit 1 on drift, 0 on match."""
@@ -144,7 +144,7 @@ def check(
 @app.command()
 def refresh(
     profile: ProfileOption,
-    target: TargetOption,
+    target: TargetOption = None,
     dry_run: DryRunOption = False,
     force: ForceOption = False,
     backup: BackupOption = False,

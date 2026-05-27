@@ -240,6 +240,7 @@ wheels = [
 name = "fabric-vibecoding-settings"
 source = { editable = "." }
 dependencies = [
+    { name = "cryptography" },
     { name = "rich" },
     { name = "typer" },
 ]
@@ -275,6 +276,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cryptography", specifier = ">=42" },
     { name = "mcp", marker = "extra == 'server'", specifier = ">=1.0" },
     { name = "networkx", marker = "extra == 'graph'", specifier = ">=3.2" },
     { name = "networkx", marker = "extra == 'server'", specifier = ">=3.2" },

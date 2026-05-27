@@ -29,15 +29,17 @@ app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 
-notebook_app = typer.Typer(no_args_is_help=True, help="Notebook lifecycle helpers.")
-pipeline_app = typer.Typer(no_args_is_help=True, help="Data Factory pipeline helpers.")
+notebook_app  = typer.Typer(no_args_is_help=True, help="Notebook lifecycle helpers.")
+pipeline_app  = typer.Typer(no_args_is_help=True, help="Data Factory pipeline helpers.")
 lakehouse_app = typer.Typer(no_args_is_help=True, help="Lakehouse inspection helpers.")
 workspace_app = typer.Typer(no_args_is_help=True, help="Workspace registry helpers.")
+auth_app      = typer.Typer(no_args_is_help=True, help="Authentication helpers.")
 
-app.add_typer(notebook_app, name="notebook")
-app.add_typer(pipeline_app, name="pipeline")
+app.add_typer(notebook_app,  name="notebook")
+app.add_typer(pipeline_app,  name="pipeline")
 app.add_typer(lakehouse_app, name="lakehouse")
 app.add_typer(workspace_app, name="workspace")
+app.add_typer(auth_app,      name="auth")
 
 _IS_WINDOWS = platform.system() == "Windows"
 
@@ -192,6 +194,13 @@ def precommit(ctx: typer.Context) -> None:
         extra=ctx.args,
     )
     raise typer.Exit(code=rc)
+
+
+@auth_app.command("refresh", context_settings=_PASSTHROUGH_CONTEXT)
+def auth_refresh(ctx: typer.Context) -> None:
+    """Generate the MCP identity key, sign your email, and update MCP configs."""
+    script = _require_tool_script(Path("auth/refresh.py"))
+    raise typer.Exit(code=_dispatch_python(script, ctx.args))
 
 
 @app.command("setup", context_settings=_PASSTHROUGH_CONTEXT)

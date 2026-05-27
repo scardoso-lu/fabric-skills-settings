@@ -123,6 +123,7 @@ class _Validator:
         self._require(self.cli_tools / "workspace" / "switch.py")
         self._require(self.cli_tools / "workspace" / "transfer.py")
         self._require(self.cli_tools / "workspace" / "pick.py")
+        self._require(self.cli_tools / "auth" / "refresh.py")
         self._require(self.cli_tools / "lint" / "__init__.py")
         self._require(self.cli_tools / "lint" / "core.py")
         self._require(self.cli_tools / "precommit" / "pre-commit-check.ps1")
@@ -244,7 +245,13 @@ class _Validator:
                 self.errors.append(
                     f"{rel_path} must not prompt for FABRIC_WORKSPACE_ID; use the workspace_init/workspace_switch MCP tools"
                 )
-            for phrase in ("FABRIC_TENANT_ID", "FABRIC_CLIENT_ID", "FABRIC_CLIENT_SECRET", "MCP_SERVER_URL"):
+            for phrase in (
+                "FABRIC_TENANT_ID",
+                "FABRIC_CLIENT_ID",
+                "FABRIC_CLIENT_SECRET",
+                "MCP_SERVER_URL",
+                "auth refresh",
+            ):
                 if phrase not in text:
                     self.errors.append(f"{rel_path} missing setup contract phrase {phrase!r}")
             # Bootstrap is the sole creator of .mcp.json (no scaffold template ships).

@@ -33,6 +33,10 @@ _delta_log/
 # Folder-redesign baseline snapshot (Step 0)
 baseline-snapshot/
 
+# MCP server runtime auth state (user public keys + authenticated-email log)
+server/keys/
+server/data/
+
 # Python
 __pycache__/
 *.pyc

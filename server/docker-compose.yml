@@ -2,8 +2,13 @@
 # Run from the server/ directory: `docker compose up --build`.
 #
 # The image bakes the graph artifact and all server content. No host mount is
-# needed for the graph. Env passed from host:
-#   - FABRIC_TENANT_ID, FABRIC_CLIENT_ID, FABRIC_CLIENT_SECRET (for `fab` CLI)
+# needed for the graph. MCP auth:
+#   - Drop one PEM public key per user into ./keys (host), named <email>.pem
+#     (e.g. alice@example.com.pem) — mounted read-only. The server accepts an
+#     RSA-signed email only from the key registered under that exact email.
+#   - Authenticated emails are appended to /data/authenticated-emails.txt
+#     (persisted on the host via the ./data mount).
+# Env passed from host:
 #   - FABRIC_WORKSPACE_ID
 #
 # Host-only binding (127.0.0.1:8000) — no LAN exposure.
@@ -18,6 +23,12 @@ services:
       PORT: "8000"
       HOST: "0.0.0.0"
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      MCP_SERVER_URL: ${MCP_SERVER_URL:-http://127.0.0.1:8000}
+      FABRIC_MCP_PUBLIC_KEYS_DIR: /keys
+      FABRIC_MCP_EMAILS_FILE: /data/authenticated-emails.txt
+    volumes:
+      - ./keys:/keys:ro
+      - ./data:/data
     ports:
       - "127.0.0.1:8000:8000"
     restart: unless-stopped
