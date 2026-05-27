@@ -11,14 +11,19 @@ Client (user's laptop)                    Server (Docker 127.0.0.1:8000)
 ──────────────────────                    ───────────────────────────────
 ~/.fabric-vibecoding/
   fabric-mcp-private-key.pem  ──signs──►  signed string in .mcp.json / config.toml
-  <email>.pem  ──────────────────────────► server/keys/<email>.pem  (admin deploys)
-                                               │
-                                          verify RSA-PSS signature:
-                                          does sig match email using <email>.pem?
-                                               │
-                                               ▼
+  <email>.pem  ········ manual exchange ·········► server/keys/<email>.pem
+               (user → admin, out of band)              │
+                                               verify RSA-PSS signature:
+                                               does sig match email using <email>.pem?
+                                                    │
+                                                    ▼
                                           /data/authenticated-emails.txt (audit)
 ```
+
+> **Manual step required.** Before MCP auth works, the user must send their
+> `<email>.pem` public key to the MCP server admin, and the admin must place it
+> in `server/keys/` and restart the container. This is a deliberate one-time
+> out-of-band exchange — see [Key exchange (user ↔ admin)](#key-exchange-user--admin) below.
 
 ## Signed credential format
 
@@ -93,6 +98,27 @@ Authorization = "fvmcp_rsa_<email_b64>.<sig_b64>"
 
 No `Bearer` prefix — the `fvmcp_rsa_` prefix is itself the scheme identifier. The server checks for it directly.
 
+## Key exchange (user ↔ admin)
+
+This is the only manual step in the auth flow. It happens once per user (or whenever they rotate their key pair).
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Admin as MCP server admin
+
+    User->>User: fabric-vibe auth refresh<br/>→ generates ~/.fabric-vibecoding/<email>.pem
+    User-->>Admin: send ~/.fabric-vibecoding/<email>.pem<br/>(out of band: email, Slack, file share, etc.)
+    Admin->>Admin: place <email>.pem in server/keys/
+    Admin->>Admin: docker compose restart
+    Admin-->>User: "your key is active"
+    Note over User,Admin: MCP auth now works for this user.<br/>Re-run auth refresh any time to rotate the key<br/>(requires another exchange with the admin).
+```
+
+**What gets exchanged:** only the public key file (`<email>.pem`). The private key (`fabric-mcp-private-key.pem`) **never leaves the user's machine**.
+
+**File name is the identity:** the PEM file is named `<email>.pem` — that filename is how the server binds the key to the user's email. The admin must not rename it.
+
 ## Server side — `SignedEmailTokenVerifier`
 
 Implemented in `server/app.py`. Plugged into FastMCP's `TokenVerifier` interface.
@@ -163,8 +189,8 @@ services:
    - generates / loads RSA key pair under `~/.fabric-vibecoding/`
    - signs the email, writes the signed string into the `Authorization` header field in `.mcp.json` and `.codex/config.toml` (no `Bearer` prefix)
    - prints the path to `~/.fabric-vibecoding/<email>.pem`
-4. User sends the PEM file to the MCP server admin
-5. Admin places it in `server/keys/` and restarts the container
+4. **Manual key exchange** — user sends `~/.fabric-vibecoding/<email>.pem` to the MCP server admin; admin places it in `server/keys/` and restarts the container (see [Key exchange (user ↔ admin)](#key-exchange-user--admin))
+5. Reload Claude Code / Codex to pick up the new MCP config
 
 ## Audit logging
 
