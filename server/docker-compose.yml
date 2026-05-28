@@ -3,15 +3,27 @@
 #
 # The image bakes the graph artifact and all server content. No host mount is
 # needed for the graph. MCP auth (API-key + JWT):
-#   - Admin creates ./config/api-keys.csv, a CSV with the headers
-#     `email,apikey` and one row per user. Only the apikey column is used for
-#     auth; email is for admin bookkeeping. Each user gets one key from this file.
+#   - The API-key store is a CSV with the headers `email,apikey`, one row per
+#     user. Only the apikey column is used for auth; email is for admin
+#     bookkeeping. FABRIC_MCP_API_KEYS_SOURCE picks where the CSV is loaded from:
+#       * file (default) — read from FABRIC_MCP_API_KEYS_FILE on disk. Admin
+#         creates ./config/api-keys.csv and it is mounted read-only below.
+#       * azure-blob — download from Azure Blob Storage. Set the container/blob
+#         and either a connection string or an account URL (managed identity):
+#           FABRIC_MCP_API_KEYS_SOURCE: azure-blob
+#           FABRIC_MCP_API_KEYS_BLOB_CONTAINER: keys
+#           FABRIC_MCP_API_KEYS_BLOB_NAME: api-keys.csv
+#           FABRIC_MCP_API_KEYS_BLOB_CONNECTION_STRING: ${AZURE_BLOB_CONN}  # or:
+#           FABRIC_MCP_API_KEYS_BLOB_ACCOUNT_URL: https://acct.blob.core.windows.net
+#         Azure mode needs the azure-storage-blob / azure-identity packages
+#         (the 'server-azure' extra) baked into the image.
 #   - FABRIC_MCP_JWT_SECRET must be set (generate: python -c "import secrets;
 #     print(secrets.token_hex(32))"). Add it to a .env file next to this file.
 #   - Clients POST {"api_key": "..."} to /auth/login to receive a 1-hour JWT,
 #     then send Authorization: Bearer <token> with every MCP request.
-#   - Auth is disabled entirely when FABRIC_MCP_API_KEYS_FILE is not set and
-#     FABRIC_MCP_API_KEYS is empty (local single-user dev mode).
+#   - Auth is disabled entirely when no key source is configured (file source
+#     with no FABRIC_MCP_API_KEYS_FILE) and FABRIC_MCP_API_KEYS is empty
+#     (local single-user dev mode).
 # Env passed from host:
 #   - FABRIC_WORKSPACE_ID
 #
@@ -28,6 +40,9 @@ services:
       HOST: "0.0.0.0"
       LOG_LEVEL: ${LOG_LEVEL:-info}
       MCP_SERVER_URL: ${MCP_SERVER_URL:-http://127.0.0.1:8000}
+      # Default: load keys from the mounted CSV. Set to azure-blob to load from
+      # Azure Blob Storage instead (see the BLOB_* vars described above).
+      FABRIC_MCP_API_KEYS_SOURCE: ${FABRIC_MCP_API_KEYS_SOURCE:-file}
       FABRIC_MCP_API_KEYS_FILE: /config/api-keys.csv
       FABRIC_MCP_JWT_SECRET: ${FABRIC_MCP_JWT_SECRET}
     volumes:

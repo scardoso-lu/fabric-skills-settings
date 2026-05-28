@@ -12,6 +12,9 @@ COPY server /build/server
 
 # Runtime deps only. We do NOT install ms-fabric-cli — fab-dependent tools
 # live in cli/ and run on the user's laptop, not in this container.
+# For FABRIC_MCP_API_KEYS_SOURCE=azure-blob, also add the 'server-azure' extra
+# packages here: "azure-storage-blob>=12.19" "azure-identity>=1.16". They are
+# omitted by default to keep the file-source image lean.
 RUN uv pip install --system --no-cache \
     "mcp>=1.0" \
     "uvicorn>=0.30" \

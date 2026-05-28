@@ -8,17 +8,16 @@ user's laptop as plain CLI commands (Claude invokes them via Bash).
 
 from __future__ import annotations
 
-import csv
 import json
 import os
 import time
 import uuid
-from pathlib import Path
 
 import jwt  # PyJWT
 from mcp.server.fastmcp import FastMCP
 from starlette.middleware.cors import CORSMiddleware
 
+from .auth import build_api_key_repository
 from .tools.data import tools as data_tools
 from .tools.graph import tools as graph_tools
 from .tools.semantic_model import tools as semantic_model_tools
@@ -31,12 +30,13 @@ _REFRESH_PATH = "/auth/refresh"
 
 
 def _load_api_keys() -> set[str]:
-    """Load valid API keys from FABRIC_MCP_API_KEYS (comma-sep) or FABRIC_MCP_API_KEYS_FILE.
+    """Load valid API keys from FABRIC_MCP_API_KEYS plus the configured repository.
 
-    The file referenced by FABRIC_MCP_API_KEYS_FILE is a CSV with the headers
-    ``email,apikey`` — one row per user. Only the ``apikey`` column is used for
-    authentication; ``email`` is carried for admin bookkeeping. Header names are
-    matched case-insensitively and may contain surrounding whitespace.
+    ``FABRIC_MCP_API_KEYS`` (comma-separated) is always honored. Beyond that,
+    keys are loaded from the backend selected by ``FABRIC_MCP_API_KEYS_SOURCE``
+    (``file`` — the default — or ``azure-blob``); see ``server/auth``. Both
+    backends read a CSV with the headers ``email,apikey`` (one row per user;
+    only the ``apikey`` column authenticates).
     """
     keys: set[str] = set()
     env_val = os.environ.get("FABRIC_MCP_API_KEYS", "").strip()
@@ -45,22 +45,9 @@ def _load_api_keys() -> set[str]:
             k = k.strip()
             if k:
                 keys.add(k)
-    file_path = os.environ.get("FABRIC_MCP_API_KEYS_FILE", "").strip()
-    if file_path:
-        p = Path(file_path)
-        if p.is_file():
-            reader = csv.DictReader(p.read_text(encoding="utf-8").splitlines())
-            for row in reader:
-                key = next(
-                    (
-                        (value or "").strip()
-                        for name, value in row.items()
-                        if name and name.strip().lower() == "apikey"
-                    ),
-                    "",
-                )
-                if key:
-                    keys.add(key)
+    repository = build_api_key_repository()
+    if repository is not None:
+        keys |= repository.load_keys()
     return keys
 
 
@@ -242,8 +229,9 @@ class FabricAuthMiddleware:
 def build_app():
     """Construct the FastMCP app, register every tool, return the ASGI app.
 
-    Auth is enabled when FABRIC_MCP_API_KEYS_FILE or FABRIC_MCP_API_KEYS contains
-    at least one valid API key. Clients call POST /auth/login with {"api_key": "..."}
+    Auth is enabled when the configured key source (FABRIC_MCP_API_KEYS_SOURCE:
+    file or azure-blob) or FABRIC_MCP_API_KEYS yields at least one valid API key.
+    Clients call POST /auth/login with {"api_key": "..."}
     to receive a 1-hour JWT. The JWT must be presented as Authorization: Bearer <token>
     on every subsequent request. Clients refresh via POST /auth/refresh (old JTI is
     revoked, blocking replay of the superseded token). When no API keys are configured

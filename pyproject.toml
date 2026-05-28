@@ -31,6 +31,11 @@ server = [
     "rank_bm25>=0.2.2",
     "PyJWT>=2.8",
 ]
+# Only needed when FABRIC_MCP_API_KEYS_SOURCE=azure-blob. File mode needs nothing extra.
+server-azure = [
+    "azure-storage-blob>=12.19",
+    "azure-identity>=1.16",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
