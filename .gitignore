@@ -13,6 +13,7 @@
 logs/
 src/
 !cli/src/
+!frontend/src/
 fabric_notebooks/
 _delta_log/
 *.checkpoint.parquet
