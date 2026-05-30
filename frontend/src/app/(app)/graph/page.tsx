@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSearch, useNode } from "@/hooks/useNodes";
 import { addEdge } from "@/lib/api";
 import { kindBadgeClass, managedBadge } from "@/lib/utils";
@@ -12,7 +12,8 @@ export default function GraphPage() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [localLinks, setLocalLinks] = useState<string[]>([]);
+  const [removedLinks, setRemovedLinks] = useState<ReadonlySet<string>>(new Set());
+  const [removedForNode, setRemovedForNode] = useState<string | null>(null);
   const [edgeSrc, setEdgeSrc] = useState("");
   const [edgeDst, setEdgeDst] = useState("");
   const [edgeError, setEdgeError] = useState<string | null>(null);
@@ -21,9 +22,16 @@ export default function GraphPage() {
   const { data: searchData, isLoading: searchLoading } = useSearch(debouncedQuery);
   const { data: nodeDetail } = useNode(selectedId);
 
-  useEffect(() => {
-    setLocalLinks(nodeDetail?.links ?? []);
-  }, [nodeDetail?.id]);
+  const nodeId = nodeDetail?.id ?? null;
+  const localLinks = (nodeDetail?.links ?? []).filter(
+    (link) => !(removedForNode === nodeId && removedLinks.has(link)),
+  );
+
+  function handleRemoveLink(link: string) {
+    if (!nodeId) return;
+    setRemovedForNode(nodeId);
+    setRemovedLinks((prev) => { const next = new Set(prev); next.add(link); return next; });
+  }
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -167,7 +175,7 @@ export default function GraphPage() {
                         type="button"
                         className="btn btn-ghost btn-xs text-error px-1"
                         title="Remove link"
-                        onClick={() => setLocalLinks((prev) => prev.filter((l) => l !== link))}
+                        onClick={() => handleRemoveLink(link)}
                       >
                         ✕
                       </button>

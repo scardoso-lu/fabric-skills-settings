@@ -14,13 +14,17 @@ export async function POST(_request: NextRequest): Promise<NextResponse> {
   const upstream = await fetch(`${API_BASE}/auth/refresh`, {
     method: "POST",
     headers: { Authorization: `Bearer ${oldToken}` },
-  }).catch(() => null);
+  }).catch((err: unknown) => {
+    console.error("[auth/refresh] upstream fetch failed:", err);
+    return null;
+  });
 
   if (!upstream) {
     return NextResponse.json({ error: "upstream_unavailable" }, { status: 502 });
   }
 
   if (!upstream.ok) {
+    console.warn("[auth/refresh] upstream returned", upstream.status);
     cookieStore.delete("fab_token");
     return NextResponse.json({ error: "refresh_failed" }, { status: upstream.status });
   }
