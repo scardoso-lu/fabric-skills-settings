@@ -76,8 +76,12 @@ async function proxy(
   try {
     const upstream = await fetch(backendUrl, init);
     const data = await upstream.json().catch(() => ({}));
+    if (!upstream.ok) {
+      console.warn(`[proxy] ${method} ${backendPath} → ${upstream.status}`, data);
+    }
     return NextResponse.json(data, { status: upstream.status });
-  } catch {
+  } catch (err: unknown) {
+    console.error(`[proxy] ${method} ${backendPath} fetch failed:`, err);
     return NextResponse.json({ error: "upstream_unavailable" }, { status: 502 });
   }
 }

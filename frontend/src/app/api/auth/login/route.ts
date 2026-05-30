@@ -24,7 +24,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ api_key: apiKey }),
-  }).catch(() => null);
+  }).catch((err: unknown) => {
+    console.error("[auth/login] upstream fetch failed:", err);
+    return null;
+  });
 
   if (!upstream) {
     return NextResponse.json({ error: "upstream_unavailable" }, { status: 502 });
@@ -32,6 +35,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (!upstream.ok) {
     const data = await upstream.json().catch(() => ({}));
+    console.warn("[auth/login] upstream returned", upstream.status, data);
     return NextResponse.json(data, { status: upstream.status });
   }
 
