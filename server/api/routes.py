@@ -329,11 +329,335 @@ async def get_template(request: Request) -> Response:
     return _json({"name": name, "frontmatter": fm, "body": body})
 
 
+# ── OpenAPI spec + ReDoc docs ──────────────────────────────────────────────────
+
+_OPENAPI_SPEC: dict = {
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Fabric Admin REST API",
+        "version": "1.0.0",
+        "description": (
+            "Admin API for the fabric-skills-settings knowledge graph server. "
+            "All `/api/v1/*` endpoints require a Bearer JWT obtained from `POST /auth/login`."
+        ),
+    },
+    "servers": [{"url": "/", "description": "This server"}],
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"},
+        },
+        "schemas": {
+            "Error": {
+                "type": "object",
+                "properties": {"error": {"type": "string"}},
+                "required": ["error"],
+            },
+            "NodeSummary": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "title": {"type": "string"},
+                    "description": {"type": "string"},
+                    "kind": {"type": "string", "enum": ["skill", "content", "rule", "skill-fix", "memory", "entry"]},
+                    "path": {"type": "string"},
+                    "managed": {"type": "boolean"},
+                },
+                "required": ["id", "title", "kind", "path", "managed"],
+            },
+            "NodeDetail": {
+                "allOf": [{"$ref": "#/components/schemas/NodeSummary"}],
+                "properties": {
+                    "body": {"type": "string"},
+                    "frontmatter": {"type": "object"},
+                    "outbound_links": {"type": "array", "items": {"type": "string"}},
+                    "inbound_links": {"type": "array", "items": {"type": "string"}},
+                },
+            },
+            "WriteResult": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "path": {"type": "string"},
+                    "action": {"type": "string"},
+                    "nodes": {"type": "integer"},
+                    "edges": {"type": "integer"},
+                },
+                "required": ["id", "path", "action", "nodes", "edges"],
+            },
+            "EdgeResult": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string"},
+                    "nodes": {"type": "integer"},
+                    "edges": {"type": "integer"},
+                },
+                "required": ["action", "nodes", "edges"],
+            },
+        },
+    },
+    "security": [{"bearerAuth": []}],
+    "paths": {
+        "/auth/login": {
+            "post": {
+                "tags": ["Auth"],
+                "summary": "Exchange API key for a JWT",
+                "security": [],
+                "requestBody": {
+                    "required": True,
+                    "content": {"application/json": {"schema": {
+                        "type": "object",
+                        "properties": {"api_key": {"type": "string"}},
+                        "required": ["api_key"],
+                    }}},
+                },
+                "responses": {
+                    "200": {"description": "JWT issued", "content": {"application/json": {"schema": {
+                        "type": "object",
+                        "properties": {
+                            "token": {"type": "string"},
+                            "expires_at": {"type": "number"},
+                            "token_type": {"type": "string", "example": "Bearer"},
+                        },
+                    }}}},
+                    "401": {"description": "Invalid API key"},
+                    "429": {"description": "Rate limit exceeded"},
+                },
+            },
+        },
+        "/auth/refresh": {
+            "post": {
+                "tags": ["Auth"],
+                "summary": "Refresh a JWT (old token revoked)",
+                "responses": {
+                    "200": {"description": "New JWT issued"},
+                    "401": {"description": "Token missing or invalid"},
+                },
+            },
+        },
+        "/api/v1/stats": {
+            "get": {
+                "tags": ["Graph"],
+                "summary": "Graph statistics",
+                "responses": {
+                    "200": {"description": "Node/edge counts and build timestamp", "content": {"application/json": {"schema": {
+                        "type": "object",
+                        "properties": {
+                            "nodes": {"type": "integer"},
+                            "edges": {"type": "integer"},
+                            "by_kind": {"type": "object"},
+                            "built_at": {"type": "string", "nullable": True},
+                        },
+                    }}}},
+                },
+            },
+        },
+        "/api/v1/nodes": {
+            "get": {
+                "tags": ["Nodes"],
+                "summary": "List all nodes",
+                "parameters": [{"name": "kind", "in": "query", "schema": {"type": "string"}, "description": "Filter by node kind"}],
+                "responses": {
+                    "200": {"description": "Node list", "content": {"application/json": {"schema": {
+                        "type": "object",
+                        "properties": {"nodes": {"type": "array", "items": {"$ref": "#/components/schemas/NodeSummary"}}},
+                    }}}},
+                },
+            },
+            "post": {
+                "tags": ["Nodes"],
+                "summary": "Create a new node",
+                "requestBody": {
+                    "required": True,
+                    "content": {"application/json": {"schema": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "body": {"type": "string"},
+                            "frontmatter": {"type": "object"},
+                            "links": {"type": "array", "items": {"type": "string"}},
+                        },
+                        "required": ["id"],
+                    }}},
+                },
+                "responses": {
+                    "201": {"description": "Node created", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WriteResult"}}}},
+                    "409": {"description": "Node ID already exists"},
+                },
+            },
+        },
+        "/api/v1/nodes/{node_id}": {
+            "get": {
+                "tags": ["Nodes"],
+                "summary": "Get a single node with body",
+                "parameters": [{"name": "node_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {
+                    "200": {"description": "Node detail", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NodeDetail"}}}},
+                    "404": {"description": "Node not found"},
+                },
+            },
+            "put": {
+                "tags": ["Nodes"],
+                "summary": "Update a node's body and/or frontmatter",
+                "parameters": [{"name": "node_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "requestBody": {
+                    "required": True,
+                    "content": {"application/json": {"schema": {
+                        "type": "object",
+                        "properties": {
+                            "body": {"type": "string"},
+                            "frontmatter": {"type": "object"},
+                        },
+                    }}},
+                },
+                "responses": {
+                    "200": {"description": "Node updated", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WriteResult"}}}},
+                    "404": {"description": "Node not found"},
+                },
+            },
+            "delete": {
+                "tags": ["Nodes"],
+                "summary": "Delete a node",
+                "parameters": [
+                    {"name": "node_id", "in": "path", "required": True, "schema": {"type": "string"}},
+                    {"name": "allow_orphans", "in": "query", "schema": {"type": "boolean", "default": False}, "description": "Delete even if other nodes link to this one"},
+                ],
+                "responses": {
+                    "200": {"description": "Node deleted", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WriteResult"}}}},
+                    "404": {"description": "Node not found"},
+                    "409": {"description": "Node has inbound curated links"},
+                },
+            },
+        },
+        "/api/v1/search": {
+            "get": {
+                "tags": ["Search"],
+                "summary": "BM25 full-text search with 1-hop edge re-ranking",
+                "parameters": [
+                    {"name": "q", "in": "query", "required": True, "schema": {"type": "string", "maxLength": 200}},
+                    {"name": "k", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 25, "default": 10}},
+                ],
+                "responses": {
+                    "200": {"description": "Search results", "content": {"application/json": {"schema": {
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string"},
+                            "hits": {"type": "array", "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "title": {"type": "string"},
+                                    "score": {"type": "number"},
+                                    "why_matched": {"type": "string"},
+                                },
+                            }},
+                        },
+                    }}}},
+                },
+            },
+        },
+        "/api/v1/edges": {
+            "post": {
+                "tags": ["Edges"],
+                "summary": "Add a curated edge",
+                "requestBody": {
+                    "required": True,
+                    "content": {"application/json": {"schema": {
+                        "type": "object",
+                        "properties": {"src": {"type": "string"}, "dst": {"type": "string"}},
+                        "required": ["src", "dst"],
+                    }}},
+                },
+                "responses": {
+                    "201": {"description": "Edge added", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EdgeResult"}}}},
+                    "404": {"description": "Source or destination node not found"},
+                    "409": {"description": "Edge already exists or self-edge"},
+                },
+            },
+            "delete": {
+                "tags": ["Edges"],
+                "summary": "Remove a curated edge",
+                "requestBody": {
+                    "required": True,
+                    "content": {"application/json": {"schema": {
+                        "type": "object",
+                        "properties": {"src": {"type": "string"}, "dst": {"type": "string"}},
+                        "required": ["src", "dst"],
+                    }}},
+                },
+                "responses": {
+                    "200": {"description": "Edge removed", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EdgeResult"}}}},
+                    "404": {"description": "Node or edge not found"},
+                    "409": {"description": "Edge is auto-generated (not curated)"},
+                },
+            },
+        },
+        "/api/v1/templates": {
+            "get": {
+                "tags": ["Templates"],
+                "summary": "List bundled skill templates",
+                "responses": {
+                    "200": {"description": "Template list", "content": {"application/json": {"schema": {
+                        "type": "object",
+                        "properties": {"templates": {"type": "array", "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "description": {"type": "string"},
+                                "allowed_tools": {"type": "string"},
+                            },
+                        }}},
+                    }}}},
+                },
+            },
+        },
+        "/api/v1/templates/{name}": {
+            "get": {
+                "tags": ["Templates"],
+                "summary": "Get a skill template's body and frontmatter",
+                "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": {
+                    "200": {"description": "Template content"},
+                    "404": {"description": "Template not found"},
+                },
+            },
+        },
+    },
+}
+
+_REdoc_HTML = """\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fabric Admin API — docs</title>
+  <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700" rel="stylesheet">
+  <style>body{margin:0;padding:0;}</style>
+</head>
+<body>
+  <redoc spec-url="/api/v1/openapi.json" hide-download-button></redoc>
+  <script src="https://cdn.jsdelivr.net/npm/redoc@2.1.5/bundles/redoc.standalone.js"></script>
+</body>
+</html>
+"""
+
+
+async def openapi_spec(request: Request) -> Response:
+    return _json(_OPENAPI_SPEC)
+
+
+async def api_docs(request: Request) -> Response:
+    from starlette.responses import HTMLResponse
+    return HTMLResponse(_REdoc_HTML, status_code=200)
+
+
 # ── route table ────────────────────────────────────────────────────────────────
 
 def make_routes() -> list[Route]:
     """Return Starlette Route objects to be mounted under /api."""
     return [
+        Route("/v1/openapi.json",             openapi_spec,  methods=["GET"]),
+        Route("/v1/docs",                     api_docs,      methods=["GET"]),
         Route("/v1/stats",                    stats,         methods=["GET"]),
         Route("/v1/nodes",                    list_nodes,    methods=["GET"]),
         Route("/v1/nodes",                    create_node,   methods=["POST"]),

@@ -19,7 +19,9 @@ import os
 from mcp.server.fastmcp import FastMCP
 from starlette.applications import Starlette
 from starlette.middleware.cors import CORSMiddleware
-from starlette.routing import Mount
+from starlette.requests import Request
+from starlette.responses import RedirectResponse
+from starlette.routing import Mount, Route
 
 from .api.routes import make_routes
 from .auth import install_auth_middleware
@@ -61,8 +63,13 @@ def build_app():
 
     mcp_app = mcp.streamable_http_app()
 
+    async def _root_redirect(request: Request) -> RedirectResponse:
+        return RedirectResponse(url="/api/v1/docs")
+
     # Parent Starlette app: /api routes handled directly, everything else forwarded to MCP.
+    # Route("/") must appear before Mount("/") so an exact GET / match redirects to docs.
     app = Starlette(routes=[
+        Route("/", _root_redirect, methods=["GET"]),
         Mount("/api", routes=make_routes()),
         Mount("/", app=mcp_app),
     ])
