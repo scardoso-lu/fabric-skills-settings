@@ -1,7 +1,5 @@
 /** @type {import('next').NextConfig} */
 
-const FABRIC_API_URL = process.env.FABRIC_API_URL ?? "http://localhost:8000";
-
 const securityHeaders = [
   { key: "X-DNS-Prefetch-Control", value: "on" },
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -34,10 +32,6 @@ const nextConfig = {
         headers: securityHeaders,
       },
     ];
-  },
-
-  serverRuntimeConfig: {
-    fabricApiUrl: FABRIC_API_URL,
   },
 };
 

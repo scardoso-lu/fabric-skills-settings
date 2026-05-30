@@ -12,16 +12,10 @@
  */
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import getConfig from "next/config";
-
-const { serverRuntimeConfig } = getConfig() as {
-  serverRuntimeConfig: { fabricApiUrl: string };
-};
-
 // SSRF guard: only allow connections to the operator-configured backend.
 // Never derived from user input.
 const API_BASE = (() => {
-  const raw = (serverRuntimeConfig.fabricApiUrl ?? "http://localhost:8000").trim();
+  const raw = (process.env.FABRIC_API_URL ?? "http://localhost:8000").trim();
   try {
     const u = new URL(raw);
     if (!["http:", "https:"].includes(u.protocol)) {

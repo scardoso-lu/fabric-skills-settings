@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import getConfig from "next/config";
-
-const { serverRuntimeConfig } = getConfig() as {
-  serverRuntimeConfig: { fabricApiUrl: string };
-};
-const API_BASE = serverRuntimeConfig.fabricApiUrl ?? "http://localhost:8000";
+const API_BASE = process.env.FABRIC_API_URL ?? "http://localhost:8000";
 
 // secure:true is set unconditionally. In local HTTP dev the browser will accept
 // it from localhost (Chrome/Firefox both exempt localhost from the secure
