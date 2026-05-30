@@ -36,7 +36,7 @@ const ALLOWED_METHODS = new Set(["GET", "POST", "PUT", "DELETE"]);
 
 async function proxy(
   request: NextRequest,
-  { params }: { params: { path: string[] } },
+  props: { params: Promise<{ path: string[] }> },
 ): Promise<NextResponse> {
   const { method } = request;
   if (!ALLOWED_METHODS.has(method)) {
@@ -48,7 +48,8 @@ async function proxy(
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const backendPath = params.path.join("/");
+  const { path } = await props.params;
+  const backendPath = path.join("/");
 
   // Reject paths with traversal sequences or unsafe characters.
   if (!SAFE_PATH_RE.test(backendPath) || backendPath.includes("..")) {
