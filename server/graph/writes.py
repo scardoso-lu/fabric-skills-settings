@@ -14,10 +14,13 @@ is a derived artifact. We pay a full rebuild on every write — fine for the
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from .builder import build
 from .lock import file_lock
@@ -173,7 +176,6 @@ def _atomic_write(path: Path, text: str) -> None:
 
 
 def _rebuild_and_save(root: Path) -> tuple[GraphStore, int, int]:
-    import logging as _logging
     result = build(root)
     # Unresolved curated links are data-quality warnings — they must not block
     # write operations (rebuilds would permanently fail on a graph with any
@@ -184,9 +186,7 @@ def _rebuild_and_save(root: Path) -> tuple[GraphStore, int, int]:
             "graph build failed after write: " + "; ".join(fatal)
         )
     if result.errors:
-        _logging.getLogger(__name__).warning(
-            "non-fatal build warnings: %s", "; ".join(result.errors)
-        )
+        logger.warning("non-fatal build issues after write: %s", "; ".join(result.errors))
     _, graph_path, bm25_path = _graph_paths(root)
     result.store.save(graph_path, built_by="fabric-graph:graph_write")
     bodies = _read_bodies(root, result.store)
