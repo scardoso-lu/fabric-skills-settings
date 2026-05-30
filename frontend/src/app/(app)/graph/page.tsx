@@ -5,6 +5,7 @@ import { useSearch, useNode } from "@/hooks/useNodes";
 import { addEdge, removeEdge } from "@/lib/api";
 import { kindBadgeClass, managedBadge } from "@/lib/utils";
 import { useStats } from "@/hooks/useNodes";
+import { NodeGraph } from "@/components/graph/NodeGraph";
 
 export default function GraphPage() {
   const { data: stats } = useStats();
@@ -124,7 +125,8 @@ export default function GraphPage() {
       {/* Node detail */}
       {nodeDetail && (
         <div className="card bg-base-200 shadow">
-          <div className="card-body py-4">
+          <div className="card-body py-4 gap-4">
+            {/* Header */}
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h2 className="card-title text-base">{nodeDetail.title}</h2>
@@ -143,6 +145,11 @@ export default function GraphPage() {
             {nodeDetail.description && (
               <p className="text-sm text-base-content/70">{nodeDetail.description}</p>
             )}
+
+            {/* Visual neighborhood graph */}
+            <div className="bg-base-300 rounded-lg p-2">
+              <NodeGraph node={nodeDetail} onSelectNode={setSelectedId} />
+            </div>
 
             {/* Outbound links */}
             {nodeDetail.links && nodeDetail.links.length > 0 && (
