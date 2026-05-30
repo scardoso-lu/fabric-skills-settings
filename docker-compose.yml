@@ -5,10 +5,10 @@
 #   frontend — Next.js management UI on port 3000
 #
 # MCP auth (API-key + JWT):
-#   - FABRIC_MCP_JWT_SECRET must be set (generate: python -c "import secrets; print(secrets.token_hex(32))")
-#   - API keys: create ./server/config/api-keys.csv with headers `email,apikey`.
-#   - Set to azure-blob source via FABRIC_MCP_API_KEYS_SOURCE (see comments below).
-#   - Auth is disabled when no keys are configured — local dev mode.
+#   - Add FABRIC_MCP_API_KEYS=<your-key> and FABRIC_MCP_JWT_SECRET=<secret> to .env.
+#   - Generate JWT secret: python -c "import secrets; print(secrets.token_hex(32))"
+#   - Auth is disabled when FABRIC_MCP_API_KEYS is empty — local single-user dev mode.
+#   - For multi-user deployments, switch to the CSV file source (see env comment below).
 #
 # Managed content (persistent across restarts):
 #   - User-created skills and content go to ./server/data/managed/ (volume-mounted into server).
@@ -34,24 +34,27 @@ services:
       MCP_SERVER_URL: ${MCP_SERVER_URL:-http://127.0.0.1:8000}
       # CORS: allow requests from the frontend container and local browser.
       FABRIC_CORS_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
-      # API key source. Default: read from mounted CSV.
-      # Set to azure-blob for Azure Blob Storage (needs the 'server-azure' extra):
+      # API keys (comma-separated). Set in your .env file — never commit keys.
+      # Auth is disabled when this is empty (local single-user dev mode).
+      # For multi-user production, switch to the CSV file source instead:
+      #   FABRIC_MCP_API_KEYS_SOURCE: file
+      #   FABRIC_MCP_API_KEYS_FILE: /config/api-keys.csv
+      #   (and mount the CSV: - ./server/config/api-keys.csv:/config/api-keys.csv:ro)
+      # For Azure Blob Storage (needs 'server-azure' extra):
       #   FABRIC_MCP_API_KEYS_SOURCE: azure-blob
       #   FABRIC_MCP_API_KEYS_BLOB_CONTAINER: keys
       #   FABRIC_MCP_API_KEYS_BLOB_NAME: api-keys.csv
       #   FABRIC_MCP_API_KEYS_BLOB_CONNECTION_STRING: ${AZURE_BLOB_CONN}
-      FABRIC_MCP_API_KEYS_SOURCE: ${FABRIC_MCP_API_KEYS_SOURCE:-file}
-      FABRIC_MCP_API_KEYS_FILE: /config/api-keys.csv
-      FABRIC_MCP_JWT_SECRET: ${FABRIC_MCP_JWT_SECRET}
+      FABRIC_MCP_API_KEYS: ${FABRIC_MCP_API_KEYS:-}
+      FABRIC_MCP_JWT_SECRET: ${FABRIC_MCP_JWT_SECRET:-}
     volumes:
-      - ./server/config/api-keys.csv:/config/api-keys.csv:ro
       - ./server/data:/data
       - ./server/data/managed:/app/server/managed
     ports:
       - "127.0.0.1:8000:8000"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/stats')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 5s
       retries: 3

@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearch, useNode } from "@/hooks/useNodes";
-import { addEdge, removeEdge } from "@/lib/api";
+import { addEdge } from "@/lib/api";
 import { kindBadgeClass, managedBadge } from "@/lib/utils";
 import { useStats } from "@/hooks/useNodes";
+import { NodeGraph } from "@/components/graph/NodeGraph";
 
 export default function GraphPage() {
   const { data: stats } = useStats();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [localLinks, setLocalLinks] = useState<string[]>([]);
   const [edgeSrc, setEdgeSrc] = useState("");
   const [edgeDst, setEdgeDst] = useState("");
   const [edgeError, setEdgeError] = useState<string | null>(null);
@@ -18,6 +20,10 @@ export default function GraphPage() {
 
   const { data: searchData, isLoading: searchLoading } = useSearch(debouncedQuery);
   const { data: nodeDetail } = useNode(selectedId);
+
+  useEffect(() => {
+    setLocalLinks(nodeDetail?.links ?? []);
+  }, [nodeDetail?.id]);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -39,15 +45,6 @@ export default function GraphPage() {
       setEdgeError(err instanceof Error ? err.message : "Failed to add edge");
     } finally {
       setEdgeSaving(false);
-    }
-  }
-
-  async function handleRemoveEdge(src: string, dst: string) {
-    setEdgeError(null);
-    try {
-      await removeEdge(src, dst);
-    } catch (err: unknown) {
-      setEdgeError(err instanceof Error ? err.message : "Failed to remove edge");
     }
   }
 
@@ -124,7 +121,8 @@ export default function GraphPage() {
       {/* Node detail */}
       {nodeDetail && (
         <div className="card bg-base-200 shadow">
-          <div className="card-body py-4">
+          <div className="card-body py-4 gap-4">
+            {/* Header */}
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h2 className="card-title text-base">{nodeDetail.title}</h2>
@@ -144,14 +142,19 @@ export default function GraphPage() {
               <p className="text-sm text-base-content/70">{nodeDetail.description}</p>
             )}
 
+            {/* Visual neighborhood graph */}
+            <div className="bg-base-300 rounded-lg p-2">
+              <NodeGraph key={nodeDetail.id} node={nodeDetail} onSelectNode={setSelectedId} />
+            </div>
+
             {/* Outbound links */}
-            {nodeDetail.links && nodeDetail.links.length > 0 && (
+            {localLinks.length > 0 && (
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wide text-base-content/50 mb-1">
                   Outbound links
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {nodeDetail.links.map((link) => (
+                  {localLinks.map((link) => (
                     <div key={link} className="flex items-center gap-0.5">
                       <button
                         type="button"
@@ -163,8 +166,8 @@ export default function GraphPage() {
                       <button
                         type="button"
                         className="btn btn-ghost btn-xs text-error px-1"
-                        title="Remove curated edge"
-                        onClick={() => handleRemoveEdge(nodeDetail.id, link)}
+                        title="Remove link"
+                        onClick={() => setLocalLinks((prev) => prev.filter((l) => l !== link))}
                       >
                         ✕
                       </button>

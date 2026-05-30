@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeSanitize from "rehype-sanitize";
 import { NodeBadge } from "@/components/ui/NodeBadge";
 import type { GraphNode } from "@/lib/types";
 
@@ -33,6 +36,7 @@ export function NodeEditor({
     (fm["allowed-tools"] as string) ?? "",
   );
   const [body, setBody] = useState<string>(node.body ?? "");
+  const [previewMode, setPreviewMode] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   function handleSave() {
@@ -92,19 +96,47 @@ export function NodeEditor({
         </label>
       </div>
 
-      {/* Body editor */}
-      <label className="form-control w-full flex-1 min-h-0">
-        <div className="label">
+      {/* Body editor / preview */}
+      <div className="form-control w-full flex-1 min-h-0 flex flex-col">
+        <div className="label pb-0">
           <span className="label-text">Body (Markdown)</span>
+          <div className="tabs tabs-boxed tabs-xs bg-transparent">
+            <button
+              type="button"
+              className={`tab ${!previewMode ? "tab-active" : ""}`}
+              onClick={() => setPreviewMode(false)}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              className={`tab ${previewMode ? "tab-active" : ""}`}
+              onClick={() => setPreviewMode(true)}
+            >
+              Preview
+            </button>
+          </div>
         </div>
-        <textarea
-          aria-label="body"
-          className="textarea textarea-bordered font-mono text-sm w-full flex-1 resize-none h-full min-h-[300px]"
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          spellCheck={false}
-        />
-      </label>
+        {previewMode ? (
+          <div className="prose prose-sm prose-invert max-w-none overflow-auto flex-1 min-h-[300px] rounded-lg border border-base-300 bg-base-300 p-4">
+            {body.trim() ? (
+              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+                {body}
+              </ReactMarkdown>
+            ) : (
+              <p className="text-base-content/40 italic">Nothing to preview.</p>
+            )}
+          </div>
+        ) : (
+          <textarea
+            aria-label="body"
+            className="textarea textarea-bordered font-mono text-sm w-full flex-1 resize-none h-full min-h-[300px]"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            spellCheck={false}
+          />
+        )}
+      </div>
 
       {/* Actions */}
       <div className="flex justify-between items-center gap-2">

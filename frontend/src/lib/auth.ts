@@ -17,10 +17,18 @@ export function getExpiresAt(): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
-export function setExpiresAt(expiresAt: string): void {
+export function setExpiresAt(expiresAt: string | number): void {
   if (typeof document === "undefined") return;
+  // Server returns expires_at as a Unix timestamp in seconds (float).
+  // Normalize to ISO 8601 so new Date() parses it correctly everywhere.
+  const iso =
+    typeof expiresAt === "number"
+      ? new Date(expiresAt * 1000).toISOString()
+      : /^\d+(\.\d+)?$/.test(expiresAt)
+        ? new Date(parseFloat(expiresAt) * 1000).toISOString()
+        : expiresAt;
   const maxAge = 3600;
-  document.cookie = `${EXPIRY_KEY}=${encodeURIComponent(expiresAt)}; path=/; max-age=${maxAge}; SameSite=Strict`;
+  document.cookie = `${EXPIRY_KEY}=${encodeURIComponent(iso)}; path=/; max-age=${maxAge}; SameSite=Strict`;
 }
 
 export function clearExpiresAt(): void {

@@ -20,7 +20,7 @@ from mcp.server.fastmcp import FastMCP
 from starlette.applications import Starlette
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import RedirectResponse
+from starlette.responses import JSONResponse, RedirectResponse
 from starlette.routing import Mount, Route
 
 from .api.routes import make_routes
@@ -29,6 +29,19 @@ from .tools.data import tools as data_tools
 from .tools.graph import tools as graph_tools
 from .tools.semantic_model import tools as semantic_model_tools
 from .tools.validate import tools as validate_tools
+
+
+async def _health(request: Request) -> JSONResponse:
+    return JSONResponse({"status": "ok"})
+
+
+async def _auth_disabled(request: Request) -> JSONResponse:
+    return JSONResponse(
+        {"error": "auth_not_configured",
+         "message": "Authentication is not enabled on this server. "
+                    "Set FABRIC_MCP_API_KEYS (and FABRIC_MCP_JWT_SECRET) to enable it."},
+        status_code=503,
+    )
 
 
 def _resource_server_url() -> str:
@@ -68,8 +81,14 @@ def build_app():
 
     # Parent Starlette app: /api routes handled directly, everything else forwarded to MCP.
     # Route("/") must appear before Mount("/") so an exact GET / match redirects to docs.
+    # /health is unauthenticated (used by Docker healthcheck).
+    # /auth/* routes are fallbacks when auth middleware is not installed; when the
+    # middleware IS installed it intercepts these paths before routing.
     app = Starlette(routes=[
         Route("/", _root_redirect, methods=["GET"]),
+        Route("/health", _health, methods=["GET"]),
+        Route("/auth/login", _auth_disabled, methods=["POST"]),
+        Route("/auth/refresh", _auth_disabled, methods=["POST"]),
         Mount("/api", routes=make_routes()),
         Mount("/", app=mcp_app),
     ])

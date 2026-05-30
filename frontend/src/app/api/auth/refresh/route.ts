@@ -5,7 +5,8 @@ const IS_PROD = process.env.NODE_ENV === "production";
 const TOKEN_MAX_AGE = 3600;
 
 export async function POST(_request: NextRequest): Promise<NextResponse> {
-  const oldToken = cookies().get("fab_token")?.value;
+  const cookieStore = await cookies();
+  const oldToken = cookieStore.get("fab_token")?.value;
   if (!oldToken) {
     return NextResponse.json({ error: "no_session" }, { status: 401 });
   }
@@ -20,13 +21,13 @@ export async function POST(_request: NextRequest): Promise<NextResponse> {
   }
 
   if (!upstream.ok) {
-    cookies().delete("fab_token");
+    cookieStore.delete("fab_token");
     return NextResponse.json({ error: "refresh_failed" }, { status: upstream.status });
   }
 
   const { token, expires_at, token_type } = await upstream.json();
 
-  cookies().set("fab_token", token, {
+  cookieStore.set("fab_token", token, {
     httpOnly: true,
     secure: IS_PROD,
     sameSite: "strict",

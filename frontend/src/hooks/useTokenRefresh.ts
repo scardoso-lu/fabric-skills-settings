@@ -13,7 +13,9 @@ export function useTokenRefresh() {
     function scheduleRefresh() {
       const expiry = getExpiresAt();
       if (!expiry) return;
-      const msUntilRefresh = new Date(expiry).getTime() - Date.now() - REFRESH_BEFORE_MS;
+      const expiryMs = new Date(expiry).getTime();
+      if (!isFinite(expiryMs)) return; // malformed cookie — don't loop
+      const msUntilRefresh = expiryMs - Date.now() - REFRESH_BEFORE_MS;
       if (msUntilRefresh <= 0) {
         // Already within the refresh window — refresh immediately.
         refreshToken().then(scheduleRefresh);

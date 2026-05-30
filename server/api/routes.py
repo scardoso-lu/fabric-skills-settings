@@ -14,6 +14,7 @@ Security notes (OWASP):
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,8 @@ from typing import Any
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
+
+logger = logging.getLogger(__name__)
 
 from ..graph import writes as graph_writes
 from ..graph.schema import parse_frontmatter
@@ -170,7 +173,11 @@ async def create_node(request: Request) -> Response:
         _invalidate_caches()
     except ValueError as exc:
         return _error(str(exc), 409)
-    except Exception:
+    except RuntimeError as exc:
+        logger.error("create_node runtime error: %s", exc, exc_info=True)
+        return _error(str(exc), 503)
+    except Exception as exc:
+        logger.error("create_node unexpected error: %s", exc, exc_info=True)
         return _error("internal error", 500)
     return _json({"id": result.node_id, "path": result.path, "action": result.action,
                   "nodes": result.nodes, "edges": result.edges}, 201)
@@ -197,7 +204,11 @@ async def update_node(request: Request) -> Response:
         _invalidate_caches()
     except ValueError as exc:
         return _error(str(exc), 404 if "unknown node" in str(exc) else 400)
-    except Exception:
+    except RuntimeError as exc:
+        logger.error("update_node runtime error: %s", exc, exc_info=True)
+        return _error(str(exc), 503)
+    except Exception as exc:
+        logger.error("update_node unexpected error: %s", exc, exc_info=True)
         return _error("internal error", 500)
     return _json({"id": result.node_id, "path": result.path, "action": result.action,
                   "nodes": result.nodes, "edges": result.edges})
@@ -218,7 +229,11 @@ async def delete_node(request: Request) -> Response:
     except ValueError as exc:
         status = 404 if "unknown node" in str(exc) else 409
         return _error(str(exc), status)
-    except Exception:
+    except RuntimeError as exc:
+        logger.error("delete_node runtime error: %s", exc, exc_info=True)
+        return _error(str(exc), 503)
+    except Exception as exc:
+        logger.error("delete_node unexpected error: %s", exc, exc_info=True)
         return _error("internal error", 500)
     return _json({"id": result.node_id, "path": result.path, "action": result.action,
                   "nodes": result.nodes, "edges": result.edges})
@@ -264,7 +279,11 @@ async def add_edge(request: Request) -> Response:
         _invalidate_caches()
     except ValueError as exc:
         return _error(str(exc), 404 if "unknown" in str(exc) else 409)
-    except Exception:
+    except RuntimeError as exc:
+        logger.error("add_edge runtime error: %s", exc, exc_info=True)
+        return _error(str(exc), 503)
+    except Exception as exc:
+        logger.error("add_edge unexpected error: %s", exc, exc_info=True)
         return _error("internal error", 500)
     return _json({"action": result.action, "nodes": result.nodes, "edges": result.edges}, 201)
 
@@ -282,7 +301,11 @@ async def remove_edge(request: Request) -> Response:
         _invalidate_caches()
     except ValueError as exc:
         return _error(str(exc), 404 if "unknown" in str(exc) else 409)
-    except Exception:
+    except RuntimeError as exc:
+        logger.error("remove_edge runtime error: %s", exc, exc_info=True)
+        return _error(str(exc), 503)
+    except Exception as exc:
+        logger.error("remove_edge unexpected error: %s", exc, exc_info=True)
         return _error("internal error", 500)
     return _json({"action": result.action, "nodes": result.nodes, "edges": result.edges})
 

@@ -228,6 +228,13 @@ def test_middleware_refresh_with_invalid_token_returns_401():
     assert cap.status == 401
 
 
+def test_middleware_health_bypasses_auth():
+    mw, _ = _make_middleware()
+    cap = _Captured()
+    asyncio.run(mw(_http_scope("/health"), cap.receive, cap.send))
+    assert cap.status == 200  # passed through to inner app, no token required
+
+
 def test_middleware_passes_non_http_scopes():
     received = []
 

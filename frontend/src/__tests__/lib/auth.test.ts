@@ -44,4 +44,23 @@ describe("auth expiry helpers (cookie-based, no token in JS)", () => {
     expect(getExpiresAt()).toBeNull();
     expect(isAuthenticated()).toBe(false);
   });
+
+  it("normalizes a Unix timestamp number to ISO before storing", () => {
+    const futureSeconds = (Date.now() + 3600_000) / 1000;
+    setExpiresAt(futureSeconds);
+    const stored = getExpiresAt();
+    // Must be parseable — new Date() must not return Invalid Date.
+    expect(stored).not.toBeNull();
+    expect(isFinite(new Date(stored!).getTime())).toBe(true);
+    expect(isTokenExpired()).toBe(false);
+  });
+
+  it("normalizes a numeric string Unix timestamp to ISO before storing", () => {
+    const futureSeconds = String((Date.now() + 3600_000) / 1000);
+    setExpiresAt(futureSeconds);
+    const stored = getExpiresAt();
+    expect(stored).not.toBeNull();
+    expect(isFinite(new Date(stored!).getTime())).toBe(true);
+    expect(isTokenExpired()).toBe(false);
+  });
 });

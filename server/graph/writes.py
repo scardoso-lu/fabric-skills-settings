@@ -173,10 +173,19 @@ def _atomic_write(path: Path, text: str) -> None:
 
 
 def _rebuild_and_save(root: Path) -> tuple[GraphStore, int, int]:
+    import logging as _logging
     result = build(root)
-    if result.errors:
+    # Unresolved curated links are data-quality warnings — they must not block
+    # write operations (rebuilds would permanently fail on a graph with any
+    # pre-existing broken link, cascading into a 500 on every write).
+    fatal = [e for e in result.errors if "unresolved curated link" not in e]
+    if fatal:
         raise RuntimeError(
-            "graph build failed after write: " + "; ".join(result.errors)
+            "graph build failed after write: " + "; ".join(fatal)
+        )
+    if result.errors:
+        _logging.getLogger(__name__).warning(
+            "non-fatal build warnings: %s", "; ".join(result.errors)
         )
     _, graph_path, bm25_path = _graph_paths(root)
     result.store.save(graph_path, built_by="fabric-graph:graph_write")
