@@ -38,6 +38,7 @@ def _check_rate_limit(ip: str) -> bool:
 
 _LOGIN_PATH = "/auth/login"
 _REFRESH_PATH = "/auth/refresh"
+_HEALTH_PATH = "/health"
 
 
 async def _read_body(receive, max_bytes: int = 16_384) -> bytes:
@@ -95,6 +96,9 @@ class FabricAuthMiddleware:
                 return
             if path == _REFRESH_PATH:
                 await self._refresh(scope, receive, send)
+                return
+            if path == _HEALTH_PATH:
+                await self.app(scope, receive, send)
                 return
 
         token = self._extract_token(scope)
