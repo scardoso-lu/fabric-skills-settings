@@ -37,6 +37,7 @@ from ..tools.graph.tools import (
 )
 
 _MAX_BODY_BYTES = 512 * 1024  # 512 KiB
+_MAX_SEARCH_QUERY_LEN = 200  # characters
 
 
 def _json(data: Any, status: int = 200) -> JSONResponse:
@@ -169,8 +170,8 @@ async def create_node(request: Request) -> Response:
         _invalidate_caches()
     except ValueError as exc:
         return _error(str(exc), 409)
-    except Exception as exc:
-        return _error(str(exc), 500)
+    except Exception:
+        return _error("internal error", 500)
     return _json({"id": result.node_id, "path": result.path, "action": result.action,
                   "nodes": result.nodes, "edges": result.edges}, 201)
 
@@ -196,8 +197,8 @@ async def update_node(request: Request) -> Response:
         _invalidate_caches()
     except ValueError as exc:
         return _error(str(exc), 404 if "unknown node" in str(exc) else 400)
-    except Exception as exc:
-        return _error(str(exc), 500)
+    except Exception:
+        return _error("internal error", 500)
     return _json({"id": result.node_id, "path": result.path, "action": result.action,
                   "nodes": result.nodes, "edges": result.edges})
 
@@ -217,8 +218,8 @@ async def delete_node(request: Request) -> Response:
     except ValueError as exc:
         status = 404 if "unknown node" in str(exc) else 409
         return _error(str(exc), status)
-    except Exception as exc:
-        return _error(str(exc), 500)
+    except Exception:
+        return _error("internal error", 500)
     return _json({"id": result.node_id, "path": result.path, "action": result.action,
                   "nodes": result.nodes, "edges": result.edges})
 
@@ -229,6 +230,8 @@ async def search_nodes(request: Request) -> Response:
     query = (request.query_params.get("q") or "").strip()
     if not query:
         return _error("'q' query parameter is required")
+    if len(query) > _MAX_SEARCH_QUERY_LEN:
+        return _error(f"'q' must be at most {_MAX_SEARCH_QUERY_LEN} characters")
     try:
         k = min(max(int(request.query_params.get("k", "10")), 1), 25)
     except ValueError:
@@ -261,8 +264,8 @@ async def add_edge(request: Request) -> Response:
         _invalidate_caches()
     except ValueError as exc:
         return _error(str(exc), 404 if "unknown" in str(exc) else 409)
-    except Exception as exc:
-        return _error(str(exc), 500)
+    except Exception:
+        return _error("internal error", 500)
     return _json({"action": result.action, "nodes": result.nodes, "edges": result.edges}, 201)
 
 
@@ -279,8 +282,8 @@ async def remove_edge(request: Request) -> Response:
         _invalidate_caches()
     except ValueError as exc:
         return _error(str(exc), 404 if "unknown" in str(exc) else 409)
-    except Exception as exc:
-        return _error(str(exc), 500)
+    except Exception:
+        return _error("internal error", 500)
     return _json({"action": result.action, "nodes": result.nodes, "edges": result.edges})
 
 

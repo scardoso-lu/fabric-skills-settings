@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import pickle
+import json
 import re
 
 import pytest
@@ -44,7 +44,7 @@ def _store() -> GraphStore:
 def test_render_materialized_graph_svg_validates_bm25_and_writes_svg(tmp_path):
     store = _store()
     graph_json = tmp_path / "graph.json"
-    bm25_path = tmp_path / "graph-bm25.pkl"
+    bm25_path = tmp_path / "graph-bm25.json"
     out = tmp_path / "materialized-graph.svg"
     store.save(graph_json, built_by="test")
     save_index(
@@ -85,9 +85,10 @@ def test_render_materialized_graph_svg_validates_bm25_and_writes_svg(tmp_path):
 
 def test_validate_materialized_index_rejects_stale_bm25(tmp_path):
     store = _store()
-    bm25_path = tmp_path / "graph-bm25.pkl"
-    with bm25_path.open("wb") as fh:
-        pickle.dump({"node_ids": ["graph-content/entry", "ghost"], "bm25": object()}, fh)
+    bm25_path = tmp_path / "graph-bm25.json"
+    # Write a JSON index whose node_ids don't match the store (stale index).
+    with bm25_path.open("w", encoding="utf-8") as fh:
+        json.dump({"node_ids": ["graph-content/entry", "ghost"], "corpus": [["a"], ["b"]]}, fh)
 
     with pytest.raises(ValueError, match="node sets differ"):
         validate_materialized_index(store, bm25_path)
@@ -102,7 +103,7 @@ def test_top_down_layout_node_boxes_do_not_overlap(tmp_path):
             store.add_edge(Edge(src=previous_id, dst=node_id, kind="curated"))
         previous_id = node_id
     graph_json = tmp_path / "graph.json"
-    bm25_path = tmp_path / "graph-bm25.pkl"
+    bm25_path = tmp_path / "graph-bm25.json"
     out = tmp_path / "materialized-graph.svg"
     store.save(graph_json, built_by="test")
     save_index(bm25_path, build_bm25_index(store, {node_id: node_id for node_id in store.graph.nodes}))
@@ -194,7 +195,7 @@ def test_default_render_hides_non_tree_edges_for_readability(tmp_path):
     store = _store()
     store.add_edge(Edge(src="skills/fabric-ingest", dst="graph-content/session/session-start", kind="auto-path"))
     graph_json = tmp_path / "graph.json"
-    bm25_path = tmp_path / "graph-bm25.pkl"
+    bm25_path = tmp_path / "graph-bm25.json"
     out = tmp_path / "materialized-graph.svg"
     store.save(graph_json, built_by="test")
     save_index(

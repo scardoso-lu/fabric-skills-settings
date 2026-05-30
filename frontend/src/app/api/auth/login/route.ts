@@ -7,7 +7,9 @@ const { serverRuntimeConfig } = getConfig() as {
 };
 const API_BASE = serverRuntimeConfig.fabricApiUrl ?? "http://localhost:8000";
 
-const IS_PROD = process.env.NODE_ENV === "production";
+// secure:true is set unconditionally. In local HTTP dev the browser will accept
+// it from localhost (Chrome/Firefox both exempt localhost from the secure
+// requirement). In production it enforces HTTPS.
 const TOKEN_MAX_AGE = 3600; // 1 hour, matches JWT expiry
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -43,7 +45,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // Set httpOnly cookie — inaccessible to browser JS (prevents XSS token theft).
   cookies().set("fab_token", token, {
     httpOnly: true,
-    secure: IS_PROD,
+    secure: true,
     sameSite: "strict",
     path: "/",
     maxAge: TOKEN_MAX_AGE,

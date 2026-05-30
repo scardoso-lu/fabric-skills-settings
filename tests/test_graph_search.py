@@ -46,10 +46,10 @@ def test_search_empty_query_returns_nothing():
     assert search(store, index, "   ") == []
 
 
-def test_index_pickle_round_trip(tmp_path):
+def test_index_json_round_trip(tmp_path):
     store, bodies = _make_store_with_bodies()
     index = build_bm25_index(store, bodies)
-    out = tmp_path / "bm25.pkl"
+    out = tmp_path / "bm25.json"
     save_index(out, index)
     loaded = load_index(out)
     assert loaded.node_ids == index.node_ids

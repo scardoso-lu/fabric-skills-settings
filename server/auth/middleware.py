@@ -9,9 +9,32 @@ them onto the ASGI request flow.
 from __future__ import annotations
 
 import json
+import time
+from collections import defaultdict
+from threading import Lock
 
 from .repository import load_api_keys
 from .tokens import JtiStore, decode_jwt, jwt_secret, mint_jwt
+
+# Brute-force protection: max 10 login attempts per IP per 60-second window.
+_LOGIN_RATE_MAX = 10
+_LOGIN_RATE_WINDOW = 60  # seconds
+_login_attempts: dict[str, list[float]] = defaultdict(list)
+_login_lock = Lock()
+
+
+def _check_rate_limit(ip: str) -> bool:
+    """Return True (allow) or False (blocked) for the given client IP."""
+    now = time.time()
+    with _login_lock:
+        window_start = now - _LOGIN_RATE_WINDOW
+        attempts = [t for t in _login_attempts[ip] if t > window_start]
+        if len(attempts) >= _LOGIN_RATE_MAX:
+            _login_attempts[ip] = attempts
+            return False
+        attempts.append(now)
+        _login_attempts[ip] = attempts
+        return True
 
 _LOGIN_PATH = "/auth/login"
 _REFRESH_PATH = "/auth/refresh"
@@ -68,7 +91,7 @@ class FabricAuthMiddleware:
         if scope["type"] == "http":
             path = scope.get("path", "")
             if path == _LOGIN_PATH:
-                await self._login(receive, send)
+                await self._login(scope, receive, send)
                 return
             if path == _REFRESH_PATH:
                 await self._refresh(scope, receive, send)
@@ -88,7 +111,11 @@ class FabricAuthMiddleware:
 
         await self.app(scope, receive, send)
 
-    async def _login(self, receive, send) -> None:
+    async def _login(self, scope, receive, send) -> None:
+        ip = self._extract_ip(scope)
+        if not _check_rate_limit(ip):
+            await _send_json(send, {"error": "rate_limit_exceeded"}, 429)
+            return
         try:
             body = await _read_body(receive)
             data = json.loads(body)
@@ -112,9 +139,19 @@ class FabricAuthMiddleware:
         if old_payload is None:
             await _send_json(send, {"error": "invalid_token"}, 401)
             return
-        self._jti_store.revoke(old_payload["jti"])
+        # Mint new token BEFORE revoking the old one so a response failure
+        # doesn't leave the client with no valid token (A07).
         token, expiry = mint_jwt(old_payload.get("sub", "client"), self._secret, self._jti_store)
+        self._jti_store.revoke(old_payload["jti"])
         await _send_json(send, {"token": token, "expires_at": expiry, "token_type": "Bearer"}, 200)
+
+    @staticmethod
+    def _extract_ip(scope) -> str:
+        """Extract the client IP from the ASGI scope (best-effort)."""
+        client = scope.get("client")
+        if client and isinstance(client, (list, tuple)) and len(client) >= 1:
+            return str(client[0])
+        return "unknown"
 
     @staticmethod
     def _extract_token(scope) -> str | None:
@@ -140,6 +177,11 @@ def install_auth_middleware(app) -> bool:
     if not secret:
         raise RuntimeError(
             "FABRIC_MCP_JWT_SECRET must be set when API key auth is enabled. "
+            "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+        )
+    if len(secret.encode()) < 32:
+        raise RuntimeError(
+            "FABRIC_MCP_JWT_SECRET must be at least 32 bytes to be cryptographically secure. "
             "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
         )
     app.add_middleware(

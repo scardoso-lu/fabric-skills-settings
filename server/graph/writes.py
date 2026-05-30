@@ -36,7 +36,7 @@ class WriteResult:
 
 
 def _graph_paths(root: Path) -> tuple[Path, Path, Path]:
-    """Return (lock, graph.json, graph-bm25.pkl) paths.
+    """Return (lock, graph.json, graph-bm25.json) paths.
 
     Honors FABRIC_GRAPH_DIR if set; otherwise defaults to <root>/dist/.graph
     in the new server-only layout. Older target-repo callers should pass the
@@ -49,7 +49,7 @@ def _graph_paths(root: Path) -> tuple[Path, Path, Path]:
     return (
         graph_dir / "graph.lock",
         graph_dir / "graph.json",
-        graph_dir / "graph-bm25.pkl",
+        graph_dir / "graph-bm25.json",
     )
 
 
@@ -149,8 +149,16 @@ def _serialize_frontmatter(frontmatter: dict[str, Any], links: list[str] | None)
 
 
 def _quote_if_needed(value: str) -> str:
-    if ":" in value or value.startswith("#") or value.strip() != value:
-        return f'"{value}"'
+    needs_quoting = (
+        ":" in value
+        or '"' in value
+        or "\\" in value
+        or value.startswith("#")
+        or value.strip() != value
+    )
+    if needs_quoting:
+        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{escaped}"'
     return value
 
 

@@ -279,7 +279,36 @@ def test_install_auth_middleware_requires_secret_when_keys_present(monkeypatch):
         install_auth_middleware(_FakeApp())
 
 
-# ── _resource_server_url ──────────────────────────────────────────────────────
+def test_install_auth_middleware_rejects_short_secret(monkeypatch):
+    _clear_key_env(monkeypatch)
+    monkeypatch.setenv("FABRIC_MCP_API_KEYS", "key1")
+    monkeypatch.setenv("FABRIC_MCP_JWT_SECRET", "tooshort")
+    with pytest.raises(RuntimeError, match="32 bytes"):
+        install_auth_middleware(_FakeApp())
+
+
+def test_middleware_login_rate_limit_blocks_after_max_attempts():
+    from server.auth.middleware import _login_attempts, _LOGIN_RATE_MAX, _LOGIN_RATE_WINDOW
+    import time as _time
+
+    mw, _ = _make_middleware()
+    unique_ip = "10.0.1.99"  # use a unique IP to avoid cross-test pollution
+
+    # Seed the attempt list as if max attempts already occurred within the window.
+    _login_attempts[unique_ip] = [_time.time() for _ in range(_LOGIN_RATE_MAX)]
+
+    scope = {"type": "http", "path": "/auth/login", "headers": [], "client": (unique_ip, 12345)}
+    cap = _Captured(b'{"api_key": "good-key"}')
+    asyncio.run(mw(scope, cap.receive, cap.send))
+
+    assert cap.status == 429
+    assert cap.body["error"] == "rate_limit_exceeded"
+
+    # Clean up to avoid affecting other tests.
+    del _login_attempts[unique_ip]
+
+
+# ── _resource_server_url ─────────────────────────────────────────────────────
 
 def test_resource_server_url_uses_public_host_fallback(monkeypatch):
     monkeypatch.delenv("MCP_SERVER_URL", raising=False)

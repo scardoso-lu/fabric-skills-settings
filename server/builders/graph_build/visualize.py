@@ -56,7 +56,7 @@ def validate_materialized_index(store: GraphStore, bm25_path: Path) -> None:
             detail.append("missing from BM25: " + ", ".join(missing_from_index[:5]))
         if missing_from_graph:
             detail.append("missing from graph: " + ", ".join(missing_from_graph[:5]))
-        raise ValueError("graph.json and graph-bm25.pkl node sets differ; " + "; ".join(detail))
+        raise ValueError("graph.json and graph-bm25.json node sets differ; " + "; ".join(detail))
 
 
 def render_graph_svg(
@@ -1274,7 +1274,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=("knowledge", "capability"), default="knowledge")
     parser.add_argument("--graph", type=Path, default=None)
-    parser.add_argument("--bm25", type=Path, default=Path("dist/.graph/graph-bm25.pkl"))
+    parser.add_argument("--bm25", type=Path, default=Path("dist/.graph/graph-bm25.json"))
     parser.add_argument("--out", type=Path, default=None)
     parser.add_argument("--width", type=int, default=1800)
     parser.add_argument("--height", type=int, default=1200)

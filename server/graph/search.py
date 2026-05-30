@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import pickle
+import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from rank_bm25 import BM25Okapi
@@ -23,6 +23,10 @@ def tokenize(text: str) -> list[str]:
 class BM25Index:
     node_ids: list[str]
     bm25: BM25Okapi
+    # corpus is stored alongside the BM25 object so save_index can serialise
+    # to JSON without depending on pickle (which allows arbitrary code execution
+    # when loading untrusted data — OWASP A03).
+    corpus: list[list[str]] = field(default_factory=list)
 
 
 def build_bm25_index(store: GraphStore, bodies: dict[str, str]) -> BM25Index:
@@ -40,21 +44,26 @@ def build_bm25_index(store: GraphStore, bodies: dict[str, str]) -> BM25Index:
         body = bodies.get(nid, "")
         tokens = tokenize(title) * 3 + tokenize(description) * 2 + tokenize(body)
         corpus.append(tokens or [nid])
-    return BM25Index(node_ids=node_ids, bm25=BM25Okapi(corpus))
+    return BM25Index(node_ids=node_ids, bm25=BM25Okapi(corpus), corpus=corpus)
 
 
 def save_index(path: Path, index: BM25Index) -> None:
+    """Serialise the BM25 index to JSON (safe, no pickle/RCE risk)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
-    with open(tmp, "wb") as fh:
-        pickle.dump({"node_ids": index.node_ids, "bm25": index.bm25}, fh, protocol=pickle.HIGHEST_PROTOCOL)
+    payload = {"node_ids": index.node_ids, "corpus": index.corpus}
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, separators=(",", ":"))
     tmp.replace(path)
 
 
 def load_index(path: Path) -> BM25Index:
-    with open(path, "rb") as fh:
-        data = pickle.load(fh)
-    return BM25Index(node_ids=data["node_ids"], bm25=data["bm25"])
+    """Load and reconstruct a BM25 index from its JSON serialisation."""
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+    node_ids: list[str] = data["node_ids"]
+    corpus: list[list[str]] = data["corpus"]
+    return BM25Index(node_ids=node_ids, bm25=BM25Okapi(corpus), corpus=corpus)
 
 
 @dataclass

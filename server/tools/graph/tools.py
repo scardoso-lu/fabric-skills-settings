@@ -35,7 +35,7 @@ _PROJECT_ROOT = Path(os.environ.get("FABRIC_PROJECT_ROOT") or _DEFAULT_PROJECT_R
 
 GRAPH_DIR = Path(os.environ.get("FABRIC_GRAPH_DIR") or (_PROJECT_ROOT / "dist" / ".graph")).resolve()
 GRAPH_PATH = GRAPH_DIR / "graph.json"
-BM25_PATH = GRAPH_DIR / "graph-bm25.pkl"
+BM25_PATH = GRAPH_DIR / "graph-bm25.json"
 ENTRY_NODE_ID = "graph-content/entry"
 
 _store: GraphStore | None = None

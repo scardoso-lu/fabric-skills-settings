@@ -103,7 +103,7 @@ def project_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     store = result.store
     store.save(graph_dir / "graph.json", built_by="test")
     bodies = {nid: "" for nid in store.graph.nodes}
-    save_index(graph_dir / "graph-bm25.pkl", build_bm25_index(store, bodies))
+    save_index(graph_dir / "graph-bm25.json", build_bm25_index(store, bodies))
 
     return tmp_path
 

@@ -6,7 +6,9 @@
  * adds the Authorization header before forwarding to the FastMCP server.
  *
  * Security: token never touches browser JS; httpOnly + SameSite=Strict
- * prevents XSS token theft and CSRF.
+ * prevents XSS token theft and CSRF. SSRF is prevented by a fixed internal
+ * URL (FABRIC_API_URL env var, set by the operator in docker-compose) and a
+ * strict allowlist check on the path segments.
  */
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
@@ -15,7 +17,26 @@ import getConfig from "next/config";
 const { serverRuntimeConfig } = getConfig() as {
   serverRuntimeConfig: { fabricApiUrl: string };
 };
-const API_BASE = serverRuntimeConfig.fabricApiUrl ?? "http://localhost:8000";
+
+// SSRF guard: only allow connections to the operator-configured backend.
+// Never derived from user input.
+const API_BASE = (() => {
+  const raw = (serverRuntimeConfig.fabricApiUrl ?? "http://localhost:8000").trim();
+  try {
+    const u = new URL(raw);
+    if (!["http:", "https:"].includes(u.protocol)) {
+      throw new Error("unsupported protocol");
+    }
+    return raw.replace(/\/$/, "");
+  } catch {
+    throw new Error(`Invalid FABRIC_API_URL: ${raw}`);
+  }
+})();
+
+// Only allow path segments that are alphanumeric, hyphens, underscores,
+// forward slashes, and periods (node IDs like "skills/fabric-ingest").
+// This prevents path traversal and injection into the upstream URL.
+const SAFE_PATH_RE = /^[a-zA-Z0-9/_.:-]+$/;
 
 const ALLOWED_METHODS = new Set(["GET", "POST", "PUT", "DELETE"]);
 
@@ -34,6 +55,12 @@ async function proxy(
   }
 
   const backendPath = params.path.join("/");
+
+  // Reject paths with traversal sequences or unsafe characters.
+  if (!SAFE_PATH_RE.test(backendPath) || backendPath.includes("..")) {
+    return NextResponse.json({ error: "invalid_path" }, { status: 400 });
+  }
+
   const search = request.nextUrl.search;
   const backendUrl = `${API_BASE}/api/v1/${backendPath}${search}`;
 

@@ -40,7 +40,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         "--bm25",
         type=Path,
         default=None,
-        help="BM25 pickle output (default: <target>/dist/.graph/graph-bm25.pkl)",
+        help="BM25 index output (default: <target>/dist/.graph/graph-bm25.json)",
     )
     parser.add_argument(
         "--html",
@@ -66,7 +66,7 @@ def main(argv: list[str] | None = None) -> int:
     root = args.target.resolve()
     graph_dir = root / "dist" / ".graph"
     out_path = args.out or (graph_dir / "graph.json")
-    bm25_path = args.bm25 or (graph_dir / "graph-bm25.pkl")
+    bm25_path = args.bm25 or (graph_dir / "graph-bm25.json")
 
     result = build(root)
     store = result.store

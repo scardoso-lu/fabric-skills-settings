@@ -70,13 +70,15 @@ def build_app():
     # FabricAuthMiddleware added first (inner); CORSMiddleware added last (outermost).
     install_auth_middleware(app)
 
-    origins_raw = os.environ.get("FABRIC_CORS_ORIGINS", "*").strip()
-    allow_origins = [o.strip() for o in origins_raw.split(",") if o.strip()] or ["*"]
+    origins_raw = os.environ.get("FABRIC_CORS_ORIGINS", "").strip()
+    # Default deny-all when not configured. Set FABRIC_CORS_ORIGINS=* only for
+    # single-user local dev without authentication.
+    allow_origins = [o.strip() for o in origins_raw.split(",") if o.strip()] if origins_raw else []
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allow_origins,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["*"],
+        allow_headers=["Authorization", "Content-Type", "Accept"],
         expose_headers=["Mcp-Session-Id"],
     )
     return app
