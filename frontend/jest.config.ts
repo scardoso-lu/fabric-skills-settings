@@ -6,7 +6,7 @@ const createJestConfig = nextJest({ dir: "./" });
 const config: Config = {
   coverageProvider: "v8",
   testEnvironment: "jsdom",
-  setupFilesAfterFramework: ["<rootDir>/src/__tests__/setup.ts"],
+  setupFilesAfterEnv: ["<rootDir>/src/__tests__/setup.ts"],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
