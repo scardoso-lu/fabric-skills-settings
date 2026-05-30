@@ -43,7 +43,7 @@ async function proxy(
     return NextResponse.json({ error: "method_not_allowed" }, { status: 405 });
   }
 
-  const token = cookies().get("fab_token")?.value;
+  const token = (await cookies()).get("fab_token")?.value;
   if (!token) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }

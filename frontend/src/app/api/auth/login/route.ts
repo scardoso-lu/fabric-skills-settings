@@ -38,7 +38,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const { token, expires_at, token_type } = await upstream.json();
 
   // Set httpOnly cookie — inaccessible to browser JS (prevents XSS token theft).
-  cookies().set("fab_token", token, {
+  (await cookies()).set("fab_token", token, {
     httpOnly: true,
     secure: true,
     sameSite: "strict",
