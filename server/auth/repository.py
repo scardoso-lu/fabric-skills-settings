@@ -1,30 +1,25 @@
 """Repository pattern for loading MCP API keys from a pluggable backend.
 
-The set of valid API keys lives in a CSV with the headers ``email,apikey`` —
-one row per user; only the ``apikey`` column authenticates (``email`` is for
-admin bookkeeping). *Where* that CSV comes from is chosen by the server admin
-at deploy time via the ``FABRIC_MCP_API_KEYS_SOURCE`` environment variable:
+The set of valid API keys lives in a persistent store chosen at deploy time via
+the ``FABRIC_MCP_API_KEYS_SOURCE`` environment variable:
 
-  - ``file``       — read from the local filesystem at
-                     ``FABRIC_MCP_API_KEYS_FILE``. This is the default when the
-                     variable is unset (backwards compatible).
-  - ``azure-blob`` — download from Azure Blob Storage.
+  - ``sqlite``     — **recommended** — SQLite database at ``FABRIC_MCP_API_KEYS_DB``.
+                     No file-permission issues; atomic writes; works out of the box
+                     when the db file's directory is volume-mounted into the container.
+  - ``file``       — CSV at ``FABRIC_MCP_API_KEYS_FILE`` (``email,apikey`` or
+                     ``id,email,apikey``). Default when the variable is unset.
+  - ``azure-blob`` — download from Azure Blob Storage (read-only CRUD).
 
 In addition, ``FABRIC_MCP_API_KEYS`` (comma-separated) is always honored as an
-inline source. :func:`load_api_keys` composes every configured source and is
-the single entry point callers use — the auth middleware never has to know
-*where* keys come from.
+inline source on top of any backend.
 
-Every CSV backend returns the raw CSV text; :func:`parse_api_keys_csv` turns it
-into the set of keys, so the CSV format is defined in exactly one place.
+The live stores (:class:`SqliteApiKeyStore`, :class:`MutableApiKeyStore`) implement
+the same duck-typed interface and are used by the auth middleware and the admin REST
+API — both react to changes immediately without a restart.
 
-Azure mode needs the optional ``azure-storage-blob`` (and, for managed-identity
-auth, ``azure-identity``) packages — install the ``server-azure`` extra. The
-import is lazy so file-mode deployments incur no Azure dependency.
-
-:class:`MutableApiKeyStore` is a thread-safe wrapper used by
-:func:`~server.auth.middleware.install_auth_middleware`. It supports live
-add/remove and persists changes back to the CSV file (file-mode only).
+Azure mode needs the optional ``azure-storage-blob`` / ``azure-identity`` packages
+(``server-azure`` extra). SQLite mode needs ``sqlalchemy>=2.0``. Both are lazy so
+the default file-mode image stays lean.
 """
 
 from __future__ import annotations
@@ -43,6 +38,30 @@ logger = logging.getLogger(__name__)
 # Accepted spellings for the source selector, normalized to the canonical name.
 _FILE_ALIASES = {"", "file", "local", "disk", "filesystem"}
 _AZURE_BLOB_ALIASES = {"azure-blob", "azure_blob", "azureblob", "blob", "azure"}
+_SQLITE_ALIASES = {"sqlite", "database", "db"}
+
+# ── SQLAlchemy: lazy module-level import so file-mode stays dep-free ──────────
+try:
+    from sqlalchemy import Column, String
+    from sqlalchemy import create_engine as _sa_create_engine
+    from sqlalchemy.orm import DeclarativeBase as _SaDeclarativeBase
+    from sqlalchemy.orm import Session as _SaSession
+
+    class _SaBase(_SaDeclarativeBase):  # type: ignore[valid-b]
+        pass
+
+    class _KeyRow(_SaBase):
+        __tablename__ = "api_keys"
+        id = Column(String, primary_key=True)
+        email = Column(String, nullable=False, default="")
+        key = Column(String, nullable=False, unique=True)
+
+    _SA_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    _SA_AVAILABLE = False
+    _SaSession = None  # type: ignore[assignment,misc]
+    _sa_create_engine = None  # type: ignore[assignment]
+    _KeyRow = None  # type: ignore[assignment,misc]
 
 
 def parse_api_keys_csv(text: str) -> set[str]:
@@ -102,6 +121,108 @@ def _mask_key(key: str) -> str:
     return key[:4] + "****" + key[-4:]
 
 
+# ── SQLite store ─────────────────────────────────────────────────────────────
+
+class SqliteApiKeyStore:
+    """SQLite-backed API key store via SQLAlchemy ORM.
+
+    Recommended for production: no CSV file-permission headaches, atomic
+    writes, and proper transactions. The database file is created automatically
+    on first startup. Mount the parent directory as a Docker volume so it
+    persists across container restarts.
+
+    ``FABRIC_MCP_API_KEYS_SOURCE=sqlite``
+    ``FABRIC_MCP_API_KEYS_DB=/config/api-keys.db``
+    """
+
+    def __init__(self, db_path: str, readonly_keys: set[str] | None = None) -> None:
+        if not _SA_AVAILABLE:
+            raise RuntimeError(
+                "SQLite key store requires SQLAlchemy. "
+                "Add it to the server image: pip install 'sqlalchemy>=2.0'"
+            )
+        self._readonly_keys: set[str] = readonly_keys or set()
+        self._db_path = db_path
+        self._engine = _sa_create_engine(
+            f"sqlite:///{db_path}",
+            connect_args={"check_same_thread": False},
+        )
+        _SaBase.metadata.create_all(self._engine)
+        logger.info(
+            "SQLite API key store at %s (%d row(s))",
+            db_path,
+            self._db_count(),
+        )
+        if self._readonly_keys:
+            logger.info(
+                "  + %d key(s) from FABRIC_MCP_API_KEYS",
+                len(self._readonly_keys),
+            )
+
+    def _db_count(self) -> int:
+        with _SaSession(self._engine) as s:
+            return s.query(_KeyRow).count()
+
+    # ── auth check ────────────────────────────────────────────────────────────
+
+    def __contains__(self, key: str) -> bool:
+        if key in self._readonly_keys:
+            return True
+        with _SaSession(self._engine) as s:
+            return s.query(_KeyRow).filter_by(key=key).count() > 0
+
+    def __bool__(self) -> bool:
+        if self._readonly_keys:
+            return True
+        return self._db_count() > 0
+
+    def __len__(self) -> int:
+        return len(self._readonly_keys) + self._db_count()
+
+    # ── CRUD ──────────────────────────────────────────────────────────────────
+
+    def is_writable(self) -> bool:
+        return True
+
+    def list_entries(self) -> list[dict]:
+        with _SaSession(self._engine) as s:
+            rows = s.query(_KeyRow).order_by(_KeyRow.email).all()
+            result = [
+                {"id": r.id, "email": r.email, "masked_key": _mask_key(r.key)}
+                for r in rows
+            ]
+        if self._readonly_keys:
+            result.append({
+                "id": None,
+                "email": "(environment)",
+                "masked_key": f"+{len(self._readonly_keys)} key(s) from FABRIC_MCP_API_KEYS",
+                "readonly": True,
+            })
+        return result
+
+    def add(self, email: str, key: str) -> dict:
+        email = email.strip()
+        key = key.strip()
+        if not email or not key:
+            raise ValueError("email and key must not be empty")
+        entry_id = str(uuid.uuid4())
+        with _SaSession(self._engine) as s:
+            s.add(_KeyRow(id=entry_id, email=email, key=key))
+            s.commit()
+        logger.info("Added API key for %s (id=%s)", email, entry_id)
+        return {"id": entry_id, "email": email, "masked_key": _mask_key(key)}
+
+    def remove(self, entry_id: str) -> bool:
+        with _SaSession(self._engine) as s:
+            row = s.query(_KeyRow).filter_by(id=entry_id).first()
+            if row is None:
+                return False
+            s.delete(row)
+            s.commit()
+        logger.info("Removed API key id=%s", entry_id)
+        return True
+
+
 # ── Mutable store (used by the live auth middleware) ──────────────────────────
 
 class MutableApiKeyStore:
@@ -155,7 +276,7 @@ class MutableApiKeyStore:
             # handled by _FILE_ALIASES above (defaults to file mode).
             raise RuntimeError(
                 f"Unknown FABRIC_MCP_API_KEYS_SOURCE: {source!r} "
-                "(expected 'file' or 'azure-blob')."
+                "(expected 'sqlite', 'file', or 'azure-blob')."
             )
 
         return store
@@ -257,17 +378,45 @@ class MutableApiKeyStore:
         logger.debug("Wrote %d API key(s) to %s", len(self._file_entries), self._file_path)
 
 
+# ── Factory: picks the right store from env ───────────────────────────────────
+
+def build_key_store_from_env() -> SqliteApiKeyStore | MutableApiKeyStore:
+    """Instantiate the appropriate live key store from the current environment.
+
+    Resolution order:
+      1. ``FABRIC_MCP_API_KEYS_SOURCE=sqlite`` → :class:`SqliteApiKeyStore`
+         (requires ``FABRIC_MCP_API_KEYS_DB`` and ``sqlalchemy>=2.0``).
+      2. Everything else → :class:`MutableApiKeyStore` (file / Azure Blob / env-var).
+
+    ``FABRIC_MCP_API_KEYS`` env-var keys are always added as read-only entries
+    on top of whichever backend is selected.
+    """
+    source = os.environ.get("FABRIC_MCP_API_KEYS_SOURCE", "").strip().lower()
+
+    if source in _SQLITE_ALIASES:
+        db_path = os.environ.get("FABRIC_MCP_API_KEYS_DB", "").strip()
+        if not db_path:
+            raise RuntimeError(
+                "FABRIC_MCP_API_KEYS_SOURCE=sqlite requires FABRIC_MCP_API_KEYS_DB "
+                "(e.g. FABRIC_MCP_API_KEYS_DB=/config/api-keys.db)"
+            )
+        env_keys = {k.strip() for k in os.environ.get("FABRIC_MCP_API_KEYS", "").split(",") if k.strip()}
+        return SqliteApiKeyStore(db_path, readonly_keys=env_keys or None)
+
+    return MutableApiKeyStore.from_env()
+
+
 # ── Module-level store singleton (set by install_auth_middleware) ─────────────
 
-_current_store: MutableApiKeyStore | None = None
+_current_store: SqliteApiKeyStore | MutableApiKeyStore | None = None
 
 
-def get_store() -> MutableApiKeyStore | None:
-    """Return the active :class:`MutableApiKeyStore`, or ``None`` if auth is disabled."""
+def get_store() -> SqliteApiKeyStore | MutableApiKeyStore | None:
+    """Return the active key store, or ``None`` if auth is disabled."""
     return _current_store
 
 
-def _set_store(store: MutableApiKeyStore | None) -> None:
+def _set_store(store: SqliteApiKeyStore | MutableApiKeyStore | None) -> None:
     global _current_store
     _current_store = store
 

@@ -21,7 +21,8 @@ RUN uv pip install --system --no-cache \
     "pydantic>=2.7" \
     "networkx>=3.2" \
     "rank_bm25>=0.2.2" \
-    "PyJWT>=2.8"
+    "PyJWT>=2.8" \
+    "sqlalchemy>=2.0"
 
 # Build the knowledge graph from server/content + server/skills.
 # Output: /build/dist/.graph/{graph.json, graph-bm25.pkl, materialized-graph.{html,svg}}

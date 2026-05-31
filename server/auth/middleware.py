@@ -14,7 +14,7 @@ import time
 from collections import defaultdict
 from threading import Lock
 
-from .repository import MutableApiKeyStore, _set_store
+from .repository import MutableApiKeyStore, _set_store, build_key_store_from_env
 from .tokens import JtiStore, decode_jwt, jwt_secret, mint_jwt
 
 logger = logging.getLogger(__name__)
@@ -213,7 +213,7 @@ def install_auth_middleware(app) -> bool:
     # leave a stale store accessible via get_store() on unauthenticated instances.
     _set_store(None)
 
-    store = MutableApiKeyStore.from_env()
+    store = build_key_store_from_env()
     if not store:
         logger.info("auth: no API keys configured — running without authentication")
         return False

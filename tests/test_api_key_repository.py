@@ -10,8 +10,10 @@ from server.auth.repository import (
     EnvVarApiKeyRepository,
     LocalFileApiKeyRepository,
     MutableApiKeyStore,
+    SqliteApiKeyStore,
     build_api_key_repository,
     build_csv_api_key_repository,
+    build_key_store_from_env,
     load_api_keys,
     parse_api_keys_csv,
 )
@@ -287,3 +289,79 @@ def test_mutable_store_env_only_is_not_writable(monkeypatch):
     assert not store.is_writable()
     with pytest.raises(ValueError, match="writable"):
         store.add("x@y.com", "newkey")
+
+
+# ── SqliteApiKeyStore ─────────────────────────────────────────────────────────
+
+def test_sqlite_store_creates_db_and_contains(tmp_path):
+    db = str(tmp_path / "keys.db")
+    store = SqliteApiKeyStore(db)
+    assert not store  # empty
+    entry = store.add("alice@example.com", "secret-key")
+    assert "secret-key" in store
+    assert "unknown" not in store
+    assert entry["email"] == "alice@example.com"
+    assert "secret-key" not in entry["masked_key"]
+
+
+def test_sqlite_store_remove(tmp_path):
+    db = str(tmp_path / "keys.db")
+    store = SqliteApiKeyStore(db)
+    entry = store.add("bob@example.com", "key-bob")
+    assert store.remove(entry["id"]) is True
+    assert "key-bob" not in store
+    assert store.remove(entry["id"]) is False  # idempotent
+
+
+def test_sqlite_store_list_entries_masked(tmp_path):
+    db = str(tmp_path / "keys.db")
+    store = SqliteApiKeyStore(db)
+    store.add("carol@example.com", "12345678abcdefgh")
+    entries = store.list_entries()
+    assert len(entries) == 1
+    assert entries[0]["email"] == "carol@example.com"
+    assert "12345678abcdefgh" not in entries[0]["masked_key"]
+
+
+def test_sqlite_store_readonly_keys_shown_in_list(tmp_path):
+    db = str(tmp_path / "keys.db")
+    store = SqliteApiKeyStore(db, readonly_keys={"env-key"})
+    assert "env-key" in store
+    entries = store.list_entries()
+    env_entry = next((e for e in entries if e.get("readonly")), None)
+    assert env_entry is not None
+
+
+def test_sqlite_store_persists_across_instances(tmp_path):
+    db = str(tmp_path / "keys.db")
+    store1 = SqliteApiKeyStore(db)
+    store1.add("dave@example.com", "persistent-key")
+
+    store2 = SqliteApiKeyStore(db)  # new instance, same file
+    assert "persistent-key" in store2
+
+
+def test_sqlite_store_missing_db_path_raises(monkeypatch):
+    monkeypatch.setenv("FABRIC_MCP_API_KEYS_SOURCE", "sqlite")
+    monkeypatch.delenv("FABRIC_MCP_API_KEYS_DB", raising=False)
+    with pytest.raises(RuntimeError, match="FABRIC_MCP_API_KEYS_DB"):
+        build_key_store_from_env()
+
+
+def test_sqlite_store_from_env(tmp_path, monkeypatch):
+    db = str(tmp_path / "keys.db")
+    monkeypatch.setenv("FABRIC_MCP_API_KEYS_SOURCE", "sqlite")
+    monkeypatch.setenv("FABRIC_MCP_API_KEYS_DB", db)
+    store = build_key_store_from_env()
+    assert isinstance(store, SqliteApiKeyStore)
+    assert store.is_writable()
+
+
+def test_build_key_store_from_env_falls_back_to_file(tmp_path, monkeypatch):
+    f = tmp_path / "api-keys.csv"
+    f.write_text(_CSV, encoding="utf-8")
+    monkeypatch.setenv("FABRIC_MCP_API_KEYS_FILE", str(f))
+    # No FABRIC_MCP_API_KEYS_SOURCE set → file mode → MutableApiKeyStore
+    store = build_key_store_from_env()
+    assert isinstance(store, MutableApiKeyStore)
+    assert "keyA" in store

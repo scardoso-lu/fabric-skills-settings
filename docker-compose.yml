@@ -34,22 +34,36 @@ services:
       MCP_SERVER_URL: ${MCP_SERVER_URL:-http://127.0.0.1:8000}
       # CORS: allow requests from the frontend container and local browser.
       FABRIC_CORS_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
-      # API keys (comma-separated). Set in your .env file — never commit keys.
-      # Auth is disabled when this is empty (local single-user dev mode).
-      # For multi-user production, switch to the CSV file source instead:
-      #   FABRIC_MCP_API_KEYS_SOURCE: file
-      #   FABRIC_MCP_API_KEYS_FILE: /config/api-keys.csv
-      #   (and mount the CSV: - ./server/config/api-keys.csv:/config/api-keys.csv:ro)
-      # For Azure Blob Storage (needs 'server-azure' extra):
-      #   FABRIC_MCP_API_KEYS_SOURCE: azure-blob
-      #   FABRIC_MCP_API_KEYS_BLOB_CONTAINER: keys
-      #   FABRIC_MCP_API_KEYS_BLOB_NAME: api-keys.csv
-      #   FABRIC_MCP_API_KEYS_BLOB_CONNECTION_STRING: ${AZURE_BLOB_CONN}
+      # ── Auth ──────────────────────────────────────────────────────────────
+      # Recommended (multi-user, admin-UI manageable):
+      #   FABRIC_MCP_API_KEYS_SOURCE=sqlite
+      #   FABRIC_MCP_API_KEYS_DB=/config/api-keys.db
+      #   The ./config volume below is writable by the server user — no
+      #   permission headaches, atomic writes, no CSV parsing.
+      #
+      # Simple single-user dev: set FABRIC_MCP_API_KEYS=<key> in .env instead.
+      # Auth is disabled entirely when all key vars are empty.
+      #
+      # Legacy CSV file mode: FABRIC_MCP_API_KEYS_SOURCE=file
+      #                        FABRIC_MCP_API_KEYS_FILE=/config/api-keys.csv
+      #
+      # Azure Blob (needs 'server-azure' extra):
+      #   FABRIC_MCP_API_KEYS_SOURCE=azure-blob
+      #   FABRIC_MCP_API_KEYS_BLOB_CONTAINER=keys
+      #   FABRIC_MCP_API_KEYS_BLOB_NAME=api-keys.csv
+      #   FABRIC_MCP_API_KEYS_BLOB_CONNECTION_STRING=${AZURE_BLOB_CONN}
       FABRIC_MCP_API_KEYS: ${FABRIC_MCP_API_KEYS:-}
+      FABRIC_MCP_API_KEYS_SOURCE: ${FABRIC_MCP_API_KEYS_SOURCE:-}
+      FABRIC_MCP_API_KEYS_FILE: ${FABRIC_MCP_API_KEYS_FILE:-}
+      FABRIC_MCP_API_KEYS_DB: ${FABRIC_MCP_API_KEYS_DB:-}
+      # Required when any keys are configured:
       FABRIC_MCP_JWT_SECRET: ${FABRIC_MCP_JWT_SECRET:-}
     volumes:
       - ./server/data:/data
       - ./server/data/managed:/app/server/managed
+      # Writable config dir for file-based API key management.
+      # The server user (uid 10001) must own this directory — see setup below.
+      - ./config:/config
     ports:
       - "127.0.0.1:8000:8000"
     restart: unless-stopped
