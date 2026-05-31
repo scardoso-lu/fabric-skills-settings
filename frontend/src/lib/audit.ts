@@ -14,13 +14,24 @@ const MAX = 500;
 
 export function logAudit(entry: Omit<AuditEntry, "id">): void {
   if (typeof window === "undefined") return;
+  const next: AuditEntry = { ...entry, id: crypto.randomUUID() };
+
+  // Persist to localStorage for the in-app /audit view.
   try {
-    const next: AuditEntry = { ...entry, id: crypto.randomUUID() };
     const updated = [next, ...getAuditLog()].slice(0, MAX);
     localStorage.setItem(KEY, JSON.stringify(updated));
   } catch {
     // ignore quota errors
   }
+
+  // Forward to the server so journald captures it via Next.js stdout.
+  fetch("/api/audit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(next),
+  }).catch(() => {
+    // best-effort — never interrupt the caller
+  });
 }
 
 export function getAuditLog(): AuditEntry[] {

@@ -39,8 +39,11 @@ export function middleware(request: NextRequest): NextResponse {
   if (!isPublic) {
     const token = request.cookies.get("fab_token");
     if (!token?.value) {
-      const loginUrl = new URL("/login", request.url);
-      return NextResponse.redirect(loginUrl);
+      // API routes return 401 JSON; page routes redirect to /login.
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+      }
+      return NextResponse.redirect(new URL("/login", request.url));
     }
   }
 
