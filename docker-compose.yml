@@ -73,6 +73,8 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    networks:
+      - web
 
   frontend:
     build:
@@ -95,3 +97,8 @@ services:
     depends_on:
       - server
     restart: unless-stopped
+    networks:
+      - web
+networks:
+  web:
+    external: true
