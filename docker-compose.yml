@@ -7,8 +7,8 @@
 # MCP auth (API-key + JWT):
 #   - Add FABRIC_MCP_API_KEYS=<your-key> and FABRIC_MCP_JWT_SECRET=<secret> to .env.
 #   - Generate JWT secret: python -c "import secrets; print(secrets.token_hex(32))"
-#   - Auth is disabled when FABRIC_MCP_API_KEYS is empty — local single-user dev mode.
-#   - For multi-user deployments, switch to the CSV file source (see env comment below).
+#   - Auth is disabled when both FABRIC_MCP_API_KEYS and FABRIC_MCP_API_KEYS_DB are empty.
+#   - For multi-user deployments use FABRIC_MCP_API_KEYS_DB=/config/api-keys.db (SQLite).
 #
 # Managed content (persistent across restarts):
 #   - User-created skills and content go to ./server/data/managed/ (volume-mounted into server).
@@ -40,34 +40,21 @@ services:
       #   FABRIC_CORS_ORIGINS=https://scardoso-lu.duckdns.org,http://localhost:3000
       FABRIC_CORS_ORIGINS: ${FABRIC_CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       # ── Auth ──────────────────────────────────────────────────────────────
-      # Recommended (multi-user, admin-UI manageable):
-      #   FABRIC_MCP_API_KEYS_SOURCE=sqlite
+      # Multi-user / admin-UI manageable (recommended):
       #   FABRIC_MCP_API_KEYS_DB=/config/api-keys.db
-      #   The ./config volume below is writable by the server user — no
-      #   permission headaches, atomic writes, no CSV parsing.
+      #   The ./config volume below is writable by the server user.
       #
-      # Simple single-user dev: set FABRIC_MCP_API_KEYS=<key> in .env instead.
-      # Auth is disabled entirely when all key vars are empty.
-      #
-      # Legacy CSV file mode: FABRIC_MCP_API_KEYS_SOURCE=file
-      #                        FABRIC_MCP_API_KEYS_FILE=/config/api-keys.csv
-      #
-      # Azure Blob (needs 'server-azure' extra):
-      #   FABRIC_MCP_API_KEYS_SOURCE=azure-blob
-      #   FABRIC_MCP_API_KEYS_BLOB_CONTAINER=keys
-      #   FABRIC_MCP_API_KEYS_BLOB_NAME=api-keys.csv
-      #   FABRIC_MCP_API_KEYS_BLOB_CONNECTION_STRING=${AZURE_BLOB_CONN}
+      # Single-key dev: FABRIC_MCP_API_KEYS=<key> (in-memory, no CRUD).
+      # Auth disabled entirely when both vars are empty.
       FABRIC_MCP_API_KEYS: ${FABRIC_MCP_API_KEYS:-}
-      FABRIC_MCP_API_KEYS_SOURCE: ${FABRIC_MCP_API_KEYS_SOURCE:-}
-      FABRIC_MCP_API_KEYS_FILE: ${FABRIC_MCP_API_KEYS_FILE:-}
       FABRIC_MCP_API_KEYS_DB: ${FABRIC_MCP_API_KEYS_DB:-}
       # Required when any keys are configured:
       FABRIC_MCP_JWT_SECRET: ${FABRIC_MCP_JWT_SECRET:-}
     volumes:
       - ./server/data:/data
       - ./server/data/managed:/app/server/managed
-      # Writable config dir for file-based API key management.
-      # The server user (uid 10001) must own this directory — see setup below.
+      # Writable config dir for SQLite API key database.
+      # The server user (uid 10001) must own this directory.
       - ./config:/config
     ports:
       - "127.0.0.1:8000:8000"

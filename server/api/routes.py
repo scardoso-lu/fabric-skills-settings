@@ -367,7 +367,7 @@ async def create_apikey(request: Request) -> Response:
     if store is None:
         return _error("auth not configured", 503)
     if not store.is_writable():
-        return _error("key store is read-only (FABRIC_MCP_API_KEYS_FILE not set)", 501)
+        return _error("key store is read-only (FABRIC_MCP_API_KEYS_DB not set)", 501)
     payload = await _parse_json(request)
     if payload is None:
         return _error("invalid or oversized JSON body")
@@ -392,7 +392,7 @@ async def delete_apikey(request: Request) -> Response:
     if store is None:
         return _error("auth not configured", 503)
     if not store.is_writable():
-        return _error("key store is read-only (FABRIC_MCP_API_KEYS_FILE not set)", 501)
+        return _error("key store is read-only (FABRIC_MCP_API_KEYS_DB not set)", 501)
     entry_id = request.path_params.get("entry_id", "").strip()
     if not entry_id:
         return _error("entry_id is required", 400)

@@ -53,7 +53,7 @@ Tools shipped to the target repo's `tool/` dir and invoked via Bash. Fabric help
 | `cli/setup/` | `setup.{ps1,sh}` — target bootstrap scripts (shipped to `tool/setup/`). |
 | `cli/tools/` | Target-side tools (shipped to `tool/`): `notebook/`, `pipeline/`, `lakehouse/`, `workspace/`, `lint/`, `precommit/`. |
 | `server/app.py` | FastMCP app — registers all server-side tools, wires auth + CORS middleware. |
-| `server/auth/` | Auth layer: `repository.py` (pluggable API-key store — local file / Azure Blob / env, selected by `FABRIC_MCP_API_KEYS_SOURCE`), `tokens.py` (JWT + JtiStore), `middleware.py` (`FabricAuthMiddleware` + `install_auth_middleware`). |
+| `server/auth/` | Auth layer: `repository.py` (SQLite API-key store via `FABRIC_MCP_API_KEYS_DB`, plus inline `FABRIC_MCP_API_KEYS` env var), `tokens.py` (JWT + JtiStore), `middleware.py` (`FabricAuthMiddleware` + `install_auth_middleware`). |
 | `server/tools/` | MCP tool wrappers: `graph/`, `validate/`, `data/`, `semantic_model/`. |
 | `server/graph/` | Graph runtime: `store`, `search` (BM25 + 1-hop), `writes` (CRUD), `schema`, `lock`, `builder`, `extract`. |
 | `server/content/` | Knowledge-graph content tree (`entry.md`, `session/`, `workflow/`, `rules/`, `indexes/`, …) and rules. |

@@ -14,7 +14,7 @@ import time
 from collections import defaultdict
 from threading import Lock
 
-from .repository import MutableApiKeyStore, _set_store, build_key_store_from_env
+from .repository import SqliteApiKeyStore, _set_store, build_key_store_from_env
 from .tokens import JtiStore, decode_jwt, jwt_secret, mint_jwt
 
 logger = logging.getLogger(__name__)
@@ -88,7 +88,7 @@ class FabricAuthMiddleware:
     preventing replay of the superseded token.
 
     ``api_keys`` may be a plain ``set[str]`` (tests) or a
-    :class:`~server.auth.repository.MutableApiKeyStore` (production) — both
+    :class:`~server.auth.repository.SqliteApiKeyStore` (production) — both
     support ``in`` membership checks.
     """
 
@@ -225,10 +225,10 @@ class FabricAuthMiddleware:
 def install_auth_middleware(app) -> bool:
     """Add :class:`FabricAuthMiddleware` to ``app`` when API keys are configured.
 
-    Builds a :class:`~server.auth.repository.MutableApiKeyStore` from the
-    current environment, logs how many keys were loaded from each source, and
-    installs the middleware. Returns ``True`` when auth was enabled, ``False``
-    for local single-user dev mode (no keys configured). Raises ``RuntimeError``
+    Builds a :class:`~server.auth.repository.SqliteApiKeyStore` from the
+    current environment, logs how many keys were loaded, and installs the
+    middleware. Returns ``True`` when auth was enabled, ``False`` for local
+    single-user dev mode (no keys configured). Raises ``RuntimeError``
     if keys exist but ``FABRIC_MCP_JWT_SECRET`` is unset or too short.
 
     The store is also registered as a module-level singleton via
