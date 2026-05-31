@@ -43,6 +43,9 @@ def _check_rate_limit(ip: str) -> bool:
 _LOGIN_PATHS = {"/auth/login", "/api/auth/login"}
 _REFRESH_PATHS = {"/auth/refresh", "/api/auth/refresh"}
 _HEALTH_PATH = "/health"
+# OAuth discovery endpoints must be publicly accessible so MCP clients can learn
+# the auth scheme before they have a token. FastMCP exposes these under /mcp/.
+_WELL_KNOWN_INFIX = "/.well-known/"
 
 
 async def _read_body(receive, max_bytes: int = 16_384) -> bytes:
@@ -108,20 +111,36 @@ class FabricAuthMiddleware:
             if path == _HEALTH_PATH:
                 await self.app(scope, receive, send)
                 return
+            # OAuth discovery endpoints must be publicly accessible so that MCP
+            # clients can read server metadata before they have a token.
+            if _WELL_KNOWN_INFIX in path:
+                await self.app(scope, receive, send)
+                return
 
         token = self._extract_token(scope)
         if not token:
             if scope["type"] == "http":
+                path = scope.get("path", "?")
+                logger.warning("auth: missing Bearer token on %s from %s", path, self._extract_ip(scope))
                 await _send_json(send, {"error": "missing_token"}, 401)
             return
 
+        # Accept a valid short-lived JWT (browser / CLI after fabric-vibe auth
+        # refresh) OR the raw API key as a Bearer token (static MCP client
+        # configs that set Authorization: Bearer <api-key> directly).
         payload = decode_jwt(token, self._secret, self._jti_store)
-        if payload is None:
-            if scope["type"] == "http":
-                await _send_json(send, {"error": "invalid_token"}, 401)
+        if payload is not None:
+            await self.app(scope, receive, send)
             return
 
-        await self.app(scope, receive, send)
+        if token in self._api_keys:
+            await self.app(scope, receive, send)
+            return
+
+        if scope["type"] == "http":
+            path = scope.get("path", "?")
+            logger.warning("auth: invalid token on %s from %s", path, self._extract_ip(scope))
+            await _send_json(send, {"error": "invalid_token"}, 401)
 
     async def _login(self, scope, receive, send) -> None:
         ip = self._extract_ip(scope)

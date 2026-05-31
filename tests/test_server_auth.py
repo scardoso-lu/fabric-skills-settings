@@ -256,6 +256,20 @@ def test_middleware_health_bypasses_auth():
     assert cap.status == 200  # passed through to inner app, no token required
 
 
+def test_middleware_well_known_bypasses_auth():
+    mw, _ = _make_middleware()
+    cap = _Captured()
+    asyncio.run(mw(_http_scope("/mcp/.well-known/oauth-authorization-server"), cap.receive, cap.send))
+    assert cap.status == 200  # OAuth discovery must be publicly accessible
+
+
+def test_middleware_api_key_as_bearer_token_passes_through():
+    mw, _ = _make_middleware()
+    cap = _Captured()
+    asyncio.run(mw(_http_scope("/mcp", token="good-key"), cap.receive, cap.send))
+    assert cap.status == 200  # raw API key accepted as Bearer token
+
+
 def test_middleware_passes_non_http_scopes():
     received = []
 
