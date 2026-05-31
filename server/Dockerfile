@@ -40,7 +40,8 @@ RUN mkdir -p /app/server/managed/skills \
              /app/server/managed/content/rules \
              /app/server/managed/content/skill-fixes \
              /app/server/managed/content/memory && \
-    chown -R server:server /app/server/managed
+    mkdir -p /config && \
+    chown -R server:server /app/server/managed /config
 
 WORKDIR /app
 USER server

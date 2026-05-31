@@ -70,11 +70,36 @@ class SqliteApiKeyStore:
             )
         self._readonly_keys: set[str] = readonly_keys or set()
         self._db_path = db_path
-        self._engine = _sa_create_engine(
-            f"sqlite:///{db_path}",
-            connect_args={"check_same_thread": False},
-        )
-        _SaBase.metadata.create_all(self._engine)
+
+        # Ensure the parent directory exists before SQLAlchemy tries to open
+        # the file. This handles both missing directories and gives a clearer
+        # error than SQLAlchemy's generic OperationalError.
+        if db_path != ":memory:":
+            import pathlib
+            parent = pathlib.Path(db_path).parent
+            try:
+                parent.mkdir(parents=True, exist_ok=True)
+            except OSError as exc:
+                raise RuntimeError(
+                    f"Cannot create SQLite key store directory {parent}: {exc}\n"
+                    "Ensure the directory exists and is writable by the server process.\n"
+                    "For Docker deployments: run  chown 10001:10001 ./config  on the host, "
+                    "or set FABRIC_MCP_API_KEYS instead (in-memory, no CRUD)."
+                ) from exc
+
+        try:
+            self._engine = _sa_create_engine(
+                f"sqlite:///{db_path}",
+                connect_args={"check_same_thread": False},
+            )
+            _SaBase.metadata.create_all(self._engine)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Cannot open SQLite key store at {db_path!r}: {exc}\n"
+                "Ensure the path is writable by the server process.\n"
+                "For Docker deployments: run  chown 10001:10001 ./config  on the host, "
+                "or set FABRIC_MCP_API_KEYS instead (in-memory, no CRUD)."
+            ) from exc
         logger.info(
             "SQLite API key store at %s (%d row(s))",
             db_path,
