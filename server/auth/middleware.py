@@ -46,6 +46,8 @@ _HEALTH_PATH = "/health"
 # OAuth discovery endpoints must be publicly accessible so MCP clients can learn
 # the auth scheme before they have a token. FastMCP exposes these under /mcp/.
 _WELL_KNOWN_INFIX = "/.well-known/"
+# OAuth2 token endpoint — unauthenticated (credentials are in the request body).
+_OAUTH_TOKEN_PATH = "/oauth/token"
 
 
 async def _read_body(receive, max_bytes: int = 16_384) -> bytes:
@@ -117,6 +119,9 @@ class FabricAuthMiddleware:
             # OAuth discovery endpoints must be publicly accessible so that MCP
             # clients can read server metadata before they have a token.
             if _WELL_KNOWN_INFIX in path:
+                await self.app(scope, receive, send)
+                return
+            if path == _OAUTH_TOKEN_PATH:
                 await self.app(scope, receive, send)
                 return
 
@@ -263,9 +268,14 @@ def install_auth_middleware(app) -> bool:
     # Register singleton so API routes can reach the store.
     _set_store(store)
 
-    # Stash on app.state for callers that use request.app.state (best-effort).
+    jti_store = JtiStore()
+
+    # Stash on app.state so route handlers (e.g. /oauth/token) can mint JWTs
+    # without threading through the middleware chain.
     try:
         app.state.api_key_store = store
+        app.state.jwt_secret = secret
+        app.state.jti_store = jti_store
     except AttributeError:
         pass
 
@@ -273,6 +283,6 @@ def install_auth_middleware(app) -> bool:
         FabricAuthMiddleware,
         api_keys=store,
         secret=secret,
-        jti_store=JtiStore(),
+        jti_store=jti_store,
     )
     return True

@@ -88,10 +88,21 @@ class SqliteApiKeyStore:
                 ) from exc
 
         try:
-            self._engine = _sa_create_engine(
-                f"sqlite:///{db_path}",
-                connect_args={"check_same_thread": False},
-            )
+            # In-memory SQLite: StaticPool keeps all queries on the same
+            # connection so the schema created by create_all is visible to
+            # subsequent queries (each new connection sees an empty DB).
+            if db_path == ":memory:":
+                from sqlalchemy.pool import StaticPool
+                self._engine = _sa_create_engine(
+                    "sqlite://",
+                    connect_args={"check_same_thread": False},
+                    poolclass=StaticPool,
+                )
+            else:
+                self._engine = _sa_create_engine(
+                    f"sqlite:///{db_path}",
+                    connect_args={"check_same_thread": False},
+                )
             _SaBase.metadata.create_all(self._engine)
         except Exception as exc:
             raise RuntimeError(
