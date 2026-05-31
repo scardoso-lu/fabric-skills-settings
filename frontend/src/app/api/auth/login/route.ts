@@ -50,6 +50,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     maxAge: TOKEN_MAX_AGE,
   });
 
-  // Return non-sensitive confirmation to the browser.
-  return NextResponse.json({ expires_at, token_type }, { status: 200 });
+  // Return the token in the body so CLI clients can read it directly.
+  // Browser clients use the httpOnly cookie above and ignore the token field.
+  return NextResponse.json({ token, expires_at, token_type }, { status: 200 });
 }

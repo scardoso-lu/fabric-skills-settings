@@ -198,7 +198,7 @@ def precommit(ctx: typer.Context) -> None:
 
 @auth_app.command("refresh", context_settings=_PASSTHROUGH_CONTEXT)
 def auth_refresh(ctx: typer.Context) -> None:
-    """Generate the MCP identity key, sign your email, and update MCP configs."""
+    """Exchange FABRIC_MCP_API_KEY for a short-lived JWT and inject it into MCP client configs."""
     script = _require_tool_script(Path("auth/refresh.py"))
     raise typer.Exit(code=_dispatch_python(script, ctx.args))
 

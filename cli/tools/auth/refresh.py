@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Fetch a short-lived JWT from the MCP server using FABRIC_MCP_API_KEY.
+"""Fetch a short-lived JWT from the MCP server using an API key.
 
 Saves the JWT into the Claude and Codex MCP client configuration files so
 Claude Code and Codex pick it up on next session load. The token is reused
 until close to expiry, then refreshed automatically. Run `fabric-vibe auth
 refresh` any time you need a fresh token.
+
+The API key is read from FABRIC_MCP_API_KEY. If that variable is not set,
+the command prompts for it interactively (input is hidden).
 
 Usage:
     fabric-vibe auth refresh [--server-url https://host:port]
@@ -13,6 +16,7 @@ Usage:
 from __future__ import annotations
 
 import base64
+import getpass
 import json
 import os
 import re
@@ -91,6 +95,22 @@ def _resolve_server_url(argv: list[str], root: Path) -> str:
     return "http://127.0.0.1:8000"
 
 
+# ── API key resolution ────────────────────────────────────────────────────────
+
+def _prompt_api_key() -> str | None:
+    """Return the API key from env or an interactive prompt. Returns None to skip."""
+    key = os.environ.get("FABRIC_MCP_API_KEY", "").strip()
+    if key:
+        return key
+    print("  FABRIC_MCP_API_KEY is not set.")
+    try:
+        key = getpass.getpass("  Enter your MCP API key (empty to skip): ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return None
+    return key or None
+
+
 # ── Token fetch / refresh ─────────────────────────────────────────────────────
 
 def _post(url: str, body: bytes, headers: dict[str, str]) -> tuple[int, dict]:
@@ -108,15 +128,15 @@ def _post(url: str, body: bytes, headers: dict[str, str]) -> tuple[int, dict]:
 
 
 def _fetch_token(server_url: str, api_key: str) -> tuple[str, float]:
-    """POST to /auth/login, return (jwt, expires_at). Exits on failure."""
+    """POST to /api/auth/login, return (jwt, expires_at). Exits on failure."""
     status, body = _post(
-        f"{server_url}/auth/login",
+        f"{server_url}/api/auth/login",
         json.dumps({"api_key": api_key}).encode("utf-8"),
         {"Content-Type": "application/json"},
     )
     if status == 404:
         raise SystemExit(
-            "Server returned 404 for /auth/login — auth may be disabled on this server.\n"
+            "Server returned 404 for /api/auth/login — auth may be disabled on this server.\n"
             "If the server requires authentication, check FABRIC_MCP_API_KEY and MCP_SERVER_URL."
         )
     if status != 200:
@@ -129,9 +149,9 @@ def _fetch_token(server_url: str, api_key: str) -> tuple[str, float]:
 
 
 def _refresh_token(server_url: str, current_token: str) -> tuple[str, float] | tuple[None, None]:
-    """POST to /auth/refresh. Returns (new_token, expires_at) or (None, None) on failure."""
+    """POST to /api/auth/refresh. Returns (new_token, expires_at) or (None, None) on failure."""
     status, body = _post(
-        f"{server_url}/auth/refresh",
+        f"{server_url}/api/auth/refresh",
         b"",
         {"Content-Type": "application/json", "Authorization": f"Bearer {current_token}"},
     )
@@ -191,16 +211,9 @@ def update_codex_config(root: Path, token: str) -> None:
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
 
-    api_key = os.environ.get("FABRIC_MCP_API_KEY", "").strip()
+    api_key = _prompt_api_key()
     if not api_key:
-        print(
-            "  FABRIC_MCP_API_KEY is not set.\n"
-            "  If your MCP server requires authentication, ask the admin for an API key\n"
-            "  and set it in your shell profile:\n"
-            "    export FABRIC_MCP_API_KEY=<key>\n"
-            "  then re-run: fabric-vibe auth refresh\n"
-            "  If running locally without server auth, no token is needed."
-        )
+        print("  No API key provided — skipping auth.")
         return 0
 
     server_url = _resolve_server_url(argv, ROOT)
@@ -217,7 +230,7 @@ def main(argv: list[str] | None = None) -> int:
             new_tok, new_exp = _refresh_token(server_url, saved_token)
             if new_tok:
                 token, expires_at = new_tok, new_exp  # type: ignore[assignment]
-                print("  Token refreshed via /auth/refresh")
+                print("  Token refreshed via /api/auth/refresh")
 
     if not token:
         token, expires_at = _fetch_token(server_url, api_key)

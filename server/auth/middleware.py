@@ -36,8 +36,9 @@ def _check_rate_limit(ip: str) -> bool:
         _login_attempts[ip] = attempts
         return True
 
-_LOGIN_PATH = "/auth/login"
-_REFRESH_PATH = "/auth/refresh"
+# Both paths are handled: /auth/* for direct backend access, /api/auth/* for BFF proxy.
+_LOGIN_PATHS = {"/auth/login", "/api/auth/login"}
+_REFRESH_PATHS = {"/auth/refresh", "/api/auth/refresh"}
 _HEALTH_PATH = "/health"
 
 
@@ -91,10 +92,10 @@ class FabricAuthMiddleware:
 
         if scope["type"] == "http":
             path = scope.get("path", "")
-            if path == _LOGIN_PATH:
+            if path in _LOGIN_PATHS:
                 await self._login(scope, receive, send)
                 return
-            if path == _REFRESH_PATH:
+            if path in _REFRESH_PATHS:
                 await self._refresh(scope, receive, send)
                 return
             if path == _HEALTH_PATH:

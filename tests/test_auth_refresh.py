@@ -125,12 +125,46 @@ def test_update_codex_config_replaces_existing_token(tmp_path):
     assert "old.token.here" not in text
 
 
-# ── main: skips gracefully when API key not set ───────────────────────────────
+# ── _prompt_api_key ───────────────────────────────────────────────────────────
+
+def test_prompt_api_key_returns_env_var(monkeypatch):
+    mod = _load_auth_refresh()
+    monkeypatch.setenv("FABRIC_MCP_API_KEY", "my-key-from-env")
+    assert mod._prompt_api_key() == "my-key-from-env"
+
+
+def test_prompt_api_key_prompts_when_env_not_set(monkeypatch):
+    mod = _load_auth_refresh()
+    monkeypatch.delenv("FABRIC_MCP_API_KEY", raising=False)
+    monkeypatch.setattr("getpass.getpass", lambda _prompt: "prompted-key")
+    assert mod._prompt_api_key() == "prompted-key"
+
+
+def test_prompt_api_key_returns_none_on_empty_input(monkeypatch):
+    mod = _load_auth_refresh()
+    monkeypatch.delenv("FABRIC_MCP_API_KEY", raising=False)
+    monkeypatch.setattr("getpass.getpass", lambda _prompt: "")
+    assert mod._prompt_api_key() is None
+
+
+def test_prompt_api_key_returns_none_on_eof(monkeypatch):
+    mod = _load_auth_refresh()
+    monkeypatch.delenv("FABRIC_MCP_API_KEY", raising=False)
+
+    def _raise(_prompt: str) -> str:
+        raise EOFError
+
+    monkeypatch.setattr("getpass.getpass", _raise)
+    assert mod._prompt_api_key() is None
+
+
+# ── main: skips gracefully when no API key provided ───────────────────────────
 
 def test_main_exits_cleanly_when_no_api_key(monkeypatch, capsys):
     mod = _load_auth_refresh()
     monkeypatch.delenv("FABRIC_MCP_API_KEY", raising=False)
+    monkeypatch.setattr("getpass.getpass", lambda _prompt: "")
     result = mod.main([])
     assert result == 0
     captured = capsys.readouterr()
-    assert "FABRIC_MCP_API_KEY" in captured.out
+    assert "No API key" in captured.out or "FABRIC_MCP_API_KEY" in captured.out
