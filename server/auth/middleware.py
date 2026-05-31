@@ -63,15 +63,18 @@ async def _read_body(receive, max_bytes: int = 16_384) -> bytes:
     return body
 
 
-async def _send_json(send, data: dict, status: int) -> None:
+async def _send_json(send, data: dict, status: int, extra_headers: list | None = None) -> None:
     body = json.dumps(data).encode("utf-8")
+    headers = [
+        (b"content-type", b"application/json"),
+        (b"content-length", str(len(body)).encode()),
+    ]
+    if extra_headers:
+        headers.extend(extra_headers)
     await send({
         "type": "http.response.start",
         "status": status,
-        "headers": [
-            (b"content-type", b"application/json"),
-            (b"content-length", str(len(body)).encode()),
-        ],
+        "headers": headers,
     })
     await send({"type": "http.response.body", "body": body})
 
@@ -122,7 +125,10 @@ class FabricAuthMiddleware:
             if scope["type"] == "http":
                 path = scope.get("path", "?")
                 logger.warning("auth: missing Bearer token on %s from %s", path, self._extract_ip(scope))
-                await _send_json(send, {"error": "missing_token"}, 401)
+                await _send_json(
+                    send, {"error": "missing_token"}, 401,
+                    extra_headers=[(b"www-authenticate", self._www_authenticate(scope).encode())],
+                )
             return
 
         # Accept a valid short-lived JWT (browser / CLI after fabric-vibe auth
@@ -140,7 +146,10 @@ class FabricAuthMiddleware:
         if scope["type"] == "http":
             path = scope.get("path", "?")
             logger.warning("auth: invalid token on %s from %s", path, self._extract_ip(scope))
-            await _send_json(send, {"error": "invalid_token"}, 401)
+            await _send_json(
+                send, {"error": "invalid_token"}, 401,
+                extra_headers=[(b"www-authenticate", self._www_authenticate(scope).encode())],
+            )
 
     async def _login(self, scope, receive, send) -> None:
         ip = self._extract_ip(scope)
@@ -178,6 +187,23 @@ class FabricAuthMiddleware:
         token, expiry = mint_jwt(old_payload.get("sub", "client"), self._secret, self._jti_store)
         self._jti_store.revoke(old_payload["jti"])
         await _send_json(send, {"token": token, "expires_at": expiry, "token_type": "Bearer"}, 200)
+
+    @staticmethod
+    def _www_authenticate(scope) -> str:
+        """Build WWW-Authenticate: Bearer header value (RFC 6750 + RFC 9728).
+
+        Including resource_metadata tells MCP 2025-03-26 clients to probe
+        /.well-known/oauth-protected-resource before trying an OAuth2 AS.
+        Without it they probe the authorization-server discovery chain and give
+        up when it fails, never retrying with the Bearer token they already have.
+        """
+        headers = {k.lower(): v for k, v in scope.get("headers", [])}
+        host = headers.get(b"host", b"").decode("utf-8", errors="replace")
+        proto = headers.get(b"x-forwarded-proto", b"https").decode("utf-8", errors="replace") or "https"
+        if host:
+            resource_metadata_url = f"{proto}://{host}/.well-known/oauth-protected-resource"
+            return f'Bearer realm="fabric-mcp-server", resource_metadata="{resource_metadata_url}"'
+        return 'Bearer realm="fabric-mcp-server"'
 
     @staticmethod
     def _extract_ip(scope) -> str:
