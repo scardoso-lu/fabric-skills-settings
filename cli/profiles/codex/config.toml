@@ -15,7 +15,20 @@ ignore_default_excludes = false
 # Single HTTP MCP server, served by the local Docker container
 # (`docker compose up` from the source repo's server/ directory).
 # The target bootstrap patches this URL for the local Fabric MCP server.
-[mcp_servers.fabric-server]
+[mcp_servers.fabric_server]
 url = "http://127.0.0.1:8000/mcp"
 startup_timeout_ms = 20000
 tool_timeout_ms = 120000
+
+[mcp_servers.fabric_server.tools.graph_get_entry]
+approval_mode = "approve"
+
+[mcp_servers.fabric_server.tools.graph_get_linked]
+approval_mode = "approve"
+
+[mcp_servers.fabric_server.tools.graph_get_node]
+approval_mode = "approve"
+
+[mcp_servers.fabric_server.tools.graph_search]
+approval_mode = "approve"
+

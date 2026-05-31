@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
@@ -38,6 +38,29 @@ export function NodeEditor({
   const [body, setBody] = useState<string>(node.body ?? "");
   const [previewMode, setPreviewMode] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const previousNodeRef = useRef<{ id: string; path: string }>({
+    id: node.id,
+    path: node.path,
+  });
+
+  useEffect(() => {
+    const previousNode = previousNodeRef.current;
+    const isDraftNode = !node.path;
+    const isSameDraftNode = isDraftNode && !previousNode.path;
+    const nodeChanged =
+      previousNode.id !== node.id || previousNode.path !== node.path;
+
+    if (!nodeChanged || isSameDraftNode) return;
+
+    const nextFm = (node.frontmatter ?? {}) as Record<string, string>;
+    setName(nextFm.name ?? node.title ?? "");
+    setDescription(nextFm.description ?? node.description ?? "");
+    setAllowedTools((nextFm["allowed-tools"] as string) ?? "");
+    setBody(node.body ?? "");
+    setPreviewMode(false);
+    setShowDeleteModal(false);
+    previousNodeRef.current = { id: node.id, path: node.path };
+  }, [node]);
 
   function handleSave() {
     const frontmatter: Record<string, unknown> = { name, description };
@@ -48,11 +71,26 @@ export function NodeEditor({
   return (
     <div className="flex flex-col gap-4 h-full">
       {/* Header */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <NodeBadge kind={node.kind} managed={node.managed} />
-        <span className="text-xs text-base-content/50 font-mono truncate max-w-xs">
-          {node.path}
-        </span>
+      <div className="navbar min-h-0 rounded-box bg-base-200 px-3 py-2">
+        <div className="navbar-start min-w-0 gap-3">
+          <NodeBadge kind={node.kind} managed={node.managed} />
+          <span className="truncate font-mono text-xs text-base-content/50">
+            {node.path}
+          </span>
+        </div>
+        <div className="navbar-end">
+          <button
+            type="button"
+            className="btn btn-error btn-outline btn-sm"
+            onClick={() => setShowDeleteModal(true)}
+            disabled={deleting || saving}
+          >
+            {deleting ? (
+              <span className="loading loading-spinner loading-xs" />
+            ) : null}
+            Delete
+          </button>
+        </div>
       </div>
 
       {/* Frontmatter fields */}
@@ -139,18 +177,7 @@ export function NodeEditor({
       </div>
 
       {/* Actions */}
-      <div className="flex justify-between items-center gap-2">
-        <button
-          type="button"
-          className="btn btn-error btn-outline btn-sm"
-          onClick={() => setShowDeleteModal(true)}
-          disabled={deleting || saving}
-        >
-          {deleting ? (
-            <span className="loading loading-spinner loading-xs" />
-          ) : null}
-          Delete
-        </button>
+      <div className="flex justify-end items-center gap-2">
         <button
           type="button"
           className="btn btn-primary btn-sm"

@@ -133,12 +133,12 @@ def test_update_codex_config_injects_bearer_token(tmp_path):
     token = "my.jwt.token"
     (tmp_path / ".codex").mkdir()
     (tmp_path / ".codex" / "config.toml").write_text(
-        '[mcp_servers.fabric-server]\nurl = "http://x/mcp"\n',
+        '[mcp_servers.fabric_server]\nurl = "http://x/mcp"\n',
         encoding="utf-8",
     )
     mod.update_codex_config(tmp_path, token)
     text = (tmp_path / ".codex" / "config.toml").read_text(encoding="utf-8")
-    assert "[mcp_servers.fabric-server.headers]" in text
+    assert "[mcp_servers.fabric_server.http_headers]" in text
     assert f'Authorization = "Bearer {token}"' in text
 
 
@@ -146,11 +146,31 @@ def test_update_codex_config_replaces_existing_token(tmp_path):
     mod = _load_auth_refresh()
     (tmp_path / ".codex").mkdir()
     (tmp_path / ".codex" / "config.toml").write_text(
-        '[mcp_servers.fabric-server.headers]\nAuthorization = "Bearer old.token.here"\n',
+        '[mcp_servers.fabric_server.http_headers]\nAuthorization = "Bearer old.token.here"\n',
         encoding="utf-8",
     )
     mod.update_codex_config(tmp_path, "new.jwt.token")
     text = (tmp_path / ".codex" / "config.toml").read_text(encoding="utf-8")
+    assert 'Authorization = "Bearer new.jwt.token"' in text
+    assert "old.token.here" not in text
+
+
+def test_update_codex_config_migrates_legacy_hyphenated_sections(tmp_path):
+    mod = _load_auth_refresh()
+    (tmp_path / ".codex").mkdir()
+    (tmp_path / ".codex" / "config.toml").write_text(
+        '[mcp_servers."fabric-server"]\n'
+        'url = "http://x/mcp"\n'
+        '\n'
+        '[mcp_servers."fabric-server".headers]\n'
+        'Authorization = "Bearer old.token.here"\n',
+        encoding="utf-8",
+    )
+    mod.update_codex_config(tmp_path, "new.jwt.token")
+    text = (tmp_path / ".codex" / "config.toml").read_text(encoding="utf-8")
+    assert "[mcp_servers.fabric_server]" in text
+    assert "[mcp_servers.fabric_server.http_headers]" in text
+    assert "fabric-server" not in text
     assert 'Authorization = "Bearer new.jwt.token"' in text
     assert "old.token.here" not in text
 
@@ -198,3 +218,29 @@ def test_main_exits_cleanly_when_no_api_key(monkeypatch, capsys):
     assert result == 0
     captured = capsys.readouterr()
     assert "No API key" in captured.out or "FABRIC_MCP_API_KEY" in captured.out
+
+
+def test_main_always_fetches_new_token_even_when_cache_is_valid(monkeypatch):
+    mod = _load_auth_refresh()
+    calls = []
+
+    monkeypatch.setattr(mod, "_prompt_api_key", lambda: "api-key")
+    monkeypatch.setattr(mod, "_resolve_server_url", lambda _argv, _root: "https://server.example")
+    monkeypatch.setattr(mod, "_resolve_auth_base_url", lambda _argv, _server_url: "https://server.example/api/auth")
+    monkeypatch.setattr(mod, "_load_saved_token", lambda: ("cached.jwt.token", time.time() + 3600))
+
+    def fake_fetch(server_url: str, api_key: str):
+        calls.append((server_url, api_key))
+        return "fresh.jwt.token", time.time() + 3600
+
+    saved = {}
+    monkeypatch.setattr(mod, "_fetch_token", fake_fetch)
+    monkeypatch.setattr(mod, "_save_token", lambda token, expires_at: saved.update(token=token, expires_at=expires_at))
+    monkeypatch.setattr(mod, "update_mcp_json", lambda _root, token: saved.update(mcp_token=token))
+    monkeypatch.setattr(mod, "update_codex_config", lambda _root, token: saved.update(codex_token=token))
+
+    assert mod.main([]) == 0
+    assert calls == [("https://server.example", "api-key")]
+    assert saved["token"] == "fresh.jwt.token"
+    assert saved["mcp_token"] == "fresh.jwt.token"
+    assert saved["codex_token"] == "fresh.jwt.token"

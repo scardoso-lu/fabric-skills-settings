@@ -262,7 +262,7 @@ class _Validator:
             # Bootstrap must also patch the Codex MCP endpoint in .codex/config.toml.
             if ".codex/config.toml" not in text:
                 self.errors.append(
-                    f"{rel_path} must patch .codex/config.toml [mcp_servers.fabric-server] url"
+                    f"{rel_path} must patch .codex/config.toml [mcp_servers.fabric_server] url"
                 )
 
     def setup_no_graph_build(self) -> None:

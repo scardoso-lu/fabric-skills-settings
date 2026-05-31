@@ -26,6 +26,30 @@ describe("NodeEditor", () => {
     expect(screen.getByDisplayValue(/# Test Skill/)).toBeInTheDocument();
   });
 
+  it("updates fields when a different node is selected", () => {
+    const nextNode = {
+      ...mockNode,
+      id: "skills/next-skill",
+      title: "Next Skill",
+      description: "A second skill",
+      path: "server/managed/skills/next-skill/SKILL.md",
+      body: "# Next Skill\n\nDifferent content.",
+      frontmatter: { name: "next-skill", description: "A second skill" },
+    };
+
+    const { rerender } = render(
+      <NodeEditor node={mockNode} onSave={jest.fn()} onDelete={jest.fn()} />,
+    );
+
+    rerender(
+      <NodeEditor node={nextNode} onSave={jest.fn()} onDelete={jest.fn()} />,
+    );
+
+    expect(screen.getByDisplayValue("next-skill")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("A second skill")).toBeInTheDocument();
+    expect(screen.getByDisplayValue(/# Next Skill/)).toBeInTheDocument();
+  });
+
   it("calls onSave with updated body when Save is clicked", async () => {
     const onSave = jest.fn();
     const user = userEvent.setup();

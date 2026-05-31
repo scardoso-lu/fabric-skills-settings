@@ -15,7 +15,7 @@
 #      profile (NOT .env — secrets stay in the OS env).
 #   6. Prompts for MCP_SERVER_URL and the FABRIC_MCP_API_KEY (from server admin).
 #      The API key is persisted to the shell profile (chmod 600), not .env.
-#   7. Writes .mcp.json and patches .codex/config.toml's [mcp_servers.fabric-server]
+#   7. Writes .mcp.json and patches .codex/config.toml's [mcp_servers.fabric_server]
 #      url (if installed).
 #   8. Prompts for FABRIC_MCP_AUTH_URL (auth service base URL; defaults to
 #      MCP_SERVER_URL/api/auth) and FABRIC_MCP_API_KEY (from server admin).
@@ -225,7 +225,7 @@ fi
 # ── MCP API key ───────────────────────────────────────────────────────────────
 # The MCP server validates this key and issues a short-lived JWT. fabric-vibe
 # auth refresh reads FABRIC_MCP_API_KEY, calls FABRIC_MCP_AUTH_URL/login, and
-# injects the JWT into the MCP client headers. The key is persisted to the
+# injects the JWT into the MCP client auth config. The key is persisted to the
 # shell profile (chmod 600), not to .env, so it is never committed.
 echo ""
 echo "-- MCP API key"
@@ -242,7 +242,7 @@ fi
 
 # ── MCP client config (.mcp.json) ─────────────────────────────────────────────
 # Write url only; fabric-vibe auth refresh calls FABRIC_MCP_AUTH_URL/login with
-# FABRIC_MCP_API_KEY and writes the returned JWT into the MCP client headers below.
+# FABRIC_MCP_API_KEY and writes the returned JWT into the MCP client auth config below.
 MCP_JSON="${PROJECT_ROOT}/.mcp.json"
 mcp_url="${mcp_server_url%/}/mcp"
 cat > "$MCP_JSON" <<EOF
@@ -257,12 +257,12 @@ cat > "$MCP_JSON" <<EOF
 EOF
 actions+=(".mcp.json written (${mcp_url})")
 
-# Keep Codex's MCP config url aligned (auth header written by fabric-vibe auth refresh).
+# Keep Codex's MCP config url aligned (auth config written by fabric-vibe auth refresh).
 CODEX_CONFIG="${PROJECT_ROOT}/.codex/config.toml"
 if [[ -f "$CODEX_CONFIG" ]]; then
   _codex_tmp="$(mktemp)"
   awk -v url="$mcp_url" '
-    /^\[mcp_servers\.fabric-server\]/ { print; in_section=1; next }
+    /^\[mcp_servers\.("fabric-server"|fabric-server|fabric_server)\]/ { print "[mcp_servers.fabric_server]"; in_section=1; next }
     /^\[/                             { in_section=0 }
     in_section && /^[[:space:]]*url[[:space:]]*=/ { print "url = \"" url "\""; next }
     { print }
@@ -274,7 +274,7 @@ fi
 echo ""
 echo "-- MCP client token"
 if fabric-vibe auth refresh; then
-  actions+=("MCP token written to MCP client headers")
+  actions+=("MCP token written to MCP client auth config")
 else
   echo "  MCP token refresh failed; run 'fabric-vibe auth refresh' manually." >&2
 fi

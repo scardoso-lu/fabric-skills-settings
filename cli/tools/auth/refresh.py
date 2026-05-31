@@ -2,9 +2,9 @@
 """Fetch a short-lived JWT from the MCP server using an API key.
 
 Saves the JWT into the Claude and Codex MCP client configuration files so
-Claude Code and Codex pick it up on next session load. The token is reused
-until close to expiry, then refreshed automatically. Run `fabric-vibe auth
-refresh` any time you need a fresh token.
+Claude Code and Codex pick it up on next session load. Each run mints a fresh
+token so client configs recover from server restarts, signing-secret rotation,
+or server-side token-store resets.
 
 The API key is read from FABRIC_MCP_API_KEY. If that variable is not set,
 the command prompts for it interactively (input is hidden).
@@ -15,7 +15,6 @@ https://host/server/auth). If not set, it defaults to
 
 Usage:
     fabric-vibe auth refresh [--server-url https://host:port]
-                             [--auth-url   https://host/path/auth]
 """
 
 from __future__ import annotations
@@ -38,6 +37,8 @@ ROOT = Path.cwd()
 _STATE_DIR = Path.home() / ".fabric-vibecoding"
 _TOKEN_FILE = _STATE_DIR / "mcp-token.json"
 _REFRESH_MARGIN = 300  # refresh when fewer than 5 min remain
+_CODEX_MCP_SECTION = "mcp_servers.fabric_server"
+_CODEX_MCP_HEADERS_SECTION = "mcp_servers.fabric_server.http_headers"
 
 
 # ── JWT expiry helper (no external deps) ─────────────────────────────────────
@@ -247,27 +248,57 @@ def update_mcp_json(root: Path, token: str) -> None:
     print("  Updated .mcp.json")
 
 
+def _normalize_codex_mcp_section_names(text: str) -> str:
+    """Migrate old hyphenated Codex MCP ids to the stable tool namespace id."""
+    text = re.sub(
+        r'^\[mcp_servers\.(?:"fabric-server"|fabric-server)\]$',
+        f"[{_CODEX_MCP_SECTION}]",
+        text,
+        flags=re.MULTILINE,
+    )
+    return re.sub(
+        r'^\[mcp_servers\.(?:"fabric-server"|fabric-server|fabric_server)\.(?:headers|http_headers)\]$',
+        f"[{_CODEX_MCP_HEADERS_SECTION}]",
+        text,
+        flags=re.MULTILINE,
+    )
+
+
+def _upsert_toml_section_key(text: str, section: str, key: str, value: str) -> str:
+    header = f"[{section}]"
+    key_line = f'{key} = "{value}"'
+    section_re = re.compile(
+        rf"(^\[{re.escape(section)}\]\r?\n)(.*?)(?=^\[|\Z)",
+        flags=re.MULTILINE | re.DOTALL,
+    )
+    match = section_re.search(text)
+    if not match:
+        return text.rstrip() + f"\n\n{header}\n{key_line}\n"
+
+    body = match.group(2)
+    if re.search(rf"^\s*{re.escape(key)}\s*=", body, flags=re.MULTILINE):
+        body = re.sub(
+            rf"^\s*{re.escape(key)}\s*=.*$",
+            key_line,
+            body,
+            flags=re.MULTILINE,
+        )
+    else:
+        body = body.rstrip() + f"\n{key_line}\n"
+    return text[: match.start(2)] + body + text[match.end(2):]
+
+
 def update_codex_config(root: Path, token: str) -> None:
     config = root / ".codex" / "config.toml"
     if not config.exists():
         return
-    text = config.read_text(encoding="utf-8")
-    auth_line = f'Authorization = "Bearer {token}"'
-    if re.search(r"^\[mcp_servers\.fabric-server\.headers\]", text, re.MULTILINE):
-        text = re.sub(
-            r"(^\[mcp_servers\.fabric-server\.headers\][^\[]*?)^Authorization\s*=.*$",
-            lambda m: m.group(1) + auth_line,
-            text,
-            flags=re.MULTILINE | re.DOTALL,
-        )
-        if 'Authorization = "Bearer' not in text:
-            text = re.sub(
-                r"(\[mcp_servers\.fabric-server\.headers\])",
-                rf"\1\n{auth_line}",
-                text,
-            )
-    else:
-        text = text.rstrip() + f"\n\n[mcp_servers.fabric-server.headers]\n{auth_line}\n"
+    text = _normalize_codex_mcp_section_names(config.read_text(encoding="utf-8"))
+    text = _upsert_toml_section_key(
+        text,
+        _CODEX_MCP_HEADERS_SECTION,
+        "Authorization",
+        f"Bearer {token}",
+    )
     config.write_text(text, encoding="utf-8")
     print("  Updated .codex/config.toml")
 
@@ -283,25 +314,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     server_url = _resolve_server_url(argv, ROOT)
-    auth_base_url = _resolve_auth_base_url(argv, server_url)
-    token: str | None = None
-    expires_at: float = 0.0
-
-    saved_token, saved_expiry = _load_saved_token()
-    if saved_token and saved_expiry:
-        time_left = saved_expiry - time.time()
-        if time_left > _REFRESH_MARGIN:
-            token, expires_at = saved_token, saved_expiry
-            print(f"  Reusing existing token (expires in {int(time_left // 60)} min)")
-        elif time_left > 0:
-            new_tok, new_exp = _refresh_token(auth_base_url, saved_token)
-            if new_tok:
-                token, expires_at = new_tok, new_exp  # type: ignore[assignment]
-                print(f"  Token refreshed via {auth_base_url}/refresh")
-
-    if not token:
-        # _fetch_token tries OAuth2 client_credentials first, legacy JSON second.
-        token, expires_at = _fetch_token(server_url, api_key)
+    # Always mint a fresh token. A cached JWT can be timestamp-valid but still
+    # rejected after a server restart, signing-secret rotation, or JTI-store reset.
+    # _fetch_token tries OAuth2 client_credentials first, legacy JSON second.
+    token, expires_at = _fetch_token(server_url, api_key)
 
     _save_token(token, expires_at)
     update_mcp_json(ROOT, token)

@@ -14,7 +14,7 @@
 #   5. Prompts for FABRIC_CLIENT_SECRET and persists to the user's OS env
 #      (NOT .env - secrets stay in the OS env).
 #   6. Prompts for MCP_SERVER_URL.
-#   7. Writes .mcp.json and patches .codex/config.toml's [mcp_servers.fabric-server]
+#   7. Writes .mcp.json and patches .codex/config.toml's [mcp_servers.fabric_server]
 #      url (if installed).
 #   8. Prompts for FABRIC_MCP_AUTH_URL (auth service base URL; defaults to
 #      MCP_SERVER_URL/api/auth) and FABRIC_MCP_API_KEY (from server admin).
@@ -198,7 +198,7 @@ if ($env:FABRIC_MCP_AUTH_URL) {
 # -- MCP API key -------------------------------------------------------------
 # The MCP server validates this key and issues a short-lived JWT. fabric-vibe
 # auth refresh reads FABRIC_MCP_API_KEY, calls FABRIC_MCP_AUTH_URL/login, and
-# injects the JWT into the MCP client headers. The key is persisted to the OS
+# injects the JWT into the MCP client auth config. The key is persisted to the OS
 # user environment (registry), not to .env, so it is never committed.
 Write-Host ""
 Write-Host "-- MCP API key"
@@ -215,21 +215,21 @@ if ($env:FABRIC_MCP_API_KEY) {
 
 # -- MCP client config (.mcp.json) -------------------------------------------
 # Write url only; fabric-vibe auth refresh calls FABRIC_MCP_AUTH_URL/login with
-# FABRIC_MCP_API_KEY and writes the returned JWT into the MCP client headers below.
+# FABRIC_MCP_API_KEY and writes the returned JWT into the MCP client auth config below.
 $McpJson = Join-Path $ProjectRoot ".mcp.json"
 $mcpUrl  = "$($mcpServerUrl.TrimEnd('/'))/mcp"
 $mcpDoc  = [ordered]@{ mcpServers = [ordered]@{ "fabric-server" = [ordered]@{ type = "http"; url = $mcpUrl } } }
 $mcpDoc | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $McpJson -Encoding utf8
 $Actions.Add(".mcp.json written ($mcpUrl)")
 
-# Keep Codex's MCP config url aligned (auth header is written by fabric-vibe auth refresh).
+# Keep Codex's MCP config url aligned (auth config is written by fabric-vibe auth refresh).
 $CodexConfig = Join-Path $ProjectRoot ".codex/config.toml"
 if (Test-Path -LiteralPath $CodexConfig) {
     $lines    = [System.IO.File]::ReadAllLines($CodexConfig)
     $out      = [System.Collections.Generic.List[string]]::new()
     $inFabric = $false
     foreach ($line in $lines) {
-        if ($line -match '^\[mcp_servers\.fabric-server\]') { $inFabric = $true;  $out.Add($line); continue }
+        if ($line -match '^\[mcp_servers\.(?:"fabric-server"|fabric-server|fabric_server)\]') { $inFabric = $true;  $out.Add("[mcp_servers.fabric_server]"); continue }
         if ($line -match '^\[')                             { $inFabric = $false }
         if ($inFabric -and $line -match '^\s*url\s*=')     { $out.Add("url = `"$mcpUrl`""); continue }
         $out.Add($line)
@@ -243,7 +243,7 @@ Write-Host ""
 Write-Host "-- MCP client token"
 fabric-vibe auth refresh
 if ($LASTEXITCODE -ne 0) { Write-Warning "MCP token refresh failed; run 'fabric-vibe auth refresh' manually." }
-else { $Actions.Add("MCP token written to MCP client headers") }
+else { $Actions.Add("MCP token written to MCP client auth config") }
 
 # -- Authenticate ------------------------------------------------------------
 # Use explicit SPN login. fab does NOT pick up AZURE_* env vars implicitly —
