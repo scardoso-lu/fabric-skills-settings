@@ -250,6 +250,7 @@ class _Validator:
                 "FABRIC_CLIENT_ID",
                 "FABRIC_CLIENT_SECRET",
                 "MCP_SERVER_URL",
+                "FABRIC_MCP_AUTH_URL",
                 "FABRIC_MCP_API_KEY",
                 "auth refresh",
             ):

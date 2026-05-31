@@ -84,6 +84,36 @@ def test_resolve_server_url_default_fallback(tmp_path):
     assert url == "http://127.0.0.1:8000"
 
 
+# ── Auth base URL resolution ──────────────────────────────────────────────────
+
+def test_resolve_auth_base_url_default_derives_from_server(monkeypatch):
+    mod = _load_auth_refresh()
+    monkeypatch.delenv("FABRIC_MCP_AUTH_URL", raising=False)
+    url = mod._resolve_auth_base_url([], "https://myserver.example.com")
+    assert url == "https://myserver.example.com/api/auth"
+
+
+def test_resolve_auth_base_url_from_env(monkeypatch):
+    mod = _load_auth_refresh()
+    monkeypatch.setenv("FABRIC_MCP_AUTH_URL", "https://host/server/auth")
+    url = mod._resolve_auth_base_url([], "https://other.host")
+    assert url == "https://host/server/auth"
+
+
+def test_resolve_auth_base_url_from_flag(monkeypatch):
+    mod = _load_auth_refresh()
+    monkeypatch.delenv("FABRIC_MCP_AUTH_URL", raising=False)
+    url = mod._resolve_auth_base_url(["--auth-url", "https://host/custom/auth"], "https://other")
+    assert url == "https://host/custom/auth"
+
+
+def test_resolve_auth_base_url_flag_takes_precedence_over_env(monkeypatch):
+    mod = _load_auth_refresh()
+    monkeypatch.setenv("FABRIC_MCP_AUTH_URL", "https://env.host/auth")
+    url = mod._resolve_auth_base_url(["--auth-url", "https://flag.host/auth"], "https://other")
+    assert url == "https://flag.host/auth"
+
+
 # ── Config injection ──────────────────────────────────────────────────────────
 
 def test_update_mcp_json_injects_bearer_token(tmp_path):

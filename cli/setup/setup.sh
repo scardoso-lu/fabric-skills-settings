@@ -17,8 +17,9 @@
 #      The API key is persisted to the shell profile (chmod 600), not .env.
 #   7. Writes .mcp.json and patches .codex/config.toml's [mcp_servers.fabric-server]
 #      url (if installed).
-#   8. Runs fabric-vibe auth refresh, which calls /api/auth/login with the API key,
-#      receives a short-lived JWT, and writes it into the MCP client headers.
+#   8. Prompts for FABRIC_MCP_AUTH_URL (auth service base URL; defaults to
+#      MCP_SERVER_URL/api/auth) and FABRIC_MCP_API_KEY (from server admin).
+#      Runs fabric-vibe auth refresh to obtain a short-lived JWT.
 #   9. Verifies SPN auth by calling `fab api workspaces`.
 #  10. Runs fabric-vibe workspace init to populate workspaces.json.
 #  11. Prompts to select the active workspace.
@@ -204,11 +205,28 @@ else
   mcp_server_url="${mcp_server_url:-http://127.0.0.1:8000}"
 fi
 
+# ── MCP auth URL ─────────────────────────────────────────────────────────────
+# Base URL for the auth service (without /login or /refresh). This varies by
+# deployment — e.g. a reverse proxy may expose it at /server/auth rather than
+# /api/auth. fabric-vibe auth refresh appends /login or /refresh as needed.
+echo ""
+echo "-- MCP auth URL"
+_default_auth_url="${mcp_server_url%/}/api/auth"
+if [[ -n "${FABRIC_MCP_AUTH_URL:-}" ]]; then
+  echo "  FABRIC_MCP_AUTH_URL already set — keeping ${FABRIC_MCP_AUTH_URL}"
+else
+  read -rp "  FABRIC_MCP_AUTH_URL [${_default_auth_url}]: " FABRIC_MCP_AUTH_URL
+  FABRIC_MCP_AUTH_URL="${FABRIC_MCP_AUTH_URL:-${_default_auth_url}}"
+  export FABRIC_MCP_AUTH_URL
+  persist_secret "FABRIC_MCP_AUTH_URL" "${FABRIC_MCP_AUTH_URL}"
+  actions+=("FABRIC_MCP_AUTH_URL persisted to shell profile")
+fi
+
 # ── MCP API key ───────────────────────────────────────────────────────────────
 # The MCP server validates this key and issues a short-lived JWT. fabric-vibe
-# auth refresh reads FABRIC_MCP_API_KEY, calls /api/auth/login, and injects the JWT
-# into the MCP client headers. The key is persisted to the shell profile (chmod
-# 600), not to .env, so it is never committed to the repository.
+# auth refresh reads FABRIC_MCP_API_KEY, calls FABRIC_MCP_AUTH_URL/login, and
+# injects the JWT into the MCP client headers. The key is persisted to the
+# shell profile (chmod 600), not to .env, so it is never committed.
 echo ""
 echo "-- MCP API key"
 if [[ -n "${FABRIC_MCP_API_KEY:-}" ]]; then
@@ -223,8 +241,8 @@ else
 fi
 
 # ── MCP client config (.mcp.json) ─────────────────────────────────────────────
-# Write url only; fabric-vibe auth refresh calls /api/auth/login with FABRIC_MCP_API_KEY
-# and writes the returned JWT into the MCP client headers below.
+# Write url only; fabric-vibe auth refresh calls FABRIC_MCP_AUTH_URL/login with
+# FABRIC_MCP_API_KEY and writes the returned JWT into the MCP client headers below.
 MCP_JSON="${PROJECT_ROOT}/.mcp.json"
 mcp_url="${mcp_server_url%/}/mcp"
 cat > "$MCP_JSON" <<EOF

@@ -9,8 +9,13 @@ refresh` any time you need a fresh token.
 The API key is read from FABRIC_MCP_API_KEY. If that variable is not set,
 the command prompts for it interactively (input is hidden).
 
+The auth service base URL is read from FABRIC_MCP_AUTH_URL (e.g.
+https://host/server/auth). If not set, it defaults to
+{MCP_SERVER_URL}/api/auth. Pass --auth-url to override at runtime.
+
 Usage:
     fabric-vibe auth refresh [--server-url https://host:port]
+                             [--auth-url   https://host/path/auth]
 """
 
 from __future__ import annotations
@@ -72,7 +77,7 @@ def _save_token(token: str, expires_at: float) -> None:
         pass
 
 
-# ── Server URL resolution ─────────────────────────────────────────────────────
+# ── URL resolution ────────────────────────────────────────────────────────────
 
 def _resolve_server_url(argv: list[str], root: Path) -> str:
     """Resolve MCP server base URL from --server-url arg, env, or .mcp.json."""
@@ -93,6 +98,24 @@ def _resolve_server_url(argv: list[str], root: Path) -> str:
         except Exception:
             pass
     return "http://127.0.0.1:8000"
+
+
+def _resolve_auth_base_url(argv: list[str], server_url: str) -> str:
+    """Resolve auth service base URL.
+
+    Priority: --auth-url flag > FABRIC_MCP_AUTH_URL env var > {server_url}/api/auth.
+
+    The base URL is the path up to but not including /login or /refresh,
+    e.g. https://host/server/auth or https://host/api/auth.
+    """
+    if "--auth-url" in argv:
+        idx = argv.index("--auth-url")
+        if idx + 1 < len(argv):
+            return argv[idx + 1].rstrip("/")
+    url = os.environ.get("FABRIC_MCP_AUTH_URL", "").strip().rstrip("/")
+    if url:
+        return url
+    return f"{server_url}/api/auth"
 
 
 # ── API key resolution ────────────────────────────────────────────────────────
@@ -127,17 +150,18 @@ def _post(url: str, body: bytes, headers: dict[str, str]) -> tuple[int, dict]:
         raise SystemExit(f"Cannot reach MCP server at {url}: {exc}") from exc
 
 
-def _fetch_token(server_url: str, api_key: str) -> tuple[str, float]:
-    """POST to /api/auth/login, return (jwt, expires_at). Exits on failure."""
+def _fetch_token(auth_base_url: str, api_key: str) -> tuple[str, float]:
+    """POST to {auth_base_url}/login, return (jwt, expires_at). Exits on failure."""
+    login_url = f"{auth_base_url}/login"
     status, body = _post(
-        f"{server_url}/api/auth/login",
+        login_url,
         json.dumps({"api_key": api_key}).encode("utf-8"),
         {"Content-Type": "application/json"},
     )
     if status == 404:
         raise SystemExit(
-            "Server returned 404 for /api/auth/login — auth may be disabled on this server.\n"
-            "If the server requires authentication, check FABRIC_MCP_API_KEY and MCP_SERVER_URL."
+            f"Server returned 404 for {login_url} — auth may be disabled on this server.\n"
+            "Check FABRIC_MCP_API_KEY, MCP_SERVER_URL, and FABRIC_MCP_AUTH_URL."
         )
     if status != 200:
         raise SystemExit(f"Login failed ({status}): {body.get('error', body)}")
@@ -148,10 +172,10 @@ def _fetch_token(server_url: str, api_key: str) -> tuple[str, float]:
     return token, float(expires_at)
 
 
-def _refresh_token(server_url: str, current_token: str) -> tuple[str, float] | tuple[None, None]:
-    """POST to /api/auth/refresh. Returns (new_token, expires_at) or (None, None) on failure."""
+def _refresh_token(auth_base_url: str, current_token: str) -> tuple[str, float] | tuple[None, None]:
+    """POST to {auth_base_url}/refresh. Returns (new_token, expires_at) or (None, None)."""
     status, body = _post(
-        f"{server_url}/api/auth/refresh",
+        f"{auth_base_url}/refresh",
         b"",
         {"Content-Type": "application/json", "Authorization": f"Bearer {current_token}"},
     )
@@ -217,6 +241,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     server_url = _resolve_server_url(argv, ROOT)
+    auth_base_url = _resolve_auth_base_url(argv, server_url)
     token: str | None = None
     expires_at: float = 0.0
 
@@ -227,13 +252,13 @@ def main(argv: list[str] | None = None) -> int:
             token, expires_at = saved_token, saved_expiry
             print(f"  Reusing existing token (expires in {int(time_left // 60)} min)")
         elif time_left > 0:
-            new_tok, new_exp = _refresh_token(server_url, saved_token)
+            new_tok, new_exp = _refresh_token(auth_base_url, saved_token)
             if new_tok:
                 token, expires_at = new_tok, new_exp  # type: ignore[assignment]
-                print("  Token refreshed via /api/auth/refresh")
+                print(f"  Token refreshed via {auth_base_url}/refresh")
 
     if not token:
-        token, expires_at = _fetch_token(server_url, api_key)
+        token, expires_at = _fetch_token(auth_base_url, api_key)
         print("  New JWT obtained from MCP server")
 
     _save_token(token, expires_at)
