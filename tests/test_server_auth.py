@@ -293,7 +293,7 @@ class _FakeApp:
 
 
 def _clear_key_env(monkeypatch):
-    for var in ("FABRIC_MCP_API_KEYS", "FABRIC_MCP_API_KEYS_SOURCE", "FABRIC_MCP_API_KEYS_FILE"):
+    for var in ("FABRIC_MCP_API_KEYS", "FABRIC_MCP_API_KEYS_DB"):
         monkeypatch.delenv(var, raising=False)
 
 
@@ -304,7 +304,6 @@ def test_install_auth_middleware_enabled_with_keys(monkeypatch):
     app = _FakeApp()
     assert install_auth_middleware(app) is True
     assert app.middlewares[0][0] is FabricAuthMiddleware
-    # api_keys is now a MutableApiKeyStore; check membership rather than equality
     assert "key1" in app.middlewares[0][1]["api_keys"]
 
 
@@ -317,10 +316,9 @@ def test_install_auth_middleware_disabled_without_keys(monkeypatch):
 
 def test_install_auth_middleware_clears_singleton_when_disabled(monkeypatch):
     """get_store() must return None when auth is disabled, even after a prior run."""
-    from server.auth.repository import get_store, _set_store
-    # Seed a stale store.
-    from server.auth.repository import MutableApiKeyStore
-    _set_store(MutableApiKeyStore())
+    from server.auth.repository import get_store, _set_store, SqliteApiKeyStore
+    # Seed a stale store so we can verify it gets cleared.
+    _set_store(SqliteApiKeyStore(":memory:", readonly_keys={"stale"}))
 
     _clear_key_env(monkeypatch)  # no keys → auth disabled
     assert install_auth_middleware(_FakeApp()) is False
