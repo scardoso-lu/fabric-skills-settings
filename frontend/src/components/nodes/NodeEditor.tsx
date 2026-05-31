@@ -78,7 +78,18 @@ export function NodeEditor({
             {node.path}
           </span>
         </div>
-        <div className="navbar-end">
+        <div className="navbar-end gap-2">
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={handleSave}
+            disabled={saving || deleting}
+          >
+            {saving ? (
+              <span className="loading loading-spinner loading-xs" />
+            ) : null}
+            Save
+          </button>
           <button
             type="button"
             className="btn btn-error btn-outline btn-sm"
@@ -174,21 +185,6 @@ export function NodeEditor({
             spellCheck={false}
           />
         )}
-      </div>
-
-      {/* Actions */}
-      <div className="flex justify-end items-center gap-2">
-        <button
-          type="button"
-          className="btn btn-primary btn-sm"
-          onClick={handleSave}
-          disabled={saving || deleting}
-        >
-          {saving ? (
-            <span className="loading loading-spinner loading-xs" />
-          ) : null}
-          Save
-        </button>
       </div>
 
       {/* Delete confirmation modal */}

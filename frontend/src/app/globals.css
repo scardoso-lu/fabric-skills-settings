@@ -31,7 +31,20 @@ body {
 }
 
 .prose pre {
-  @apply bg-slate-100 rounded-lg p-4 overflow-x-auto border border-slate-200;
+  @apply bg-slate-100 text-slate-900 rounded-lg p-4 overflow-x-auto border border-slate-200;
+}
+
+.prose pre code {
+  @apply text-slate-900;
+}
+
+.prose code {
+  @apply text-slate-900;
+}
+
+.prose code::before,
+.prose code::after {
+  content: none;
 }
 
 .table th {
