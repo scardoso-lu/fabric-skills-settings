@@ -172,6 +172,15 @@ def test_middleware_login_valid_key():
     assert cap.body["token_type"] == "Bearer"
 
 
+def test_middleware_login_valid_key_api_path():
+    mw, _ = _make_middleware()
+    cap = _Captured(b'{"api_key": "good-key"}')
+    asyncio.run(mw(_http_scope("/api/auth/login"), cap.receive, cap.send))
+    assert cap.status == 200
+    assert "token" in cap.body
+    assert cap.body["token_type"] == "Bearer"
+
+
 def test_middleware_login_invalid_key():
     mw, _ = _make_middleware()
     cap = _Captured(b'{"api_key": "bad-key"}')
@@ -219,6 +228,18 @@ def test_middleware_refresh_issues_new_token_and_revokes_old():
     assert new_token != old_token
     assert store.is_valid(old_jti) is False  # old JTI revoked
     assert decode_jwt(new_token, _SECRET, store) is not None  # new token valid
+
+
+def test_middleware_refresh_api_path_issues_new_token():
+    mw, store = _make_middleware()
+    old_token, _ = mint_jwt("client", _SECRET, store)
+
+    cap = _Captured(b"")
+    asyncio.run(mw(_http_scope("/api/auth/refresh", token=old_token), cap.receive, cap.send))
+
+    assert cap.status == 200
+    assert "token" in cap.body
+    assert cap.body["token"] != old_token
 
 
 def test_middleware_refresh_with_invalid_token_returns_401():

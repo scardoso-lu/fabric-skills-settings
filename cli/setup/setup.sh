@@ -17,7 +17,7 @@
 #      The API key is persisted to the shell profile (chmod 600), not .env.
 #   7. Writes .mcp.json and patches .codex/config.toml's [mcp_servers.fabric-server]
 #      url (if installed).
-#   8. Runs fabric-vibe auth refresh, which calls /auth/login with the API key,
+#   8. Runs fabric-vibe auth refresh, which calls /api/auth/login with the API key,
 #      receives a short-lived JWT, and writes it into the MCP client headers.
 #   9. Verifies SPN auth by calling `fab api workspaces`.
 #  10. Runs fabric-vibe workspace init to populate workspaces.json.
@@ -206,7 +206,7 @@ fi
 
 # ── MCP API key ───────────────────────────────────────────────────────────────
 # The MCP server validates this key and issues a short-lived JWT. fabric-vibe
-# auth refresh reads FABRIC_MCP_API_KEY, calls /auth/login, and injects the JWT
+# auth refresh reads FABRIC_MCP_API_KEY, calls /api/auth/login, and injects the JWT
 # into the MCP client headers. The key is persisted to the shell profile (chmod
 # 600), not to .env, so it is never committed to the repository.
 echo ""
@@ -223,7 +223,7 @@ else
 fi
 
 # ── MCP client config (.mcp.json) ─────────────────────────────────────────────
-# Write url only; fabric-vibe auth refresh calls /auth/login with FABRIC_MCP_API_KEY
+# Write url only; fabric-vibe auth refresh calls /api/auth/login with FABRIC_MCP_API_KEY
 # and writes the returned JWT into the MCP client headers below.
 MCP_JSON="${PROJECT_ROOT}/.mcp.json"
 mcp_url="${mcp_server_url%/}/mcp"
