@@ -13,6 +13,7 @@ const ACTION_BADGE: Record<AuditAction, string> = {
   delete: "badge-error",
   edge_add: "badge-primary",
   edge_remove: "badge-warning",
+  login: "badge-neutral",
 };
 
 function timeAgo(ts: number): string {
