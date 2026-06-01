@@ -60,7 +60,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export async function login(
   apiKey: string,
-): Promise<{ expires_at: number; token_type: string }> {
+): Promise<{ expires_at: number; token_type: string; ip?: string; userAgent?: string }> {
   const res = await fetch("/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

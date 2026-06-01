@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { login } from "@/lib/api";
 import { isAuthenticated, setExpiresAt } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
 
 const loginSchema = z.object({
   apiKey: z.string().min(8, "API key must be at least 8 characters"),
@@ -30,8 +31,15 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      const { expires_at } = await login(apiKey);
+      const { expires_at, ip, userAgent } = await login(apiKey);
       setExpiresAt(expires_at);
+      logAudit({
+        ts: Date.now(),
+        action: "login",
+        nodeId: "auth/login",
+        nodeKind: "auth",
+        detail: [ip && `from ${ip}`, userAgent].filter(Boolean).join(" · ") || undefined,
+      });
       router.push("/dashboard");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed");

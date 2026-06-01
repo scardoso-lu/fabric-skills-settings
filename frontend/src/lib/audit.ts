@@ -1,4 +1,4 @@
-export type AuditAction = "create" | "update" | "delete" | "edge_add" | "edge_remove";
+export type AuditAction = "create" | "update" | "delete" | "edge_add" | "edge_remove" | "login";
 
 export interface AuditEntry {
   id: string;
@@ -50,7 +50,7 @@ export function clearAuditLog(): void {
 }
 
 export function exportAuditCsv(entries: AuditEntry[]): void {
-  const header = "timestamp,action,nodeId,kind,detail";
+  const header = "timestamp,action,resource,kind,detail";
   const rows = entries.map((e) =>
     [
       new Date(e.ts).toISOString(),
