@@ -134,7 +134,7 @@ def test_data_mock_generate_passes_defaults(tmp_path):
     data_tools.register(mcp)
     ctx, captured = _fake_subprocess_ok("wrote 1000 rows\n")
     with ctx:
-        _tools(mcp)["data_mock_generate"](target_dir=str(tmp_path))
+        _tools(mcp)["data_mock_generate"]()
     cmd = captured["cmd"]
     assert "--topic" in cmd and "orders" in cmd
     assert "--rows" in cmd and "1000" in cmd
@@ -145,6 +145,4 @@ def test_data_mock_generate_rejects_dual_schema(tmp_path):
     mcp = FastMCP("test")
     data_tools.register(mcp)
     with pytest.raises(RuntimeError, match="either schema or schema_file"):
-        _tools(mcp)["data_mock_generate"](
-            target_dir=str(tmp_path), schema="[]", schema_file="x.json"
-        )
+        _tools(mcp)["data_mock_generate"](schema="[]", schema_file="x.json")

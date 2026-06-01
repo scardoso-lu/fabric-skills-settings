@@ -10,9 +10,10 @@ const ACTION_BADGE: Record<AuditAction, string> = {
   delete: "badge-error",
   edge_add: "badge-primary",
   edge_remove: "badge-warning",
+  login: "badge-neutral",
 };
 
-const ALL_ACTIONS: AuditAction[] = ["create", "update", "delete", "edge_add", "edge_remove"];
+const ALL_ACTIONS: AuditAction[] = ["login", "create", "update", "delete", "edge_add", "edge_remove"];
 
 type DateFilter = "all" | "today" | "week";
 
@@ -161,13 +162,13 @@ export default function AuditPage() {
                     Action
                   </th>
                   <th className="text-xs font-semibold text-slate-500 uppercase tracking-wide py-3">
-                    Node ID
+                    Resource
                   </th>
                   <th className="text-xs font-semibold text-slate-500 uppercase tracking-wide py-3">
                     Kind
                   </th>
                   <th className="text-xs font-semibold text-slate-500 uppercase tracking-wide py-3">
-                    Detail
+                    Detail / Location
                   </th>
                 </tr>
               </thead>
@@ -198,8 +199,14 @@ export default function AuditPage() {
                         <span className="text-slate-300">—</span>
                       )}
                     </td>
-                    <td className="text-xs text-slate-500 py-2.5">
-                      {entry.detail ?? <span className="text-slate-300">—</span>}
+                    <td className="text-xs text-slate-500 py-2.5 max-w-xs">
+                      {entry.detail ? (
+                        <span className="truncate block" title={entry.detail}>
+                          {entry.detail}
+                        </span>
+                      ) : (
+                        <span className="text-slate-300">—</span>
+                      )}
                     </td>
                   </tr>
                 ))}

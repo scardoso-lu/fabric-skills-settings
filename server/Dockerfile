@@ -19,7 +19,8 @@ RUN uv pip install --system --no-cache \
     "networkx>=3.2" \
     "rank_bm25>=0.2.2" \
     "PyJWT>=2.8" \
-    "sqlalchemy>=2.0"
+    "sqlalchemy>=2.0" \
+    "psycopg2-binary>=2.9"
 
 # Build the knowledge graph from server/content + server/skills.
 # Output: /build/dist/.graph/{graph.json, graph-bm25.pkl, materialized-graph.{html,svg}}
@@ -40,8 +41,7 @@ RUN mkdir -p /app/server/managed/skills \
              /app/server/managed/content/rules \
              /app/server/managed/content/skill-fixes \
              /app/server/managed/content/memory && \
-    mkdir -p /config && \
-    chown -R server:server /app/server/managed /config
+    chown -R server:server /app/server/managed
 
 WORKDIR /app
 USER server

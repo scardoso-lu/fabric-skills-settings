@@ -41,6 +41,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const { token, expires_at, token_type } = await upstream.json();
 
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+    request.headers.get("x-real-ip") ??
+    "unknown";
+  const userAgent = request.headers.get("user-agent") ?? "unknown";
+
+  process.stdout.write(
+    JSON.stringify({
+      msg: "fabric-audit",
+      ts: new Date().toISOString(),
+      action: "login",
+      nodeId: "auth/login",
+      nodeKind: "auth",
+      detail: `from ${ip}`,
+      ip,
+      userAgent,
+    }) + "\n",
+  );
+
   // Set httpOnly cookie — inaccessible to browser JS (prevents XSS token theft).
   (await cookies()).set("fab_token", token, {
     httpOnly: true,
@@ -52,5 +71,5 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   // Return the token in the body so CLI clients can read it directly.
   // Browser clients use the httpOnly cookie above and ignore the token field.
-  return NextResponse.json({ token, expires_at, token_type }, { status: 200 });
+  return NextResponse.json({ token, expires_at, token_type, ip, userAgent }, { status: 200 });
 }

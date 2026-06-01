@@ -1,14 +1,15 @@
 # Run from the repo root: `docker compose up --build`.
 #
-# Two services:
-#   server  — FastMCP HTTP server (MCP tools + admin REST API) on port 8000
-#   frontend — Next.js management UI on port 3000
+# Three services:
+#   postgres  — PostgreSQL 16 (API keys + sandbox data)
+#   server    — FastMCP HTTP server (MCP tools + admin REST API) on port 8000
+#   frontend  — Next.js management UI on port 3000
 #
 # MCP auth (API-key + JWT):
 #   - Add FABRIC_MCP_API_KEYS=<your-key> and FABRIC_MCP_JWT_SECRET=<secret> to .env.
 #   - Generate JWT secret: python -c "import secrets; print(secrets.token_hex(32))"
-#   - Auth is disabled when both FABRIC_MCP_API_KEYS and FABRIC_MCP_API_KEYS_DB are empty.
-#   - For multi-user deployments use FABRIC_MCP_API_KEYS_DB=/config/api-keys.db (SQLite).
+#   - Auth is disabled when both FABRIC_MCP_API_KEYS and DATABASE_URL are empty.
+#   - For multi-user deployments set DATABASE_URL (handled via the postgres service below).
 #
 # Managed content (persistent across restarts):
 #   - User-created skills and content go to ./server/data/managed/ (volume-mounted into server).
@@ -17,6 +18,27 @@
 # Host-only binding (127.0.0.1) — no LAN exposure.
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fabric-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fabric}
+      POSTGRES_USER: ${POSTGRES_USER:-fabric}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fabric} -d ${POSTGRES_DB:-fabric}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - web
+
   server:
     build:
       context: .
@@ -36,28 +58,23 @@ services:
       # Example: MCP_SERVER_URL=https://scardoso-lu.duckdns.org
       MCP_SERVER_URL: ${MCP_SERVER_URL:-http://127.0.0.1:8000}
       # CORS: allow requests from the frontend and any direct browser clients.
-      # For production behind nginx set FABRIC_CORS_ORIGINS in .env, e.g.:
-      #   FABRIC_CORS_ORIGINS=https://scardoso-lu.duckdns.org,http://localhost:3000
       FABRIC_CORS_ORIGINS: ${FABRIC_CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       # ── Auth ──────────────────────────────────────────────────────────────
-      # Multi-user / admin-UI manageable (recommended):
-      #   FABRIC_MCP_API_KEYS_DB=/config/api-keys.db
-      #   The ./config volume below is writable by the server user.
-      #
-      # Single-key dev: FABRIC_MCP_API_KEYS=<key> (in-memory, no CRUD).
-      # Auth disabled entirely when both vars are empty.
+      # DATABASE_URL is assembled from the postgres service credentials.
+      # Override in .env to point at an external PostgreSQL instance.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-fabric}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-fabric}}
+      # Optional inline read-only keys (no CRUD, useful for single-user dev).
       FABRIC_MCP_API_KEYS: ${FABRIC_MCP_API_KEYS:-}
-      FABRIC_MCP_API_KEYS_DB: ${FABRIC_MCP_API_KEYS_DB:-}
       # Required when any keys are configured:
       FABRIC_MCP_JWT_SECRET: ${FABRIC_MCP_JWT_SECRET:-}
     volumes:
       - ./server/data:/data
       - ./server/data/managed:/app/server/managed
-      # Writable config dir for the SQLite API key database.
-      # On first deploy: mkdir -p config && chown 10001:10001 config
-      - ./config:/config
     ports:
       - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -91,6 +108,10 @@ services:
     restart: unless-stopped
     networks:
       - web
+
+volumes:
+  postgres_data:
+
 networks:
   web:
     external: true

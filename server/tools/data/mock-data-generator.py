@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate deterministic sandbox data for Fabric topics.
+"""Generate deterministic sandbox data for Fabric topics and load into PostgreSQL.
 
 Usage:
     python tool/data/mock-data-generator.py --topic orders --rows 1000
@@ -8,9 +8,11 @@ Usage:
     python tool/data/mock-data-generator.py --schema-file schemas/orders.json --rows 1000
     python tool/data/mock-data-generator.py --engine sklearn --rows 5000
 
-Default output is ``data/sandbox/<topic>.csv``. The generated rows are synthetic
-and may include PII-shaped fields so ingestion and DQ notebooks can exercise
-masking and validation behavior. Never replace this with real source extracts.
+Output table is ``sandbox_<topic>`` in the PostgreSQL database specified by
+DATABASE_URL (or --dsn). The table is dropped and recreated on each run.
+The generated rows are synthetic and may include PII-shaped fields so
+ingestion and DQ notebooks can exercise masking and validation behavior.
+Never replace this with real source extracts.
 
 Column types (for --schema / --schema-file):
     id                          Sequential integer starting at 1
@@ -36,10 +38,10 @@ Column types (for --schema / --schema-file):
 from __future__ import annotations
 
 import argparse
-import csv
 import datetime as dt
 import importlib
 import json
+import os
 import re
 import random
 import uuid as uuid_module
@@ -50,10 +52,37 @@ from typing import Any
 _TOPIC_RE = re.compile(r"^[a-zA-Z0-9_\-]+$")
 _SCRIPT_ROOT = Path(__file__).resolve().parents[2]
 
+# PostgreSQL column type mapping
+_PG_TYPES: dict[str, str] = {
+    "id": "INTEGER",
+    "int": "INTEGER",
+    "float": "DOUBLE PRECISION",
+    "decimal": "NUMERIC",
+    "date": "DATE",
+    "datetime": "TIMESTAMP",
+    "timestamp": "TIMESTAMP",
+    "boolean": "BOOLEAN",
+    "bool": "BOOLEAN",
+    "uuid": "UUID",
+    "string": "TEXT",
+    "word": "TEXT",
+    "str": "TEXT",
+    "sentence": "TEXT",
+    "text": "TEXT",
+    "name": "TEXT",
+    "first_name": "TEXT",
+    "last_name": "TEXT",
+    "email": "TEXT",
+    "address": "TEXT",
+    "phone": "TEXT",
+    "company": "TEXT",
+    "url": "TEXT",
+}
+
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--topic", default="orders", help="Topic/source name used for the default output path")
+    parser.add_argument("--topic", default="orders", help="Topic name; output table is sandbox_<topic>")
     parser.add_argument("--rows", type=int, default=1000, help="Number of rows to generate")
     parser.add_argument("--seed", type=int, default=42, help="Deterministic random seed")
     parser.add_argument(
@@ -74,9 +103,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Path to a JSON file containing a column definitions array.",
     )
     parser.add_argument(
-        "--output",
-        type=Path,
-        help="CSV output path. Defaults to data/sandbox/<topic>.csv",
+        "--dsn",
+        help="PostgreSQL connection string. Defaults to DATABASE_URL environment variable.",
     )
     return parser.parse_args(argv)
 
@@ -111,7 +139,7 @@ def require_module(module_name: str, install_hint: str) -> Any:
 
 # --- stdlib engine -----------------------------------------------------------
 
-def _stdlib_value(col: dict[str, Any], index: int, rng: random.Random) -> str | int:
+def _stdlib_value(col: dict[str, Any], index: int, rng: random.Random) -> Any:
     ctype = col["type"].lower()
     col_name = col["name"]
     if ctype == "id":
@@ -120,20 +148,20 @@ def _stdlib_value(col: dict[str, Any], index: int, rng: random.Random) -> str | 
         return rng.randint(int(col.get("min", 0)), int(col.get("max", 1000)))
     if ctype in ("float", "decimal"):
         decimals = int(col.get("decimals", 4))
-        return f"{rng.uniform(float(col.get('min', 0.0)), float(col.get('max', 1.0))):.{decimals}f}"
+        return round(rng.uniform(float(col.get("min", 0.0)), float(col.get("max", 1.0))), decimals)
     if ctype == "date":
         start = dt.date.fromisoformat(col.get("start", "2026-01-01"))
         end = dt.date.fromisoformat(col.get("end", "2026-12-31"))
-        return (start + dt.timedelta(days=rng.randint(0, (end - start).days))).isoformat()
+        return start + dt.timedelta(days=rng.randint(0, (end - start).days))
     if ctype in ("datetime", "timestamp"):
         start = dt.date.fromisoformat(col.get("start", "2026-01-01"))
         end = dt.date.fromisoformat(col.get("end", "2026-12-31"))
         seconds = rng.randint(0, (end - start).days * 86400)
-        return (dt.datetime(start.year, start.month, start.day) + dt.timedelta(seconds=seconds)).isoformat()
+        return dt.datetime(start.year, start.month, start.day) + dt.timedelta(seconds=seconds)
     if ctype in ("boolean", "bool"):
-        return str(rng.choice([True, False]))
+        return rng.choice([True, False])
     if ctype == "uuid":
-        return str(uuid_module.UUID(int=rng.getrandbits(128)))
+        return uuid_module.UUID(int=rng.getrandbits(128))
     if ctype == "email":
         return f"user.{index}@example.test"
     if ctype == "name":
@@ -163,7 +191,7 @@ def stdlib_rows(rows: int, seed: int, schema: list[dict[str, Any]]) -> Iterator[
 
 # --- faker engine ------------------------------------------------------------
 
-def _faker_value(col: dict[str, Any], index: int, fake: Any, rng: random.Random) -> str | int:
+def _faker_value(col: dict[str, Any], index: int, fake: Any, rng: random.Random) -> Any:
     ctype = col["type"].lower()
     if ctype == "id":
         return index
@@ -171,17 +199,17 @@ def _faker_value(col: dict[str, Any], index: int, fake: Any, rng: random.Random)
         return fake.random_int(min=int(col.get("min", 0)), max=int(col.get("max", 1000)))
     if ctype in ("float", "decimal"):
         decimals = int(col.get("decimals", 2))
-        return f"{rng.uniform(float(col.get('min', 0.0)), float(col.get('max', 1.0))):.{decimals}f}"
+        return round(rng.uniform(float(col.get("min", 0.0)), float(col.get("max", 1.0))), decimals)
     if ctype == "date":
         start = dt.date.fromisoformat(col.get("start", "2026-01-01"))
         end = dt.date.fromisoformat(col.get("end", "2026-12-31"))
-        return fake.date_between(start_date=start, end_date=end).isoformat()
+        return fake.date_between(start_date=start, end_date=end)
     if ctype in ("datetime", "timestamp"):
-        return fake.date_time_between(start_date=col.get("start", "-1y"), end_date=col.get("end", "now")).isoformat()
+        return fake.date_time_between(start_date=col.get("start", "-1y"), end_date=col.get("end", "now"))
     if ctype in ("boolean", "bool"):
-        return str(fake.boolean())
+        return fake.boolean()
     if ctype == "uuid":
-        return fake.uuid4()
+        return uuid_module.UUID(fake.uuid4())
     if ctype == "name":
         return fake.name()
     if ctype == "first_name":
@@ -216,7 +244,7 @@ def faker_rows(rows: int, seed: int, schema: list[dict[str, Any]]) -> Iterator[d
 
 # --- mimesis engine ----------------------------------------------------------
 
-def _mimesis_value(col: dict[str, Any], index: int, generic: Any, rng: random.Random) -> str | int:
+def _mimesis_value(col: dict[str, Any], index: int, generic: Any, rng: random.Random) -> Any:
     ctype = col["type"].lower()
     col_name = col["name"]
     if ctype == "id":
@@ -225,20 +253,20 @@ def _mimesis_value(col: dict[str, Any], index: int, generic: Any, rng: random.Ra
         return rng.randint(int(col.get("min", 0)), int(col.get("max", 1000)))
     if ctype in ("float", "decimal"):
         decimals = int(col.get("decimals", 2))
-        return f"{rng.uniform(float(col.get('min', 0.0)), float(col.get('max', 1.0))):.{decimals}f}"
+        return round(rng.uniform(float(col.get("min", 0.0)), float(col.get("max", 1.0))), decimals)
     if ctype == "date":
         start = dt.date.fromisoformat(col.get("start", "2026-01-01"))
         end = dt.date.fromisoformat(col.get("end", "2026-12-31"))
-        return (start + dt.timedelta(days=rng.randint(0, (end - start).days))).isoformat()
+        return start + dt.timedelta(days=rng.randint(0, (end - start).days))
     if ctype in ("datetime", "timestamp"):
         start = dt.date.fromisoformat(col.get("start", "2026-01-01"))
         end = dt.date.fromisoformat(col.get("end", "2026-12-31"))
         seconds = rng.randint(0, (end - start).days * 86400)
-        return (dt.datetime(start.year, start.month, start.day) + dt.timedelta(seconds=seconds)).isoformat()
+        return dt.datetime(start.year, start.month, start.day) + dt.timedelta(seconds=seconds)
     if ctype in ("boolean", "bool"):
-        return str(rng.choice([True, False]))
+        return rng.choice([True, False])
     if ctype == "uuid":
-        return str(uuid_module.UUID(int=rng.getrandbits(128)))
+        return uuid_module.UUID(int=rng.getrandbits(128))
     if ctype == "name":
         return generic.person.full_name()
     if ctype == "first_name":
@@ -297,7 +325,7 @@ def sklearn_rows(rows: int, seed: int, schema: list[dict[str, Any]]) -> Iterator
     for index, (feature_row, target) in enumerate(zip(features, targets, strict=True), start=1):
         row: dict[str, Any] = {"id": index}
         for i, col in enumerate(feature_cols):
-            row[col["name"]] = f"{feature_row[i]:.{int(col.get('decimals', 6))}f}"
+            row[col["name"]] = round(float(feature_row[i]), int(col.get("decimals", 6)))
         row[target_col["name"]] = int(target)
         yield row
 
@@ -315,15 +343,47 @@ def build_rows(args: argparse.Namespace, schema: list[dict[str, Any]]) -> tuple[
     return fieldnames, engines[args.engine]()
 
 
-def write_csv(output: Path, fieldnames: list[str], rows: Iterator[dict[str, Any]]) -> int:
-    output.parent.mkdir(parents=True, exist_ok=True)
+# --- PostgreSQL output -------------------------------------------------------
+
+def write_postgres(
+    dsn: str,
+    table_name: str,
+    schema: list[dict[str, Any]],
+    rows: Iterator[dict[str, Any]],
+    batch_size: int = 1000,
+) -> int:
+    try:
+        import psycopg2
+        import psycopg2.extras
+    except ImportError as exc:
+        raise SystemExit(
+            "psycopg2 is required to write to PostgreSQL. "
+            "Install it: pip install psycopg2-binary"
+        ) from exc
+
+    fieldnames = [col["name"] for col in schema]
+    col_defs = ", ".join(
+        f'"{col["name"]}" {_PG_TYPES.get(col["type"].lower(), "TEXT")}'
+        for col in schema
+    )
+    quoted_cols = ", ".join('"' + f + '"' for f in fieldnames)
+    insert_sql = f'INSERT INTO "{table_name}" ({quoted_cols}) VALUES %s'
+
     count = 0
-    with output.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
-        writer.writeheader()
-        for row in rows:
-            writer.writerow(row)
-            count += 1
+    with psycopg2.connect(dsn) as conn:
+        with conn.cursor() as cur:
+            cur.execute(f'DROP TABLE IF EXISTS "{table_name}"')
+            cur.execute(f'CREATE TABLE "{table_name}" ({col_defs})')
+            batch: list[tuple] = []
+            for row in rows:
+                batch.append(tuple(row[f] for f in fieldnames))
+                count += 1
+                if len(batch) >= batch_size:
+                    psycopg2.extras.execute_values(cur, insert_sql, batch)
+                    batch = []
+            if batch:
+                psycopg2.extras.execute_values(cur, insert_sql, batch)
+        conn.commit()
     return count
 
 
@@ -331,24 +391,24 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.rows < 1:
         raise SystemExit("--rows must be greater than zero")
-    # FIND-14: validate topic name to prevent path traversal
     if not _TOPIC_RE.match(args.topic):
         raise SystemExit(
             f"Invalid topic name {args.topic!r}. "
             "Only alphanumeric characters, hyphens, and underscores are allowed."
         )
-    if args.output:
-        resolved = args.output.resolve()
-        if not resolved.is_relative_to(_SCRIPT_ROOT):
-            raise SystemExit(
-                f"--output {args.output!r} must be within the project root. "
-                "Absolute paths outside the project are not allowed."
-            )
+
+    dsn = args.dsn or os.environ.get("DATABASE_URL", "").strip()
+    if not dsn:
+        raise SystemExit(
+            "No PostgreSQL connection string found. "
+            "Set DATABASE_URL or pass --dsn postgresql://user:pass@host/db"
+        )
+
     schema = load_schema(args)
-    output = args.output or Path("data") / "sandbox" / f"{args.topic}.csv"
-    fieldnames, rows = build_rows(args, schema)
-    count = write_csv(output, fieldnames, rows)
-    print(f"Generated {count} synthetic rows at {output} using {args.engine}")
+    table_name = f"sandbox_{args.topic.replace('-', '_')}"
+    _, rows = build_rows(args, schema)
+    count = write_postgres(dsn, table_name, schema, rows)
+    print(f"Generated {count} synthetic rows into table {table_name!r} using {args.engine}")
     return 0
 
 
