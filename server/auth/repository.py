@@ -1,16 +1,13 @@
-"""SQLite-backed API key store for the Fabric MCP server.
+"""PostgreSQL-backed API key store for the Fabric MCP server.
 
-API keys are stored in a SQLite database. The database is created automatically
-on first startup. Mount the parent directory as a Docker volume so it persists
-across container restarts.
+API keys are stored in a PostgreSQL database (SQLAlchemy + psycopg2).
 
 Required env vars when auth is enabled:
-  FABRIC_MCP_API_KEYS_DB=/config/api-keys.db   path to the SQLite database file
+  DATABASE_URL=postgresql://user:pass@host:5432/fabric   PostgreSQL DSN
 
 Optional:
-  FABRIC_MCP_API_KEYS=key1,key2,...             comma-separated read-only keys
-                                                 (on top of the database; useful
-                                                 for single-user dev without CRUD)
+  FABRIC_MCP_API_KEYS=key1,key2,...   comma-separated read-only keys
+                                       (in-memory; useful for single-user dev)
 
 Auth is disabled entirely when neither variable is set.
 """
@@ -23,7 +20,6 @@ import uuid
 
 logger = logging.getLogger(__name__)
 
-# ── SQLAlchemy: lazy import so installs without it still start ─────────────────
 try:
     from sqlalchemy import Column, String
     from sqlalchemy import create_engine as _sa_create_engine
@@ -53,67 +49,68 @@ def _mask_key(key: str) -> str:
     return key[:4] + "****" + key[-4:]
 
 
-class SqliteApiKeyStore:
-    """SQLite-backed API key store via SQLAlchemy ORM.
+class MemoryKeyStore:
+    """Read-only in-memory key store for FABRIC_MCP_API_KEYS-only deployments."""
 
-    ``FABRIC_MCP_API_KEYS_DB=/config/api-keys.db``
+    def __init__(self, readonly_keys: set[str]) -> None:
+        self._readonly_keys = readonly_keys
 
-    Pass ``db_path=':memory:'`` for an in-memory store (dev/test). An in-memory
-    store is not writable via CRUD — keys come only from ``readonly_keys``.
+    def __contains__(self, key: str) -> bool:
+        return key in self._readonly_keys
+
+    def __bool__(self) -> bool:
+        return bool(self._readonly_keys)
+
+    def __len__(self) -> int:
+        return len(self._readonly_keys)
+
+    def is_writable(self) -> bool:
+        return False
+
+    def list_entries(self) -> list[dict]:
+        return [{
+            "id": None,
+            "email": "(environment)",
+            "masked_key": f"+{len(self._readonly_keys)} key(s) from FABRIC_MCP_API_KEYS",
+            "readonly": True,
+        }]
+
+    def add(self, email: str, key: str) -> dict:
+        raise ValueError("Key store is read-only (in-memory mode — set DATABASE_URL)")
+
+    def remove(self, entry_id: str) -> bool:
+        raise ValueError("Key store is read-only (in-memory mode — set DATABASE_URL)")
+
+
+class ApiKeyStore:
+    """PostgreSQL-backed API key store via SQLAlchemy ORM.
+
+    ``DATABASE_URL=postgresql://user:pass@host:5432/fabric``
     """
 
-    def __init__(self, db_path: str, readonly_keys: set[str] | None = None) -> None:
+    def __init__(self, dsn: str, readonly_keys: set[str] | None = None) -> None:
         if not _SA_AVAILABLE:
             raise RuntimeError(
-                "SQLite key store requires SQLAlchemy. "
-                "Install it: pip install 'sqlalchemy>=2.0'"
+                "PostgreSQL key store requires SQLAlchemy and psycopg2. "
+                "Install: pip install 'sqlalchemy>=2.0' psycopg2-binary"
             )
         self._readonly_keys: set[str] = readonly_keys or set()
-        self._db_path = db_path
-
-        # Ensure the parent directory exists before SQLAlchemy tries to open
-        # the file. This handles both missing directories and gives a clearer
-        # error than SQLAlchemy's generic OperationalError.
-        if db_path != ":memory:":
-            import pathlib
-            parent = pathlib.Path(db_path).parent
-            try:
-                parent.mkdir(parents=True, exist_ok=True)
-            except OSError as exc:
-                raise RuntimeError(
-                    f"Cannot create SQLite key store directory {parent}: {exc}\n"
-                    "Ensure the directory exists and is writable by the server process.\n"
-                    "For Docker deployments: run  chown 10001:10001 ./config  on the host, "
-                    "or set FABRIC_MCP_API_KEYS instead (in-memory, no CRUD)."
-                ) from exc
+        self._dsn = dsn
 
         try:
-            # In-memory SQLite: StaticPool keeps all queries on the same
-            # connection so the schema created by create_all is visible to
-            # subsequent queries (each new connection sees an empty DB).
-            if db_path == ":memory:":
-                from sqlalchemy.pool import StaticPool
-                self._engine = _sa_create_engine(
-                    "sqlite://",
-                    connect_args={"check_same_thread": False},
-                    poolclass=StaticPool,
-                )
-            else:
-                self._engine = _sa_create_engine(
-                    f"sqlite:///{db_path}",
-                    connect_args={"check_same_thread": False},
-                )
+            self._engine = _sa_create_engine(dsn, pool_pre_ping=True)
             _SaBase.metadata.create_all(self._engine)
         except Exception as exc:
+            safe_dsn = dsn.split("@")[-1] if "@" in dsn else dsn
             raise RuntimeError(
-                f"Cannot open SQLite key store at {db_path!r}: {exc}\n"
-                "Ensure the path is writable by the server process.\n"
-                "For Docker deployments: run  chown 10001:10001 ./config  on the host, "
-                "or set FABRIC_MCP_API_KEYS instead (in-memory, no CRUD)."
+                f"Cannot connect to PostgreSQL ({safe_dsn}): {exc}\n"
+                "Ensure DATABASE_URL is set to a valid PostgreSQL connection string.\n"
+                "Example: postgresql://user:password@postgres:5432/fabric"
             ) from exc
+
         logger.info(
-            "SQLite API key store at %s (%d row(s))",
-            db_path,
+            "PostgreSQL API key store connected (%s, %d row(s))",
+            dsn.split("@")[-1] if "@" in dsn else dsn,
             self._db_count(),
         )
         if self._readonly_keys:
@@ -145,7 +142,7 @@ class SqliteApiKeyStore:
     # ── CRUD ──────────────────────────────────────────────────────────────────
 
     def is_writable(self) -> bool:
-        return self._db_path != ":memory:"
+        return True
 
     def list_entries(self) -> list[dict]:
         with _SaSession(self._engine) as s:
@@ -164,8 +161,6 @@ class SqliteApiKeyStore:
         return result
 
     def add(self, email: str, key: str) -> dict:
-        if not self.is_writable():
-            raise ValueError("Key store is read-only (in-memory mode — set FABRIC_MCP_API_KEYS_DB)")
         email = email.strip()
         key = key.strip()
         if not email or not key:
@@ -178,8 +173,6 @@ class SqliteApiKeyStore:
         return {"id": entry_id, "email": email, "masked_key": _mask_key(key)}
 
     def remove(self, entry_id: str) -> bool:
-        if not self.is_writable():
-            raise ValueError("Key store is read-only (in-memory mode — set FABRIC_MCP_API_KEYS_DB)")
         with _SaSession(self._engine) as s:
             row = s.query(_KeyRow).filter_by(id=entry_id).first()
             if row is None:
@@ -190,44 +183,46 @@ class SqliteApiKeyStore:
         return True
 
 
+# backward-compat alias so existing imports still resolve
+SqliteApiKeyStore = ApiKeyStore
+
+
 # ── Factory ────────────────────────────────────────────────────────────────────
 
-def build_key_store_from_env() -> SqliteApiKeyStore | None:
-    """Build the SQLite key store from environment variables.
+def build_key_store_from_env() -> ApiKeyStore | MemoryKeyStore | None:
+    """Build the key store from environment variables.
 
     Resolution:
-      - ``FABRIC_MCP_API_KEYS_DB`` → path for the SQLite database (writable CRUD).
-      - ``FABRIC_MCP_API_KEYS`` → comma-separated inline keys added as read-only
-        entries on top of the database.
+      - ``DATABASE_URL`` → PostgreSQL (writable CRUD).
+      - ``FABRIC_MCP_API_KEYS`` → comma-separated inline keys, added as read-only
+        entries on top of the database (or as the sole store when no DATABASE_URL).
       - If neither is set → returns ``None`` (auth disabled, local dev mode).
-      - If only ``FABRIC_MCP_API_KEYS`` is set (no DB) → in-memory SQLite with
-        the env keys as read-only entries (no CRUD, keys lost on restart).
     """
-    db_path = os.environ.get("FABRIC_MCP_API_KEYS_DB", "").strip()
+    dsn = os.environ.get("DATABASE_URL", "").strip()
     env_keys = {k.strip() for k in os.environ.get("FABRIC_MCP_API_KEYS", "").split(",") if k.strip()}
 
-    if not db_path and not env_keys:
+    if not dsn and not env_keys:
         return None
 
-    if not db_path:
+    if not dsn:
         logger.info(
-            "FABRIC_MCP_API_KEYS set but no FABRIC_MCP_API_KEYS_DB — "
+            "FABRIC_MCP_API_KEYS set but no DATABASE_URL — "
             "using in-memory key store (no CRUD, keys lost on restart)"
         )
-        db_path = ":memory:"
+        return MemoryKeyStore(env_keys)
 
-    return SqliteApiKeyStore(db_path, readonly_keys=env_keys or None)
+    return ApiKeyStore(dsn, readonly_keys=env_keys or None)
 
 
 # ── Module-level store singleton ───────────────────────────────────────────────
 
-_current_store: SqliteApiKeyStore | None = None
+_current_store: ApiKeyStore | MemoryKeyStore | None = None
 
 
-def get_store() -> SqliteApiKeyStore | None:
+def get_store() -> ApiKeyStore | MemoryKeyStore | None:
     return _current_store
 
 
-def _set_store(store: SqliteApiKeyStore | None) -> None:
+def _set_store(store: ApiKeyStore | MemoryKeyStore | None) -> None:
     global _current_store
     _current_store = store

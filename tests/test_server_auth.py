@@ -316,9 +316,9 @@ def test_install_auth_middleware_disabled_without_keys(monkeypatch):
 
 def test_install_auth_middleware_clears_singleton_when_disabled(monkeypatch):
     """get_store() must return None when auth is disabled, even after a prior run."""
-    from server.auth.repository import get_store, _set_store, SqliteApiKeyStore
+    from server.auth.repository import get_store, _set_store, MemoryKeyStore
     # Seed a stale store so we can verify it gets cleared.
-    _set_store(SqliteApiKeyStore(":memory:", readonly_keys={"stale"}))
+    _set_store(MemoryKeyStore({"stale"}))
 
     _clear_key_env(monkeypatch)  # no keys → auth disabled
     assert install_auth_middleware(_FakeApp()) is False
